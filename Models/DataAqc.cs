@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Haukcode.HighResolutionTimer;
 using Newtonsoft.Json;
 using NLog;
 using System;
@@ -130,8 +131,12 @@ namespace TensileNeW.Models
 
         public static void Refresh(Dispatcher dispatcher)
         {
-            Task.Run(async () =>
+            Task.Run(() =>
             {
+                using var hrTimer = new HighResolutionTimer();
+                hrTimer.SetPeriod(10);
+                hrTimer.Start();
+
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 DateTime successTime = DateTime.Now;
                 DateTime exceptionTime = DateTime.Now;
@@ -151,42 +156,44 @@ namespace TensileNeW.Models
                             throw new Exception("连接中断");
                         }
 
-                        await Task.Delay(10);
+                        hrTimer.WaitForTrigger();
 
 
                         //连接了再读取
                         // if (bool.Parse(plc?.ConnectState ?? "false"))
                         {
+                            var d400FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D400").HexAddress), 16);
+                            var d410WValue = plc.ReadUShort((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D410").HexAddress));
+                            var d46FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D46").HexAddress), 11);
+                            var d249FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D249").HexAddress));
+                            var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
+                            var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
+                            var m2bValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
+                            var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
+
                             dispatcher.Invoke(() =>
                             {
-                                var d400FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D400").HexAddress), 16);
                                 PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = $"{d400FValue[0].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = $"{d400FValue[1].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "速度设定").CurrentValue = $"{d400FValue[2].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = $"{d400FValue[8].ToString("F3")}";
 
-                                var d410WValue = plc.ReadUShort((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D410").HexAddress));
                                 PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = $"{d410WValue}";
 
-                                var d46FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D46").HexAddress), 11);
                                 PLCVariables.First(t => t.Name == "实时拉伸力").CurrentValue = d46FValue[0].ToString("F3");
                                 PLCVariables.First(t => t.Name == "拉伸时间").CurrentValue = d46FValue[1].ToString("F3");
                                 PLCVariables.First(t => t.Name == "实时压边力").CurrentValue = d46FValue[4].ToString("F3");
                                 PLCVariables.First(t => t.Name == "主推力").CurrentValue = d46FValue[10].ToString("F3");
 
-                                var d249FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D249").HexAddress));
                                 PLCVariables.First(t => t.Name == "实时拉伸速度").CurrentValue = d249FValue.ToString("F3");
 
 
-                                var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
                                 PLCVariables.First(t => t.Name == "实时拉伸位移").CurrentValue = d260FValue.ToString("F3");
 
 
-                                var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
                                 PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
                                 PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
 
-                                var m2bValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
                                 PLCVariables.First(t => t.Name == "压边释放").CurrentValue = m2bValue[0].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸").CurrentValue = m2bValue[1].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸释放").CurrentValue = m2bValue[2].ToString();
@@ -199,7 +206,6 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "压边").CurrentValue = m2bValue[79].ToString();
                                 PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = m2bValue[36].ToString();
 
-                                var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
                                 PLCVariables.First(t => t.Name == "拉伸线圈").CurrentValue = y4Value[0].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸释放线圈").CurrentValue = y4Value[1].ToString();
                                 PLCVariables.First(t => t.Name == "压边线圈").CurrentValue = y4Value[2].ToString();
@@ -247,34 +253,6 @@ namespace TensileNeW.Models
                                 if (beginScan && m2bValue[36] == false)
                                 {
                                     beginScan = false;
-                                    //Task.Run(() =>
-                                    //{  //保存excel
-                                    //    try
-                                    //    {
-                                    //        if (!Directory.Exists(RAM.SettingModel.ExcelFolderPath))
-                                    //            Directory.CreateDirectory(RAM.SettingModel.ExcelFolderPath);
-
-                                    //        string fileName = Path.Combine(RAM.SettingModel.ExcelFolderPath, $"{RAM.SettingModel.CurRecipeModel.RecipeName}_{SNModel.GetSn()}_{DateTime.Now.ToString("yyyyMMddHHmmss")}");
-
-                                    //        stopwatch.Restart();
-                                    //        using (var exporter = new ExcelExporter_EPPlus())
-                                    //        {
-                                    //            exporter.CreateSheet("Orders")
-                                    //                .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
-                                    //                .AddData(DataAqc.loadModels, o => new object[] { o.Index, o.RealPress, o.RealDistance, o.RealForce, o.Time })
-                                    //                .SaveToFile(fileName);
-
-                                    //        }
-                                    //        stopwatch.Stop();
-                                    //        showTime = stopwatch.ElapsedMilliseconds;
-                                    //        Debug.WriteLine("EPPlus:" + showTime);
-                                    //    }
-                                    //    catch (Exception ex)
-                                    //    {
-
-                                    //    }
-                                    //});
-
                                 }
 
 
@@ -293,7 +271,7 @@ namespace TensileNeW.Models
                     }
                     catch (Exception ex)
                     {
-                        await Task.Delay(500);
+                        Thread.Sleep(500);
                         //上次成功时间 过了5秒了
                         if ((DateTime.Now - exceptionTime).TotalSeconds > 5)
                         {
@@ -302,7 +280,7 @@ namespace TensileNeW.Models
                             try
                             {  //先断开 再重连
                                 plc.Disconnect();
-                                await Task.Delay(500);
+                                Thread.Sleep(500);
                                 plc.Connect();
                             }
                             catch (Exception ex1)
@@ -352,7 +330,7 @@ namespace TensileNeW.Models
                     {
                         try
                         {
-                            dispatcher.Invoke(() =>
+                            dispatcher.BeginInvoke(() =>
                             {  //consumer(item);
                                //写入datagrid
                                 loadModels.Add(item);
