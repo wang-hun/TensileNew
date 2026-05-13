@@ -21,6 +21,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly Dictionary<string, PLCVariable> _variables;
     private readonly string _startupLanguage;
     private string _currentPage = "Home";
+    private RecipeModel? _selectedRecipe;
 
     public MainViewModel()
     {
@@ -29,7 +30,7 @@ public sealed class MainViewModel : ObservableObject
 
         _variables = DataAqc.PLCVariables.ToDictionary(x => x.Name);
         Recipes = RAM.SettingModel.RecipeModelS;
-        SelectedRecipe = RAM.SettingModel.CurRecipeModel;
+        SelectedRecipe = null;
         LoadItems = DataAqc.loadModels;
         PlcVariables = DataAqc.PLCVariables;
         _startupLanguage = RAM.SettingModel.Language;
@@ -72,19 +73,26 @@ public sealed class MainViewModel : ObservableObject
 
     public string CurrentSn { get; private set; }
 
-    public RecipeModel SelectedRecipe
+    public RecipeModel? SelectedRecipe
     {
-        get => RAM.SettingModel.CurRecipeModel;
+        get => _selectedRecipe;
         set
         {
-            if (value == null) return;
+            if (!SetProperty(ref _selectedRecipe, value))
+            {
+                return;
+            }
+
+            if (value == null)
+            {
+                return;
+            }
+
             RAM.SettingModel.CurRecipeModel = value;
-            OnPropertyChanged();
             OnPropertyChanged(nameof(Setting));
             RAM.ChangedIndex(Recipes.IndexOf(value));
         }
     }
-
     public PLCVariable Variable(string name) => _variables[name];
 
     public string ChartPolylinePoints
@@ -140,57 +148,60 @@ public sealed class MainViewModel : ObservableObject
         });
     }
 
-    public async Task WriteRecipeAsync()
+    public async Task<bool> WriteRecipeAsync()
     {
+        var recipe = SelectedRecipe;
+        if (recipe == null)
+        {
+            return false;
+        }
+
         try
         {
-            Logger.Info($"开始写入配方<{SelectedRecipe.RecipeName}>数据....");
+            Logger.Info($"开始写入配方<{recipe.RecipeName}>数据....");
             await Task.Run(() =>
             {
-                DataAqc.plc.WriteFloat(Address("冲程压边力设定"), SelectedRecipe.StrokeStampingForce);
-                DataAqc.plc.WriteFloat(Address("闭环压边力设定"), SelectedRecipe.ClosedLoopStampingForce);
-                DataAqc.plc.WriteFloat(Address("速度设定"), SelectedRecipe.Speed);
-                DataAqc.plc.WriteFloat(Address("停机比例设定"), SelectedRecipe.ShutdownRatio);
-                DataAqc.plc.WriteUShort(Address("停机延时设定"), SelectedRecipe.ShutdownDelay);
+                try
+                {
+                    DataAqc.plc.WriteFloat(Address("冲程压边力设定"), recipe.StrokeStampingForce);
+                    DataAqc.plc.WriteFloat(Address("闭环压边力设定"), recipe.ClosedLoopStampingForce);
+                    DataAqc.plc.WriteFloat(Address("速度设定"), recipe.Speed);
+                    DataAqc.plc.WriteFloat(Address("停机比例设定"), recipe.ShutdownRatio);
+                    DataAqc.plc.WriteUShort(Address("停机延时设定"), recipe.ShutdownDelay);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex);
+                    throw;
+                }
             });
-            MessageBox.Show($"写入配方<{SelectedRecipe.RecipeName}>完成", "TensileNeW");
+            return true;
         }
         catch (Exception ex)
         {
             Logger.Error(ex);
-            MessageBox.Show("配方参数写入失败", "TensileNeW");
+            return false;
         }
     }
-
-    public void AddRecipe()
+    public bool AddRecipe(string name)
     {
-        var dialog = new TextInputDialog("请输入配方名称：", "TensileNeW")
-        {
-            Owner = Application.Current?.MainWindow
-        };
-        if (dialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        string name = dialog.InputText?.Trim() ?? string.Empty;
+        name = name.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            return;
+            return false;
         }
 
         if (Recipes.Any(x => x.RecipeName == name))
         {
-            MessageBox.Show("配方名称已经存在，请修改！", "TensileNeW");
-            return;
+            return false;
         }
 
         var recipe = new RecipeModel { RecipeName = name };
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
         SaveSettings();
+        return true;
     }
-
     public void DeleteRecipe()
     {
         if (SelectedRecipe == null)
@@ -198,28 +209,18 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var result = MessageBox.Show("确认是否删除", "TensileNeW", MessageBoxButton.OKCancel);
-        if (result != MessageBoxResult.OK)
+        int selectedIndex = Recipes.IndexOf(SelectedRecipe);
+        if (selectedIndex < 0)
         {
+            SelectedRecipe = null;
             return;
         }
 
-        int selectedIndex = Recipes.IndexOf(SelectedRecipe);
         Recipes.RemoveAt(selectedIndex);
 
         if (Recipes.Count == 0)
         {
-            var blank = new RecipeModel
-            {
-                RecipeName = string.Empty,
-                StrokeStampingForce = 0,
-                ClosedLoopStampingForce = 0,
-                ShutdownDelay = 0,
-                ShutdownRatio = 0,
-                Speed = 0
-            };
-            Recipes.Add(blank);
-            SelectedRecipe = blank;
+            SelectedRecipe = null;
         }
         else if (selectedIndex > 0)
         {
@@ -229,8 +230,9 @@ public sealed class MainViewModel : ObservableObject
         {
             SelectedRecipe = Recipes[0];
         }
-    }
 
+        SaveSettings();
+    }
     public void SaveSettings()
     {
         File.WriteAllText("Setting.json", JsonConvert.SerializeObject(RAM.SettingModel, Formatting.Indented));
@@ -248,11 +250,12 @@ public sealed class MainViewModel : ObservableObject
 
     public void SaveDataAs()
     {
+        string recipeName = SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
         {
             Filter = "Excel (*.xlsx)|*.xlsx",
             InitialDirectory = RAM.SettingModel.ExcelFolderPath,
-            FileName = $"{SelectedRecipe.RecipeName}_{SNModel.GetSn()}_{DateTime.Now:yyyyMMddHHmmss}"
+            FileName = $"{recipeName}_{SNModel.GetSn()}_{DateTime.Now:yyyyMMddHHmmss}"
         };
 
         if (dialog.ShowDialog() != true)

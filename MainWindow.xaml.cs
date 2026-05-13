@@ -1,3 +1,4 @@
+using HandyControl.Data;
 using NLog;
 using System.ComponentModel;
 using System.Linq;
@@ -12,6 +13,22 @@ namespace TensileNeW;
 
 public partial class MainWindow : Window
 {
+    private const string GrowlToken = "MainGrowl";
+
+    private static GrowlInfo MakeInfo(string message) => new()
+    {
+        Message = message,
+        WaitTime = 5,
+        StaysOpen = false,
+        ShowDateTime = false,
+        Token = GrowlToken
+    };
+
+    private static void ShowInfo(string msg) => Growl.Info(MakeInfo(msg));
+    private static void ShowSuccess(string msg) => Growl.Success(MakeInfo(msg));
+    private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
+    private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
+
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
@@ -59,7 +76,7 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(() =>
             {
-                Growl.ErrorGlobal("连接失败，请检查线路！");
+                ShowError("连接失败，请检查线路！");
                 Dialog.Show(new ConnectionErrorDialog());
             });
         }
@@ -171,20 +188,66 @@ public partial class MainWindow : Window
     private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
     private async void Reset_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("数据重置");
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
-    private async void WriteRecipe_Click(object sender, RoutedEventArgs e) => await _viewModel.WriteRecipeAsync();
-
+    private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
+    {
+        bool ok = await _viewModel.WriteRecipeAsync();
+        if (ok)
+        {
+            ShowSuccess("写入配方参数完成");
+        }
+        else
+        {
+            ShowError("写入配方参数失败，请检查连接");
+        }
+    }
     private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", true);
     private async void ClosePress_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", false);
     private async void Tanliao_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", true);
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
     private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
-    private void AddRecipe_Click(object sender, RoutedEventArgs e) => _viewModel.AddRecipe();
-    private void DeleteRecipe_Click(object sender, RoutedEventArgs e) => _viewModel.DeleteRecipe();
+    private void AddRecipe_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new RecipeNameDialog();
+        dialog.Confirmed += (_, name) =>
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                ShowWarning("配方名称不能为空");
+                return;
+            }
+
+            if (!_viewModel.AddRecipe(name))
+            {
+                ShowWarning("配方名称已经存在，请修改");
+                return;
+            }
+
+            ShowSuccess("添加试验成功");
+        };
+        Dialog.Show(dialog);
+    }
+
+    private void DeleteRecipe_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedRecipe == null)
+        {
+            ShowWarning("请先选择试验");
+            return;
+        }
+
+        var dialog = new RecipeConfirmDialog();
+        dialog.Confirmed += (_, _) =>
+        {
+            _viewModel.DeleteRecipe();
+            ShowSuccess("删除试验成功");
+        };
+        Dialog.Show(dialog);
+    }
     private void SaveSettings_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.SaveSettingsAndApplyLanguage();
-        Growl.SuccessGlobal("保存成功");
+        ShowSuccess("保存成功");
     }
 
     private void ShutdownRatioBox_PreviewTextInput(object sender, TextCompositionEventArgs e)

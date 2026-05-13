@@ -58,6 +58,15 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
 
+        <Style x:Key="DeleteRecipeButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonDanger}">
+            <Setter Property="IsEnabled" Value="True" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedRecipe}" Value="{x:Null}">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="SectionTitleStyle" TargetType="Border">
             <Setter Property="Background" Value="#F5F6F8" />
             <Setter Property="BorderBrush" Value="#D8DBE3" />
@@ -133,6 +142,10 @@
             <RowDefinition Height="113" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+
+        <StackPanel Grid.RowSpan="2" hc:Growl.Token="MainGrowl"
+                    VerticalAlignment="Top" HorizontalAlignment="Right"
+                    Margin="0,16,16,0" Width="360" Panel.ZIndex="9999" />
 
         <!-- Header -->
         <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
@@ -553,7 +566,8 @@
                                 <TextBlock Text="添加试验" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Button Style="{StaticResource ButtonDanger}" Height="50" Margin="4,6" FontSize="16" Click="DeleteRecipe_Click">
+                        <Button Style="{StaticResource DeleteRecipeButtonStyle}" Height="50" Margin="4,6" FontSize="16"
+                                Click="DeleteRecipe_Click">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <iconPacks:PackIconBootstrapIcons Kind="ClipboardMinus" Width="20" Height="20" Margin="0,0,8,0" />
                                 <TextBlock Text="删除试验" VerticalAlignment="Center" />
