@@ -490,21 +490,36 @@
                             <ColumnDefinition Width="38" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="冲程压边" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up" />
+                        <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <iconPacks:PackIconBootstrapIcons Kind="ChevronBarExpand" Width="18" Height="18" Margin="0,0,8,0" />
+                                <TextBlock Text="冲程压边" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <Grid Margin="6,5">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="38" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="1" Style="{StaticResource ButtonDanger}" Height="44" Margin="0" FontSize="18" HorizontalAlignment="Stretch" Content="停止动作" Click="Stop_Click" />
+                        <Button Grid.Column="1" Style="{StaticResource ButtonDanger}" Height="44" Margin="0" FontSize="18" HorizontalAlignment="Stretch" Click="Stop_Click">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <iconPacks:PackIconBootstrapIcons Kind="SignStopFill" Width="18" Height="18" Margin="0,0,8,0" />
+                                <TextBlock Text="停止动作" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <Grid Margin="6,5">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="38" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="数据重置" Click="Reset_Click" />
+                        <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="Reset_Click">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="18" Height="18" Margin="0,0,8,0" />
+                                <TextBlock Text="数据重置" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <Grid Margin="6,5">
                         <Grid.ColumnDefinitions>
