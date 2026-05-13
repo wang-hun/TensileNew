@@ -5,9 +5,34 @@
         Width="440" Height="190" WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="NoResize" Topmost="True"
         Background="White" ShowInTaskbar="False">
+    <Window.Resources>
+        <PathGeometry x:Key="HexagonGeometry">
+            <PathFigure StartPoint="42.2, 9.5" IsClosed="False">
+                <LineSegment Point="11,27.5" />
+                <LineSegment Point="11,72.5" />
+                <LineSegment Point="50,95" />
+                <LineSegment Point="89,72.5" />
+                <LineSegment Point="50,50" />
+                <LineSegment Point="50,45" />
+                <LineSegment Point="50,55" />
+                <LineSegment Point="50,50" />
+                <LineSegment Point="89,27.5" />
+                <LineSegment Point="57.8, 9.5" />
+            </PathFigure>
+        </PathGeometry>
+    </Window.Resources>
+
     <Border BorderBrush="#D8DBE3" BorderThickness="1" Background="White">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-            <hc:LoadingCircle Width="54" Height="54" Margin="0,0,0,20" />
+            <Grid Width="82" Height="82" Margin="0,0,0,22">
+                <hc:AnimationPath Data="{StaticResource HexagonGeometry}"
+                                  Duration="00:00:01.4"
+                                  Stretch="Uniform"
+                                  StrokeThickness="4"
+                                  Stroke="#2F80ED"
+                                  StrokeStartLineCap="Flat"
+                                  StrokeEndLineCap="Flat" />
+            </Grid>
             <TextBlock x:Name="WaitTextBlock" FontSize="20" HorizontalAlignment="Center" />
         </StackPanel>
     </Border>

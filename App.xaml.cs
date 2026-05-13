@@ -26,7 +26,9 @@ public partial class App : Application
             waitWindow = new StartupWaitWindow(waitText);
             waitWindow.Show();
 
-            bool connected = await TryConnectWithTimeoutAsync();
+            var connectTask = TryConnectWithTimeoutAsync();
+            await Task.WhenAll(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
+            bool connected = await connectTask;
 
             var mainWindow = new MainWindow(connected);
             MainWindow = mainWindow;
