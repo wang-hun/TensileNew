@@ -78,6 +78,7 @@
         </Style>
     </Window.Resources>
 
+    <hc:DialogContainer>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="113" />
@@ -590,4 +591,5 @@
         </Grid>
 
     </Grid>
+    </hc:DialogContainer>
 </Window>

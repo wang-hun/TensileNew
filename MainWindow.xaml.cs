@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using TensileNeW.Models;
+using Dialog = HandyControl.Controls.Dialog;
 using Growl = HandyControl.Controls.Growl;
 using MessageBox = HandyControl.Controls.MessageBox;
 
@@ -57,7 +58,10 @@ public partial class MainWindow : Window
         if (!_connectedAtStartup)
         {
             Dispatcher.BeginInvoke(() =>
-                MessageBox.Error("连接失败，请检查线路！", "TensileNeW"));
+            {
+                Growl.ErrorGlobal("连接失败，请检查线路！");
+                Dialog.Show(new ConnectionErrorDialog());
+            });
         }
     }
 
@@ -74,10 +78,7 @@ public partial class MainWindow : Window
         {
             return;
         }
-
-        LoadPlot.Plot.Title("载荷位移数据");
-        LoadPlot.Plot.XLabel("位移");
-        LoadPlot.Plot.YLabel("载荷");
+        ApplyPlotLabels();
         LoadPlot.Plot.Axes.AutoScale();
         LoadPlot.Refresh();
         _plotInitialized = true;
@@ -86,9 +87,7 @@ public partial class MainWindow : Window
     private void ResetPlot()
     {
         LoadPlot.Plot.Clear();
-        LoadPlot.Plot.Title("载荷位移数据");
-        LoadPlot.Plot.XLabel("位移");
-        LoadPlot.Plot.YLabel("载荷");
+        ApplyPlotLabels();
         LoadPlot.Refresh();
     }
 
@@ -108,11 +107,16 @@ public partial class MainWindow : Window
             LoadPlot.Plot.Add.Scatter(xs, ys);
             LoadPlot.Plot.Axes.AutoScale();
         }
+        ApplyPlotLabels();
+        LoadPlot.Refresh();
+    }
 
-        LoadPlot.Plot.Title("载荷位移数据");
+    private void ApplyPlotLabels()
+    {
+        LoadPlot.Plot.Title("载荷位移数据", 30);
         LoadPlot.Plot.XLabel("位移");
         LoadPlot.Plot.YLabel("载荷");
-        LoadPlot.Refresh();
+        LoadPlot.Plot.Font.Automatic();
     }
 
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
