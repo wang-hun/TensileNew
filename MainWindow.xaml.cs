@@ -14,6 +14,7 @@ namespace TensileNeW;
 public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
+    private const int SettingsUnlockClickCount = 6;
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
     private bool _plotInitialized;
+    private int _logoClickCount;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -180,6 +182,33 @@ public partial class MainWindow : Window
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
+
+    private void LogoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _logoClickCount++;
+        if (_logoClickCount < SettingsUnlockClickCount)
+        {
+            return;
+        }
+
+        _logoClickCount = 0;
+        if (VariablesButton.Visibility == Visibility.Visible)
+        {
+            VariablesButton.Visibility = Visibility.Hidden;
+            if (_viewModel.CurrentPage == "Variables")
+            {
+                _viewModel.CurrentPage = "Home";
+            }
+            return;
+        }
+
+        var dialog = new SettingsPinDialog();
+        dialog.Unlocked += (_, _) =>
+        {
+            VariablesButton.Visibility = Visibility.Visible;
+        };
+        Dialog.Show(dialog);
+    }
 
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");

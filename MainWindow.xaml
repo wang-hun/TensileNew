@@ -154,7 +154,11 @@
                     <ColumnDefinition Width="380" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Image Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,38,0" />
+                <Image x:Name="LogoImage"
+                       Source="pack://application:,,,/GB-LOGO.png"
+                       Stretch="Uniform"
+                       Margin="0,0,38,0"
+                       MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
                 <Grid Grid.Column="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="112" />
@@ -180,7 +184,11 @@
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                         </StackPanel>
                     </Button>
-                    <Button Grid.Column="2" Style="{StaticResource VariablesNavButtonStyle}" Click="Variables_Click">
+                    <Button x:Name="VariablesButton"
+                            Grid.Column="2"
+                            Style="{StaticResource VariablesNavButtonStyle}"
+                            Visibility="Hidden"
+                            Click="Variables_Click">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                             <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="32" Height="32" HorizontalAlignment="Center"
                                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
