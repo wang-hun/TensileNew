@@ -446,7 +446,49 @@
                     <RowDefinition Height="260" />
                 </Grid.RowDefinitions>
                 <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="1">
-                    <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
+                    <Grid>
+                        <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
+                        <Button x:Name="ChartHintButton"
+                                Width="31.5"
+                                Height="31.5"
+                                Margin="0,8,8,0"
+                                Padding="0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Panel.ZIndex="20"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0"
+                                ToolTip="显示/隐藏曲线图操作提示"
+                                Click="ChartHintButton_Click">
+                            <iconPacks:PackIconBootstrapIcons Kind="InfoCircle" Width="24" Height="24" Foreground="#1677FF" />
+                        </Button>
+                        <Border x:Name="ChartHintPanel"
+                                Width="520"
+                                Margin="0,56,8,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Panel.ZIndex="10"
+                                Background="#F7FBFF"
+                                BorderBrush="#9EC5FE"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <Grid>
+                                <TextBlock Margin="18,14,46,14"
+                                           FontSize="17"
+                                           Foreground="#263238"
+                                           LineHeight="30"
+                                           TextWrapping="Wrap"
+                                           Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。&#x0a;鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。&#x0a;在曲线图上点击鼠标右键查看更多功能。" />
+                                <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort"
+                                                                  Width="24"
+                                                                  Height="24"
+                                                                  HorizontalAlignment="Right"
+                                                                  VerticalAlignment="Top"
+                                                                  Foreground="#1677FF" />
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Border>
                 <UniformGrid Grid.Row="1" Columns="4" Rows="2" Background="White" Margin="8,10">
                     <Grid Margin="6,5">

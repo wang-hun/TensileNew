@@ -183,6 +183,13 @@ public partial class MainWindow : Window
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
 
+    private void ChartHintButton_Click(object sender, RoutedEventArgs e)
+    {
+        ChartHintPanel.Visibility = ChartHintPanel.Visibility == Visibility.Visible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
     private void LogoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _logoClickCount++;
