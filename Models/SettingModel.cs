@@ -27,7 +27,7 @@ namespace TensileNeW.Models
         //    set => SetProperty(ref _CurRecipeModel, value);
         //}
          
-        public RecipeModel CurRecipeModel { get;  set; }
+        public RecipeModel CurRecipeModel { get; set; } = new RecipeModel { RecipeName = "test1" };
 
        
         private string _PLC_IP="192.168.1.5";

@@ -20,7 +20,7 @@ namespace TensileNeW.Models
         public static Logger logger = LogManager.GetCurrentClassLogger();
 
 
-        public static BindingList<PLCVariable> PLCVariables;
+        public static BindingList<PLCVariable> PLCVariables = new BindingList<PLCVariable>();
         public static DeltaPLC2 plc { get; private set; }
 
         public static ConcurrentQueue<Loadmodel> _queue = new ConcurrentQueue<Loadmodel>();
@@ -37,6 +37,18 @@ namespace TensileNeW.Models
         /// </summary>
         public static void InitVariables()
         {
+            EnsureInitialized();
+
+            plc = new DeltaPLC2(RAM.SettingModel.PLC_IP);
+        }
+
+        public static void EnsureInitialized()
+        {
+            if (PLCVariables is { Count: > 0 })
+            {
+                return;
+            }
+
             //if (File.Exists("VariableData.json"))
             //{
             //    PLCVariables = JsonConvert.DeserializeObject<BindingList<PLCVariable>>(File.ReadAllText("VariableData.json"));
@@ -105,8 +117,6 @@ namespace TensileNeW.Models
 
 
             }
-
-            plc = new DeltaPLC2(RAM.SettingModel.PLC_IP);
         }
 
         /// <summary>

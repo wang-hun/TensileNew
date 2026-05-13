@@ -27,23 +27,52 @@ namespace TensileNeW.Models
             //读取json文件 如果不存在则创建  创建1个新的1条默认配方的json
             if (File.Exists("Setting.json"))
             {
-                SettingModel = JsonConvert.DeserializeObject<SettingModel>(File.ReadAllText("Setting.json"));
+                SettingModel = JsonConvert.DeserializeObject<SettingModel>(File.ReadAllText("Setting.json")) ?? CreateDefaultSetting();
 
             }
             else
             {
-                var recipe = new RecipeModel();
-                recipe.RecipeName = "test1"; 
-                SettingModel = new SettingModel();
-                SettingModel.CurRecipeModel = recipe;
-               
-                SettingModel.RecipeModelS.Add(recipe);
+                SettingModel = CreateDefaultSetting();
                 File.WriteAllText("Setting.json", JsonConvert.SerializeObject(SettingModel, Formatting.Indented));
 
             }
+
+            EnsureValidSettings();
              
             logger.Info("加载配方参数");
 
+        }
+
+        private static SettingModel CreateDefaultSetting()
+        {
+            var recipe = new RecipeModel { RecipeName = "test1" };
+            var setting = new SettingModel
+            {
+                CurRecipeModel = recipe
+            };
+            setting.RecipeModelS.Add(recipe);
+            return setting;
+        }
+
+        public static void EnsureValidSettings()
+        {
+            SettingModel ??= CreateDefaultSetting();
+            SettingModel.RecipeModelS ??= new System.ComponentModel.BindingList<RecipeModel>();
+
+            if (SettingModel.RecipeModelS.Count == 0)
+            {
+                SettingModel.RecipeModelS.Add(new RecipeModel { RecipeName = "test1" });
+            }
+
+            SettingModel.CurRecipeModel ??= SettingModel.RecipeModelS[0];
+
+            bool currentRecipeExists = SettingModel.RecipeModelS.Any(recipe =>
+                string.Equals(recipe.RecipeName, SettingModel.CurRecipeModel.RecipeName, StringComparison.Ordinal));
+
+            if (!currentRecipeExists)
+            {
+                SettingModel.CurRecipeModel = SettingModel.RecipeModelS[0];
+            }
         }
 
         public static void ChangedIndex(int i)

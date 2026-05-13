@@ -99,7 +99,7 @@ public partial class MainWindow : Window
             InitializePlot();
         }
 
-        var items = DataAqc.loadModels.Cast<Loadmodel>().TakeLast(50000).ToList();
+        var items = (DataAqc.loadModels ?? []).TakeLast(50000).ToList();
         LoadPlot.Plot.Clear();
         if (items.Count > 0)
         {
@@ -201,6 +201,7 @@ public partial class MainWindow : Window
 
     private static PLCVariable FindVariable(string name)
     {
+        DataAqc.EnsureInitialized();
         return DataAqc.PLCVariables.First(t => t.Name == name);
     }
 }

@@ -24,6 +24,9 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel()
     {
+        DataAqc.EnsureInitialized();
+        RAM.EnsureValidSettings();
+
         _variables = DataAqc.PLCVariables.ToDictionary(x => x.Name);
         Recipes = RAM.SettingModel.RecipeModelS;
         SelectedRecipe = RAM.SettingModel.CurRecipeModel;
@@ -93,14 +96,20 @@ public sealed class MainViewModel : ObservableObject
                 return string.Empty;
             }
 
-            float minX = LoadItems.Min(x => x.RealDistance);
-            float maxX = LoadItems.Max(x => x.RealDistance);
-            float minY = LoadItems.Min(x => x.RealForce);
-            float maxY = LoadItems.Max(x => x.RealForce);
+            var items = LoadItems.TakeLast(1000).ToList();
+            if (items.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            float minX = items.Min(x => x.RealDistance);
+            float maxX = items.Max(x => x.RealDistance);
+            float minY = items.Min(x => x.RealForce);
+            float maxY = items.Max(x => x.RealForce);
             float xRange = Math.Max(maxX - minX, 1f);
             float yRange = Math.Max(maxY - minY, 1f);
 
-            return string.Join(" ", LoadItems.Cast<Loadmodel>().TakeLast(1000).Select(item =>
+            return string.Join(" ", items.Select(item =>
             {
                 double x = ((item.RealDistance - minX) / xRange) * 960 + 20;
                 double y = 360 - ((item.RealForce - minY) / yRange) * 320;
@@ -273,6 +282,7 @@ public sealed class MainViewModel : ObservableObject
 
     private static ushort Address(string variableName)
     {
+        DataAqc.EnsureInitialized();
         var variable = DataAqc.PLCVariables.First(t => t.Name == variableName);
         return (ushort)ModbusAddressHelper.ConvertToModbusAddresss(variable.Address).HexAddress;
     }
