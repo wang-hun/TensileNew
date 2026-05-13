@@ -45,6 +45,21 @@ public sealed class MainViewModel : ObservableObject
     public SettingModel Setting => RAM.SettingModel;
     public bool IsEnglish => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase);
     public string[] Languages { get; } = ["CN", "EN"];
+    public string[] LanguageDisplayItems { get; } = ["中文", "英语"];
+
+    public string SelectedLanguageDisplay
+    {
+        get => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase) ? "英语" : "中文";
+        set
+        {
+            string code = value == "英语" ? "EN" : "CN";
+            if (!string.Equals(Setting.Language, code, StringComparison.OrdinalIgnoreCase))
+            {
+                Setting.Language = code;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     public string CurrentPage
     {
@@ -140,27 +155,71 @@ public sealed class MainViewModel : ObservableObject
 
     public void AddRecipe()
     {
-        string name = $"Recipe{Recipes.Count + 1}";
-        while (Recipes.Any(x => x.RecipeName == name))
+        var dialog = new TextInputDialog("请输入配方名称：", "TensileNeW")
         {
-            name = $"Recipe{Recipes.Count + Random.Shared.Next(1, 100)}";
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        string name = dialog.InputText?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        if (Recipes.Any(x => x.RecipeName == name))
+        {
+            MessageBox.Show("配方名称已经存在，请修改！", "TensileNeW");
+            return;
         }
 
         var recipe = new RecipeModel { RecipeName = name };
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
+        SaveSettings();
     }
 
     public void DeleteRecipe()
     {
-        if (Recipes.Count <= 1 || SelectedRecipe == null)
+        if (SelectedRecipe == null)
         {
             return;
         }
 
-        int index = Math.Max(0, Recipes.IndexOf(SelectedRecipe) - 1);
-        Recipes.Remove(SelectedRecipe);
-        SelectedRecipe = Recipes[index];
+        var result = MessageBox.Show("确认是否删除", "TensileNeW", MessageBoxButton.OKCancel);
+        if (result != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        int selectedIndex = Recipes.IndexOf(SelectedRecipe);
+        Recipes.RemoveAt(selectedIndex);
+
+        if (Recipes.Count == 0)
+        {
+            var blank = new RecipeModel
+            {
+                RecipeName = string.Empty,
+                StrokeStampingForce = 0,
+                ClosedLoopStampingForce = 0,
+                ShutdownDelay = 0,
+                ShutdownRatio = 0,
+                Speed = 0
+            };
+            Recipes.Add(blank);
+            SelectedRecipe = blank;
+        }
+        else if (selectedIndex > 0)
+        {
+            SelectedRecipe = Recipes[selectedIndex - 1];
+        }
+        else
+        {
+            SelectedRecipe = Recipes[0];
+        }
     }
 
     public void SaveSettings()

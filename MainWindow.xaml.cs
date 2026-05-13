@@ -30,6 +30,13 @@ public partial class MainWindow : Window
     public static PLCVariable ShutdownRatioVariable => FindVariable("停机比例设定");
     public static PLCVariable SpeedVariable => FindVariable("速度设定");
 
+    public static PLCVariable StartPressCoil => FindVariable("压边线圈");
+    public static PLCVariable ReleasePressCoil => FindVariable("压边释放线圈");
+    public static PLCVariable StartTensileCoil => FindVariable("拉伸线圈");
+    public static PLCVariable ReleaseTensileCoil => FindVariable("拉伸释放线圈");
+    public static PLCVariable TanliaoVariable => FindVariable("弹料");
+    public static PLCVariable CalibrationStateVariable => FindVariable("传感器标零状态");
+
     public MainWindow(bool connectedAtStartup)
     {
         _connectedAtStartup = connectedAtStartup;
@@ -133,6 +140,63 @@ public partial class MainWindow : Window
     {
         _viewModel.SaveSettingsAndApplyLanguage();
         Growl.SuccessGlobal("保存成功");
+    }
+
+    private void ShutdownRatioBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        var tb = (System.Windows.Controls.TextBox)sender;
+        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+
+        foreach (char ch in e.Text)
+        {
+            if (char.IsControl(ch)) continue;
+            if (!char.IsDigit(ch) && ch.ToString() != dec)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
+        string before = tb.Text.Substring(0, tb.SelectionStart);
+        string after = tb.Text.Substring(tb.SelectionStart + tb.SelectionLength);
+        string proposed = before + e.Text + after;
+
+        if (proposed == dec) return;
+        if (proposed.EndsWith(dec)) return;
+
+        if (decimal.TryParse(proposed, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out decimal val))
+        {
+            if (val < 0m || val > 1m)
+            {
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void ShutdownRatioBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var tb = (System.Windows.Controls.TextBox)sender;
+        if (string.IsNullOrWhiteSpace(tb.Text)) return;
+
+        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        if (tb.Text == dec)
+        {
+            tb.Text = "0" + dec;
+            return;
+        }
+
+        if (decimal.TryParse(tb.Text, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out decimal val))
+        {
+            if (val < 0m) val = 0m;
+            if (val > 1m) val = 1m;
+            tb.Text = val.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        }
+        else
+        {
+            tb.Text = "0";
+        }
     }
 
     private static PLCVariable FindVariable(string name)

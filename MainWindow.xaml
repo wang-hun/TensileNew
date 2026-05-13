@@ -11,6 +11,7 @@
     <Window.Resources>
         <local:BoolStringToBrushConverter x:Key="BoolBrush" />
         <local:FloatFormatConverter x:Key="FloatFormat" />
+
         <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
             <Setter Property="Height" Value="92" />
             <Setter Property="MinWidth" Value="112" />
@@ -21,23 +22,59 @@
             <Setter Property="Background" Value="#F5F6F8" />
             <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
+
         <Style x:Key="ActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonPrimary}">
             <Setter Property="Height" Value="66" />
             <Setter Property="Margin" Value="18,8" />
             <Setter Property="FontSize" Value="20" />
         </Style>
-        <Style x:Key="MetricNameStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#606266" />
-            <Setter Property="FontSize" Value="18" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="TextAlignment" Value="Center" />
+
+        <Style x:Key="SectionTitleStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F5F6F8" />
+            <Setter Property="BorderBrush" Value="#D8DBE3" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Height" Value="44" />
         </Style>
+
+        <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#404040" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="MetricNameStyle" TargetType="TextBlock">
+            <Setter Property="Background" Value="#F2F2F2" />
+            <Setter Property="Foreground" Value="#696969" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Padding" Value="8,0,12,0" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
         <Style x:Key="MetricValueStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#111827" />
-            <Setter Property="FontSize" Value="20" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="MetricUnitStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#696969" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+
+        <Style x:Key="LightStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Stroke" Value="#909399" />
+            <Setter Property="StrokeThickness" Value="1" />
         </Style>
     </Window.Resources>
 
@@ -47,6 +84,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Header -->
         <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -67,13 +105,13 @@
                     <Button Grid.Column="1" Style="{StaticResource NavButtonStyle}" Content="设置" Click="Settings_Click" />
                     <Button Grid.Column="2" Style="{StaticResource NavButtonStyle}" Content="变量" Click="Variables_Click" />
                     <TextBlock Grid.Column="4" Text="联机状态" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                    <hc:Badge Grid.Column="5" Width="64" Height="64" HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Background="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState, Converter={StaticResource BoolBrush}}"
-                              BorderBrush="#909399" BorderThickness="1" />
+                    <Ellipse Grid.Column="5" Width="44" Height="44" Stroke="#909399" StrokeThickness="1"
+                             Fill="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState, Converter={StaticResource BoolBrush}}" />
                 </Grid>
             </Grid>
         </Border>
 
+        <!-- ==================== HOME PAGE ==================== -->
         <Grid Grid.Row="1">
             <Grid.Style>
                 <Style TargetType="Grid">
@@ -91,73 +129,258 @@
                 <ColumnDefinition Width="374" />
             </Grid.ColumnDefinitions>
 
+            <!-- Left side panel: current trial -->
             <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="55" />
                         <RowDefinition Height="60" />
+                        <RowDefinition Height="540" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="配方信息" Foreground="#111827" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <Grid Grid.Row="1" Margin="8">
+
+                    <!-- "当前试验" title -->
+                    <Border Style="{StaticResource SectionTitleStyle}" Grid.Row="0" Height="55">
+                        <TextBlock Text="当前试验" Style="{StaticResource SectionTitleTextStyle}" />
+                    </Border>
+
+                    <!-- Recipe + SN row -->
+                    <Grid Grid.Row="1" Margin="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <ComboBox ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" FontSize="18" />
-                        <TextBlock Grid.Column="1" Text="{Binding CurrentSn}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="序列号" FontSize="15" Foreground="#404040"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right" Margin="6,0,6,0" />
+                            <TextBox Grid.Column="1" Text="{Binding CurrentSn, Mode=OneWay}" IsReadOnly="True"
+                                     FontSize="18" FontWeight="Bold" VerticalContentAlignment="Center"
+                                     HorizontalContentAlignment="Center" Margin="0,2" />
+                        </Grid>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}"
+                                  DisplayMemberPath="RecipeName" FontSize="18" Margin="4,2" />
                     </Grid>
-                    <UniformGrid Grid.Row="2" Columns="2" Rows="13">
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="拉伸时间" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.TimeVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="最大拉伸力" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.MaxForceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="实时拉伸位移" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="有效拉伸位移" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ValidDistanceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="主推力" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.BeginForceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="冲程压边力设定" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.PreSetForceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="实时拉伸速度" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealSpeedVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="实时拉伸力" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="实时压边力" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealPressVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="闭环压边力设定" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ClosedLoopVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="停机延时设定" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownDelayVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="停机比例设定" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" />
-                        <TextBlock Style="{StaticResource MetricNameStyle}" Text="速度设定" />
-                        <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.SpeedVariable}}" />
-                    </UniformGrid>
+
+                    <!-- 9 real-time readouts -->
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="拉伸时间" />
+                        <Grid Grid.Row="0" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.TimeVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="S" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="最大拉伸力" />
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.MaxForceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="拉伸位移" />
+                        <Grid Grid.Row="2" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="有效拉伸位移" />
+                        <Grid Grid.Row="3" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ValidDistanceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="主推力" />
+                        <Grid Grid.Row="4" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.BeginForceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="预设冲程压边力" />
+                        <Grid Grid.Row="5" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.PreSetForceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸速度" />
+                        <Grid Grid.Row="6" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealSpeedVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸力" />
+                        <Grid Grid.Row="7" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时压边力" />
+                        <Grid Grid.Row="8" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealPressVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+                    </Grid>
+
+                    <!-- 试验参数 sub-panel -->
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="50" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数"
+                                   FontSize="18" FontWeight="Bold" Foreground="Black"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="冲程压边力设定: " />
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.PreSetForceVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="闭环压边力设定: " />
+                        <Grid Grid.Row="2" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ClosedLoopVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="停机延时设定: " />
+                        <Grid Grid.Row="3" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownDelayVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="(10ms)" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="停机比例设定: " />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="速度设定: " />
+                        <Grid Grid.Row="5" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.SpeedVariable}}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
+                        </Grid>
+                    </Grid>
                 </Grid>
             </Border>
 
+            <!-- Middle: chart + action buttons -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="250" />
+                    <RowDefinition Height="260" />
                 </Grid.RowDefinitions>
                 <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="1">
                     <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
                 </Border>
                 <UniformGrid Grid.Row="1" Columns="4" Rows="2" Background="White">
-                    <Button Style="{StaticResource ActionButtonStyle}" Content="压边" Click="StartPress_Click" />
-                    <Button Style="{StaticResource ActionButtonStyle}" Content="释放压边" Click="ReleasePress_Click" />
-                    <Button Style="{StaticResource ActionButtonStyle}" Content="启动拉伸" Click="StartTensile_Click" />
-                    <Button Style="{StaticResource ActionButtonStyle}" Content="释放拉伸" Click="ReleaseTensile_Click" />
+                    <Grid Margin="18,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Margin="0" Content="压边" Click="StartPress_Click" />
+                        <Ellipse HorizontalAlignment="Left" Margin="14,0,0,0" Style="{StaticResource LightStyle}"
+                                 Fill="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                    </Grid>
+                    <Grid Margin="18,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Margin="0" Content="释放压边" Click="ReleasePress_Click" />
+                        <Ellipse HorizontalAlignment="Left" Margin="14,0,0,0" Style="{StaticResource LightStyle}"
+                                 Fill="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                    </Grid>
+                    <Grid Margin="18,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Margin="0" Content="启动拉伸" Click="StartTensile_Click" />
+                        <Ellipse HorizontalAlignment="Left" Margin="14,0,0,0" Style="{StaticResource LightStyle}"
+                                 Fill="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                    </Grid>
+                    <Grid Margin="18,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Margin="0" Content="释放拉伸" Click="ReleaseTensile_Click" />
+                        <Ellipse HorizontalAlignment="Left" Margin="14,0,0,0" Style="{StaticResource LightStyle}"
+                                 Fill="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                    </Grid>
                     <Button Style="{StaticResource ActionButtonStyle}" Content="冲程压边" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up" />
                     <Button Style="{StaticResource ButtonDanger}" Height="66" Margin="18,8" FontSize="20" Content="停止动作" Click="Stop_Click" />
                     <Button Style="{StaticResource ActionButtonStyle}" Content="数据重置" Click="Reset_Click" />
-                    <Button Style="{StaticResource ActionButtonStyle}" Content="弹料" PreviewMouseDown="Tanliao_Down" PreviewMouseUp="Tanliao_Up" />
+                    <Grid Margin="18,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Margin="0" Content="弹料" PreviewMouseDown="Tanliao_Down" PreviewMouseUp="Tanliao_Up" />
+                        <Ellipse HorizontalAlignment="Left" Margin="14,0,0,0" Style="{StaticResource LightStyle}"
+                                 Fill="{Binding Source={x:Static local:MainWindow.TanliaoVariable}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                    </Grid>
                 </UniformGrid>
             </Grid>
 
+            <!-- Right: save + data grid -->
             <Grid Grid.Column="2" Background="White">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="98" />
@@ -176,6 +399,7 @@
             </Grid>
         </Grid>
 
+        <!-- ==================== SETTINGS PAGE ==================== -->
         <Grid Grid.Row="1">
             <Grid.Style>
                 <Style TargetType="Grid">
@@ -188,56 +412,151 @@
                 </Style>
             </Grid.Style>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="342" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <ListBox ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" FontSize="20" Margin="16" />
-            <Grid Grid.Column="1" Margin="24">
+
+            <!-- Left: recipe list -->
+            <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="4">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="56" />
+                        <RowDefinition Height="40" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <UniformGrid Grid.Row="0" Columns="2" Margin="6,3">
+                        <Button Style="{StaticResource ButtonInfo}" Content="添加试验" Margin="4,3" FontSize="14" Click="AddRecipe_Click" />
+                        <Button Style="{StaticResource ButtonDanger}" Content="删除试验" Margin="4,3" FontSize="14" Click="DeleteRecipe_Click" />
+                    </UniformGrid>
+                    <Border Grid.Row="1" Background="#DCDCDC">
+                        <TextBlock Text="试验列表" FontSize="16" FontWeight="Bold" Foreground="#404040"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}"
+                             DisplayMemberPath="RecipeName" FontSize="16" Margin="4" />
+                </Grid>
+            </Border>
+
+            <!-- Right: settings content -->
+            <Grid Grid.Column="1" Margin="10">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="30*" />
+                    <RowDefinition Height="45*" />
+                    <RowDefinition Height="25*" />
                 </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="360" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="配方名称" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Column="1" Text="{Binding SelectedRecipe.RecipeName, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="1" Text="冲程压边力设定" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="2" Text="闭环压边力设定" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="3" Text="停机延时设定" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="4" Text="停机比例设定" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="5" Text="速度设定" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="6" Text="PLC IP" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="7" Text="Excel目录" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <TextBlock Grid.Row="8" Text="语言" FontSize="20" VerticalAlignment="Center" Margin="0,10" />
-                <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding Languages}" SelectedItem="{Binding Setting.Language, UpdateSourceTrigger=PropertyChanged}" FontSize="20" Margin="0,10" />
-                <StackPanel Grid.Row="9" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,24,0,0">
-                    <Button Style="{StaticResource ButtonInfo}" Content="新增配方" Width="140" Height="48" Margin="0,0,12,0" Click="AddRecipe_Click" />
-                    <Button Style="{StaticResource ButtonDanger}" Content="删除配方" Width="140" Height="48" Margin="0,0,12,0" Click="DeleteRecipe_Click" />
-                    <Button Style="{StaticResource ButtonPrimary}" Content="写入配方" Width="140" Height="48" Margin="0,0,12,0" Click="WriteRecipe_Click" />
-                    <Button Style="{StaticResource ButtonPrimary}" Content="传感器标零" Width="140" Height="48" Margin="0,0,12,0" Click="Calibration_Click" />
-                    <Button Style="{StaticResource ButtonSuccess}" Content="保存设置" Width="140" Height="48" Click="SaveSettings_Click" />
-                </StackPanel>
+
+                <!-- 系统设置 -->
+                <Border Grid.Row="0" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="55" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+                            <TextBlock Text="系统设置" Style="{StaticResource SectionTitleTextStyle}" />
+                        </Border>
+                        <Grid Grid.Row="1" Margin="30,10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="600" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="300" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="联机IP" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+                            <Button Grid.Row="0" Grid.Column="3" Grid.RowSpan="1" Style="{StaticResource ButtonPrimary}"
+                                    Content="保存参数" FontSize="16" Margin="30,10" Click="SaveSettings_Click" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}"
+                                      SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}"
+                                      FontSize="16" Width="240" HorizontalAlignment="Left" Margin="0,8" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- 试验参数 -->
+                <Border Grid.Row="1" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="55" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+                            <TextBlock Text="试验参数" Style="{StaticResource SectionTitleTextStyle}" />
+                        </Border>
+                        <Grid Grid.Row="1" Margin="30,20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="260" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="冲程压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="停机比例设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox"
+                                     Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="16" VerticalContentAlignment="Center" Margin="0,8"
+                                     PreviewTextInput="ShutdownRatioBox_PreviewTextInput"
+                                     LostFocus="ShutdownRatioBox_LostFocus" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" VerticalContentAlignment="Center" Margin="0,8" />
+
+                            <Button Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="2" Style="{StaticResource ButtonPrimary}"
+                                    Content="写入配方参数" FontSize="16" Height="48" Margin="30,16,30,10" Click="WriteRecipe_Click" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- 标定 -->
+                <Border Grid.Row="2" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="55" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+                            <TextBlock Text="标定" Style="{StaticResource SectionTitleTextStyle}" />
+                        </Border>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Button Style="{StaticResource ButtonPrimary}" Content="开始传感器归零"
+                                    Width="260" Height="54" FontSize="16" Margin="12" Click="Calibration_Click" />
+                            <TextBlock Text="标定状态" FontSize="16" VerticalAlignment="Center" Margin="20,0,10,0" />
+                            <Ellipse Width="40" Height="40" Stroke="#909399" StrokeThickness="1"
+                                     Fill="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Grid>
 
+        <!-- ==================== VARIABLES PAGE ==================== -->
         <Grid Grid.Row="1">
             <Grid.Style>
                 <Style TargetType="Grid">
@@ -249,14 +568,25 @@
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
-            <DataGrid ItemsSource="{Binding PlcVariables}" AutoGenerateColumns="False" IsReadOnly="True" Margin="16">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="变量名称" Binding="{Binding Name}" Width="300" />
-                    <DataGridTextColumn Header="变量地址" Binding="{Binding Address}" Width="160" />
-                    <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="160" />
-                    <DataGridTextColumn Header="当前值" Binding="{Binding CurrentValue}" Width="*" />
-                </DataGrid.Columns>
-            </DataGrid>
+            <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="55" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+                        <TextBlock Text="变量实时显示" Style="{StaticResource SectionTitleTextStyle}" />
+                    </Border>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding PlcVariables}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="变量名称" Binding="{Binding Name}" Width="300" />
+                            <DataGridTextColumn Header="变量地址" Binding="{Binding Address}" Width="160" />
+                            <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="160" />
+                            <DataGridTextColumn Header="当前值" Binding="{Binding CurrentValue}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
         </Grid>
 
     </Grid>
