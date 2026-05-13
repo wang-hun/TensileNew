@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -79,6 +79,7 @@ public partial class MainWindow : Window
             return;
         }
         ApplyPlotLabels();
+        LocalizePlotContextMenu();
         LoadPlot.Plot.Axes.AutoScale();
         LoadPlot.Refresh();
         _plotInitialized = true;
@@ -114,9 +115,49 @@ public partial class MainWindow : Window
     private void ApplyPlotLabels()
     {
         LoadPlot.Plot.Title("载荷位移数据", 30);
-        LoadPlot.Plot.XLabel("位移");
-        LoadPlot.Plot.YLabel("载荷");
+        LoadPlot.Plot.XLabel("位移", 30);
+        LoadPlot.Plot.YLabel("载荷", 30);
+        LoadPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 22;
+        LoadPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 22;
+        LoadPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
+        LoadPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
         LoadPlot.Plot.Font.Automatic();
+    }
+
+    private void LocalizePlotContextMenu()
+    {
+        if (string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var menu = LoadPlot.Menu;
+        if (menu == null) return;
+
+        var items = menu.ContextMenuItems;
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            switch (item.Label)
+            {
+                case "Save Image":
+                    item.Label = "保存图片";
+                    items[i] = item;
+                    break;
+                case "Copy to Clipboard":
+                    item.Label = "复制到剪贴板";
+                    items[i] = item;
+                    break;
+                case "Autoscale":
+                    item.Label = "自动缩放";
+                    items[i] = item;
+                    break;
+                case "Open in New Window":
+                    item.Label = "新窗口打开";
+                    items[i] = item;
+                    break;
+            }
+        }
     }
 
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
