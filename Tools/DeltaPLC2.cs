@@ -195,7 +195,7 @@ namespace TensileNeW.Tools
         {
             if (null == Client || Client.Connected == false)
             {
-                throw new Exception("连接中断");
+                //throw new Exception("连接中断");
             }
             byte[] bytes = BitConverter.GetBytes(value);
             ushort[] registers = new ushort[2];

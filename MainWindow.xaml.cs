@@ -14,18 +14,18 @@ namespace TensileNeW;
 public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
-
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
         WaitTime = 5,
         StaysOpen = false,
         ShowDateTime = false,
+        IsCustom = true,
         Token = GrowlToken
     };
 
-    private static void ShowInfo(string msg) => Growl.Info(MakeInfo(msg));
-    private static void ShowSuccess(string msg) => Growl.Success(MakeInfo(msg));
+    private static void ShowInfo(string msg) => Growl.Info(msg, GrowlToken);
+    private static void ShowSuccess(string msg) => Growl.Success(msg, GrowlToken);
     private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
     private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
 
