@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
