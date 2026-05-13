@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tools\DeltaPlcController .cs" />
+    <Compile Remove="Tools\Converter\BindingHelper.cs" />
+    <Compile Remove="Tools\Converter\IValueConverter.cs" />
+    <Compile Remove="Tools\Converter\IntegerToUnitStringConverter.cs" />
+    <Compile Remove="Tools\Converter\StringToStateConverter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="EPPlus" Version="7.7.0" />
+    <PackageReference Include="HandyControl" Version="3.5.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="NLog" Version="4.7.15" />
+    <PackageReference Include="NModbus" Version="3.0.81" />
+    <PackageReference Include="NPOI" Version="2.7.3" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.1.58" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="GB-LOGO.png" />
+    <Resource Include="logo.ico" />
+    <None Update="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
+
