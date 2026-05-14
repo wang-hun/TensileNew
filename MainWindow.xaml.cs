@@ -2,6 +2,7 @@ using HandyControl.Data;
 using NLog;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using TensileNeW.Models;
@@ -182,6 +183,66 @@ public partial class MainWindow : Window
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
+
+    private async void Reconnect_Click(object sender, RoutedEventArgs e)
+    {
+        ReconnectButton.IsEnabled = false;
+        IsEnabled = false;
+
+        var waitWindow = new StartupWaitWindow(GetConnectWaitText())
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        try
+        {
+            waitWindow.Show();
+            var reconnectTask = TryReconnectWithTimeoutAsync();
+            await Task.WhenAll(reconnectTask, Task.Delay(TimeSpan.FromSeconds(2)));
+            bool connected = await reconnectTask;
+
+            if (!connected)
+            {
+                ShowError("\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u7ebf\u8def\uff01");
+                Dialog.Show(new ConnectionErrorDialog());
+            }
+        }
+        finally
+        {
+            waitWindow.Close();
+            IsEnabled = true;
+            ReconnectButton.IsEnabled = true;
+        }
+    }
+
+    private static string GetConnectWaitText()
+    {
+        return string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase)
+            ? "Connecting to PLC controller, please wait..."
+            : "\u8fde\u63a5PLC\u63a7\u5236\u5668\u4e2d\uff0c\u8bf7\u7a0d\u540e...";
+    }
+
+    private static async Task<bool> TryReconnectWithTimeoutAsync()
+    {
+        try
+        {
+            var reconnectTask = Task.Run(() => DataAqc.TryReconnect(forceReconnect: true));
+            var completedTask = await Task.WhenAny(reconnectTask, Task.Delay(TimeSpan.FromSeconds(5)));
+
+            if (completedTask == reconnectTask)
+            {
+                return await reconnectTask;
+            }
+
+            _ = reconnectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private void ChartHintButton_Click(object sender, RoutedEventArgs e)
     {

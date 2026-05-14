@@ -26,6 +26,7 @@ namespace TensileNeW.Models
         public static ConcurrentQueue<Loadmodel> _queue = new ConcurrentQueue<Loadmodel>();
         public static CancellationTokenSource _cts = new CancellationTokenSource();
         public static BindingList<Loadmodel> loadModels = new BindingList<Loadmodel>();
+        private static readonly object PlcConnectionLock = new();
 
         public static event Action<Loadmodel> LoadDataChanged;
         public static event Action ChartCleared;
@@ -127,7 +128,10 @@ namespace TensileNeW.Models
         {
             try
             {
-                plc.Connect();
+                lock (PlcConnectionLock)
+                {
+                    plc.Connect();
+                }
                 logger.Info("连接PLC成功！");
                 return true;
             }
@@ -136,6 +140,39 @@ namespace TensileNeW.Models
                 logger.Error(ex, "连接PLC失败！");
                 return false;
             }
+        }
+
+        public static bool TryReconnect(bool forceReconnect = false)
+        {
+            try
+            {
+                lock (PlcConnectionLock)
+                {
+                    if (!forceReconnect && IsPlcConnected())
+                    {
+                        logger.Info("PLC已连接，跳过自动重连。");
+                        return true;
+                    }
+
+                    plc.Disconnect();
+                    Thread.Sleep(500);
+                    plc.Connect();
+                }
+                logger.Info("重新连接PLC成功！");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "重新连接PLC失败！");
+                return false;
+            }
+        }
+
+        private static bool IsPlcConnected()
+        {
+            return plc?.Client is { Connected: true }
+                && bool.TryParse(plc.ConnectState, out bool connected)
+                && connected;
         }
         public static long showTime = 0;
 
@@ -287,16 +324,7 @@ namespace TensileNeW.Models
                         {
                             exceptionTime = DateTime.Now;
                             logger.Error("超时，自动断开重连！");
-                            try
-                            {  //先断开 再重连
-                                plc.Disconnect();
-                                Thread.Sleep(500);
-                                plc.Connect();
-                            }
-                            catch (Exception ex1)
-                            {
-                                logger.Error(ex1.Message);
-                            }
+                            TryReconnect();
                         }
                     }
 
