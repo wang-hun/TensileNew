@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
+    private VariableWindow? _variableWindow;
     private bool _plotInitialized;
     private int _logoClickCount;
 
@@ -88,6 +89,7 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        _variableWindow?.Close();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         Logger.Info("关闭程序");
@@ -346,6 +348,23 @@ public partial class MainWindow : Window
     {
         _viewModel.SaveSettingsAndApplyLanguage();
         ShowSuccess("保存成功");
+    }
+
+    private void OpenVariablesWindow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_variableWindow is { IsVisible: true })
+        {
+            _variableWindow.Activate();
+            return;
+        }
+
+        _variableWindow = new VariableWindow
+        {
+            Owner = this,
+            DataContext = _viewModel
+        };
+        _variableWindow.Closed += (_, _) => _variableWindow = null;
+        _variableWindow.Show();
     }
 
     private void ShutdownRatioBox_PreviewTextInput(object sender, TextCompositionEventArgs e)

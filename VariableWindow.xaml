@@ -1,0 +1,44 @@
+<Window x:Class="TensileNeW.VariableWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="变量实时显示"
+        Width="900"
+        Height="620"
+        MinWidth="560"
+        MinHeight="360"
+        Background="#F5F6F8"
+        FontFamily="Microsoft YaHei"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner">
+    <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="55" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+                <TextBlock Text="变量实时显示"
+                           Foreground="#404040"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+            <DataGrid Grid.Row="1"
+                      ItemsSource="{Binding PlcVariables}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      Margin="10"
+                      RowHeaderWidth="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="变量名称" Binding="{Binding Name}" Width="300" />
+                    <DataGridTextColumn Header="变量地址" Binding="{Binding Address}" Width="160" />
+                    <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="160" />
+                    <DataGridTextColumn Header="当前值" Binding="{Binding CurrentValue}" Width="*" MinWidth="180" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+    </Border>
+</Window>

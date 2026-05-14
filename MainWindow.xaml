@@ -642,26 +642,27 @@
                 <Grid.RowDefinitions>
                   <RowDefinition Height="*" />
                   <RowDefinition Height="*" />
-                  <RowDefinition Height="*" />
+                  <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="140" />
-                  <ColumnDefinition Width="600" />
+                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="260" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="300" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="联机IP" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
-                <Button Grid.Row="0" Grid.Column="3" Grid.RowSpan="3" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="44" Width="180" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" Width="160" HorizontalAlignment="Left" Margin="0,1" />
+                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,16,0,10" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Floppy2Fill" Width="20" Height="20" Margin="0,0,8,0" />
-                    <TextBlock Text="保存参数" VerticalAlignment="Center" />
+                    <TextBlock Text="保存系统参数" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" Width="240" HorizontalAlignment="Left" Margin="0,1" />
               </Grid>
             </Grid>
           </Border>
@@ -731,7 +732,7 @@
                   </StackPanel>
                 </Button>
                 <TextBlock Text="标定状态" FontSize="16" VerticalAlignment="Center" Margin="20,0,10,0" />
-                <Ellipse Width="40" Height="40" Stroke="#909399" StrokeThickness="1" Fill="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue, Converter={StaticResource BoolBrush}}" />
+                <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue}" />
               </StackPanel>
             </Grid>
           </Border>
@@ -756,9 +757,17 @@
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
-              <TextBlock Text="变量实时显示" Style="{StaticResource SectionTitleTextStyle}" />
+              <Grid>
+                <TextBlock Text="变量实时显示" Style="{StaticResource SectionTitleTextStyle}" />
+                <Button Style="{StaticResource ButtonPrimary}" Width="150" Height="36" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" Click="OpenVariablesWindow_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <iconPacks:PackIconBootstrapIcons Kind="BoxArrowUpRight" Width="18" Height="18" Margin="0,0,8,0" />
+                    <TextBlock Text="新窗口打开" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </Grid>
             </Border>
-            <DataGrid Grid.Row="1" ItemsSource="{Binding PlcVariables}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10">
+            <DataGrid Grid.Row="1" ItemsSource="{Binding PlcVariables}" AutoGenerateColumns="False" IsReadOnly="True" Margin="10" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="变量名称" Binding="{Binding Name}" Width="300" />
                 <DataGridTextColumn Header="变量地址" Binding="{Binding Address}" Width="160" />
