@@ -178,7 +178,7 @@
                   <Style TargetType="iconPacks:PackIconVaadinIcons">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
-                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
                         <Setter Property="Visibility" Value="Visible" />
                       </DataTrigger>
                     </Style.Triggers>
@@ -190,7 +190,7 @@
                   <Style TargetType="iconPacks:PackIconPhosphorIcons">
                     <Setter Property="Visibility" Value="Visible" />
                     <Style.Triggers>
-                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
                         <Setter Property="Visibility" Value="Collapsed" />
                       </DataTrigger>
                     </Style.Triggers>
