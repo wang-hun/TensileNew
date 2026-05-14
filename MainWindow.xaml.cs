@@ -380,6 +380,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DecimalBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        var tb = (System.Windows.Controls.TextBox)sender;
+        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+
+        foreach (char ch in e.Text)
+        {
+            if (char.IsControl(ch)) continue;
+            if (!char.IsDigit(ch) && ch.ToString() != dec)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
+        string before = tb.Text.Substring(0, tb.SelectionStart);
+        string after = tb.Text.Substring(tb.SelectionStart + tb.SelectionLength);
+        string proposed = before + e.Text + after;
+
+        if (proposed == dec) return;
+        if (proposed.EndsWith(dec)) return;
+
+        if (!decimal.TryParse(proposed, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out _))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void ShutdownRatioBox_LostFocus(object sender, RoutedEventArgs e)
     {
         var tb = (System.Windows.Controls.TextBox)sender;
