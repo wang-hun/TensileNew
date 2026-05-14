@@ -26,9 +26,18 @@ public partial class App : Application
             waitWindow = new StartupWaitWindow(waitText);
             waitWindow.Show();
 
+            var minimumStartupDelayTask = Task.Delay(TimeSpan.FromSeconds(2));
             var connectTask = TryConnectWithTimeoutAsync();
-            await Task.WhenAll(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
             bool connected = await connectTask;
+            if (connected)
+            {
+                waitWindow.SetWaitText("GENBON");
+                await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(500)));
+            }
+            else
+            {
+                await minimumStartupDelayTask;
+            }
 
             var mainWindow = new MainWindow(connected);
             MainWindow = mainWindow;

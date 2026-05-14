@@ -9,4 +9,9 @@ public partial class StartupWaitWindow : Window
         InitializeComponent();
         WaitTextBlock.Text = waitText;
     }
+
+    public void SetWaitText(string waitText)
+    {
+        WaitTextBlock.Text = waitText;
+    }
 }
