@@ -108,7 +108,7 @@
     <Style x:Key="HeaderReconnectButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
       <Setter Property="Width" Value="142" />
       <Setter Property="Height" Value="44" />
-      <Setter Property="Margin" Value="10,0,8,0" />
+      <Setter Property="Margin" Value="10,0,2,0" />
       <Setter Property="Padding" Value="12,0" />
       <Setter Property="Background" Value="White" />
       <Setter Property="BorderBrush" Value="#1677FF" />
@@ -144,7 +144,7 @@
               <ColumnDefinition Width="112" />
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="160" />
-              <ColumnDefinition Width="190" />
+              <ColumnDefinition Width="112" />
               <ColumnDefinition Width="64" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click">
