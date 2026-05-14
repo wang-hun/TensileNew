@@ -23,6 +23,8 @@ public sealed class MainViewModel : ObservableObject
     private string _currentPage = "Home";
     private RecipeModel? _selectedRecipe;
 
+    public event Action<string>? RecipeWritten;
+
     public MainViewModel()
     {
         DataAqc.EnsureInitialized();
@@ -30,7 +32,6 @@ public sealed class MainViewModel : ObservableObject
 
         _variables = DataAqc.PLCVariables.ToDictionary(x => x.Name);
         Recipes = RAM.SettingModel.RecipeModelS;
-        SelectedRecipe = null;
         LoadItems = DataAqc.loadModels;
         PlcVariables = DataAqc.PLCVariables;
         _startupLanguage = RAM.SettingModel.Language;
@@ -41,6 +42,9 @@ public sealed class MainViewModel : ObservableObject
         DataAqc.LoadDataChanged += _ => OnPropertyChanged(nameof(ChartPolylinePoints));
         DataAqc.ChartCleared += () => OnPropertyChanged(nameof(ChartPolylinePoints));
         RAM.Changed += OnRecipeChanged;
+        Recipes.ListChanged += Recipes_ListChanged;
+        AttachRecipeHandlers();
+        SelectedRecipe = FindStartupRecipe();
     }
 
     public BindingList<RecipeModel> Recipes { get; }
@@ -133,12 +137,23 @@ public sealed class MainViewModel : ObservableObject
         await SetBoolAsync(variableName, false);
     }
 
+    public async Task PulseExclusiveAsync(string variableName, string oppositeVariableName)
+    {
+        await SetBoolAsync(oppositeVariableName, false);
+        await PulseAsync(variableName);
+    }
+
     public Task SetBoolAsync(string variableName, bool value)
     {
         return Task.Run(() =>
         {
             try
             {
+                if (!IsPlcConnected())
+                {
+                    throw new InvalidOperationException("PLC未连接");
+                }
+
                 DataAqc.plc.WriteBool(Address(variableName), value);
             }
             catch (Exception ex)
@@ -158,8 +173,13 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
+            if (!IsPlcConnected())
+            {
+                return false;
+            }
+
             Logger.Info($"开始写入配方<{recipe.RecipeName}>数据....");
-            await Task.Run(() =>
+            bool verified = await Task.Run(() =>
             {
                 try
                 {
@@ -168,6 +188,7 @@ public sealed class MainViewModel : ObservableObject
                     DataAqc.plc.WriteFloat(Address("速度设定"), recipe.Speed);
                     DataAqc.plc.WriteFloat(Address("停机比例设定"), recipe.ShutdownRatio);
                     DataAqc.plc.WriteUShort(Address("停机延时设定"), recipe.ShutdownDelay);
+                    return VerifyRecipeWritten(recipe);
                 }
                 catch (Exception ex)
                 {
@@ -175,7 +196,7 @@ public sealed class MainViewModel : ObservableObject
                     throw;
                 }
             });
-            return true;
+            return verified;
         }
         catch (Exception ex)
         {
@@ -294,7 +315,60 @@ public sealed class MainViewModel : ObservableObject
     {
         if (bool.TryParse(DataAqc.plc?.ConnectState, out bool connected) && connected)
         {
-            await WriteRecipeAsync();
+            if (await WriteRecipeAsync() && SelectedRecipe != null)
+            {
+                RecipeWritten?.Invoke(SelectedRecipe.RecipeName);
+            }
         }
+    }
+
+    private RecipeModel? FindStartupRecipe()
+    {
+        var current = RAM.SettingModel.CurRecipeModel;
+        return Recipes.FirstOrDefault(recipe => string.Equals(recipe.RecipeName, current?.RecipeName, StringComparison.Ordinal))
+            ?? Recipes.FirstOrDefault();
+    }
+
+    private void Recipes_ListChanged(object? sender, ListChangedEventArgs e)
+    {
+        AttachRecipeHandlers();
+        SaveSettings();
+    }
+
+    private void AttachRecipeHandlers()
+    {
+        foreach (var recipe in Recipes)
+        {
+            recipe.PropertyChanged -= Recipe_PropertyChanged;
+            recipe.PropertyChanged += Recipe_PropertyChanged;
+        }
+    }
+
+    private void Recipe_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        SaveSettings();
+    }
+
+    private static bool VerifyRecipeWritten(RecipeModel recipe)
+    {
+        const float tolerance = 0.01f;
+
+        return NearlyEqual(DataAqc.plc.ReadFloat(Address("冲程压边力设定")), recipe.StrokeStampingForce, tolerance)
+            && NearlyEqual(DataAqc.plc.ReadFloat(Address("闭环压边力设定")), recipe.ClosedLoopStampingForce, tolerance)
+            && NearlyEqual(DataAqc.plc.ReadFloat(Address("速度设定")), recipe.Speed, tolerance)
+            && NearlyEqual(DataAqc.plc.ReadFloat(Address("停机比例设定")), recipe.ShutdownRatio, tolerance)
+            && DataAqc.plc.ReadUShort(Address("停机延时设定")) == recipe.ShutdownDelay;
+    }
+
+    private static bool NearlyEqual(float actual, float expected, float tolerance)
+    {
+        return Math.Abs(actual - expected) <= tolerance;
+    }
+
+    private static bool IsPlcConnected()
+    {
+        return DataAqc.plc?.Client is { Connected: true }
+            && bool.TryParse(DataAqc.plc.ConnectState, out bool connected)
+            && connected;
     }
 }

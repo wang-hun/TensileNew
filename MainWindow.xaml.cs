@@ -62,6 +62,7 @@ public partial class MainWindow : Window
     {
         _connectedAtStartup = connectedAtStartup;
         _viewModel = new MainViewModel();
+        _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
     }

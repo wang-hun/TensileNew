@@ -3,9 +3,9 @@
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
-      <Setter Property="Height" Value="92" />
+      <Setter Property="Height" Value="69" />
       <Setter Property="MinWidth" Value="112" />
-      <Setter Property="Margin" Value="0,10,12,10" />
+      <Setter Property="Margin" Value="0,7,12,7" />
       <Setter Property="FontSize" Value="18" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="#606266" />
@@ -121,11 +121,23 @@
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+    <Style x:Key="HoldActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+      <Setter Property="Background" Value="#F2C94C" />
+      <Setter Property="BorderBrush" Value="#D8A900" />
+      <Setter Property="Foreground" Value="#2B2B2B" />
+      <Style.Triggers>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="#B8860B" />
+          <Setter Property="BorderBrush" Value="#8A6508" />
+          <Setter Property="Foreground" Value="White" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
   </Window.Resources>
   <hc:DialogContainer>
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="113" />
+        <RowDefinition Height="85" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <StackPanel Grid.RowSpan="2" hc:Growl.Token="MainGrowl" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,16,16,0" Width="360" Panel.ZIndex="9999" />
@@ -426,8 +438,19 @@
               </Border>
             </Grid>
           </Border>
-          <UniformGrid Grid.Row="1" Columns="4" Rows="2" Background="White" Margin="8,10">
-            <Grid Margin="6,5">
+          <Grid Grid.Row="1" Background="White" Margin="8,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" />
+              <RowDefinition Height="24" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid Grid.Row="0" Grid.Column="0" Margin="6,5">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -435,7 +458,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="压边" Click="StartPress_Click" />
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="0" Grid.Column="1" Margin="6,5">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -443,7 +466,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="释放压边" Click="ReleasePress_Click" />
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="0" Grid.Column="2" Margin="6,5">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -451,7 +474,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="启动拉伸" Click="StartTensile_Click" />
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="0" Grid.Column="3" Margin="6,5">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -459,19 +482,20 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="释放拉伸" Click="ReleaseTensile_Click" />
             </Grid>
-            <Grid Margin="6,5">
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="按住启动" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Stretch" TextAlignment="Center" VerticalAlignment="Center" Margin="44,0,6,0" />
+            <Grid Grid.Row="2" Grid.Column="0" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up">
+              <Button Grid.Column="1" Style="{StaticResource HoldActionButtonStyle}" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconBootstrapIcons Kind="ChevronBarExpand" Width="18" Height="18" Margin="0,0,8,0" />
                   <TextBlock Text="冲程压边" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="2" Grid.Column="1" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -483,7 +507,7 @@
                 </StackPanel>
               </Button>
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="2" Grid.Column="2" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -495,7 +519,7 @@
                 </StackPanel>
               </Button>
             </Grid>
-            <Grid Margin="6,5">
+            <Grid Grid.Row="2" Grid.Column="3" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
@@ -503,7 +527,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.TanliaoVariable}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Content="弹料" PreviewMouseDown="Tanliao_Down" PreviewMouseUp="Tanliao_Up" />
             </Grid>
-          </UniformGrid>
+          </Grid>
         </Grid>
         <!-- Right: save + data grid -->
         <Grid Grid.Column="2" Background="White">
@@ -635,22 +659,26 @@
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="200" />
-                  <ColumnDefinition Width="260" />
-                  <ColumnDefinition Width="40" />
+                  <ColumnDefinition Width="150" />
+                  <ColumnDefinition Width="70" />
                   <ColumnDefinition Width="200" />
-                  <ColumnDefinition Width="260" />
+                  <ColumnDefinition Width="150" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="冲程压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="停机比例设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="ShutdownRatioBox_PreviewTextInput" LostFocus="ShutdownRatioBox_LostFocus" />
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="1" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="1" Grid.Column="5" Text="mm/s" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,16,0,10" HorizontalAlignment="Center" Click="WriteRecipe_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Calendar2PlusFill" Width="20" Height="20" Margin="0,0,8,0" />
