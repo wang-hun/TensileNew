@@ -82,13 +82,15 @@
       <Setter Property="FontSize" Value="18" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="Margin" Value="0,0,4,0" />
     </Style>
     <Style x:Key="MetricUnitStyle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#696969" />
       <Setter Property="FontSize" Value="14" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
     <Style x:Key="StatusIconStyle" TargetType="iconPacks:PackIconBootstrapIcons">
@@ -404,7 +406,7 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="(10ms)" />
                 </Grid>
                 <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="停机比例设定" />
-                <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" Margin="0,0,8,0" />
                 <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="速度设定" />
                 <Grid Grid.Row="5" Grid.Column="1">
                   <Grid.ColumnDefinitions>
@@ -427,12 +429,17 @@
           <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="1">
             <Grid>
               <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
-              <Button x:Name="ChartHintButton" Width="31.5" Height="31.5" Margin="0,8,8,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="显示/隐藏曲线图操作提示" Click="ChartHintButton_Click">
+              <Button x:Name="ChartHintButton" Width="31.5" Height="31.5" Margin="0,2.75,8,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="显示/隐藏曲线图操作提示" Click="ChartHintButton_Click">
                 <iconPacks:PackIconBootstrapIcons Kind="InfoCircle" Width="24" Height="24" Foreground="#1677FF" />
               </Button>
               <Border x:Name="ChartHintPanel" Width="520" Margin="0,56,8,0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="10" Background="#F7FBFF" BorderBrush="#9EC5FE" BorderThickness="1" CornerRadius="4">
                 <Grid>
-                  <TextBlock Margin="18,14,46,14" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap" Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。&#xA;鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。&#xA;在曲线图上点击鼠标右键查看更多功能。" />
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                  <TextBlock Margin="18,14,46,8" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap" Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。&#xA;鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。&#xA;在曲线图上点击鼠标右键查看更多功能。" />
+                  <CheckBox Grid.Row="1" Content="下次启动后不再自动显示。" IsChecked="{Binding Setting.HideChartHintOnStartup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Right" Margin="18,0,16,12" FontSize="14" Checked="ChartHintStartupCheckBox_Changed" Unchecked="ChartHintStartupCheckBox_Changed" />
                   <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort" Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="#1677FF" />
                 </Grid>
               </Border>
@@ -508,12 +515,15 @@
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <Button Grid.Column="1" Style="{StaticResource HoldActionButtonStyle}" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconBootstrapIcons Kind="ChevronBarExpand" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                  <TextBlock Text="冲程压边" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                </StackPanel>
-              </Button>
+              <StackPanel Grid.Column="1">
+                <Button Style="{StaticResource HoldActionButtonStyle}" Foreground="White" PreviewMouseDown="ClosePress_Down" PreviewMouseUp="ClosePress_Up">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <iconPacks:PackIconBootstrapIcons Kind="ChevronBarExpand" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="White" />
+                    <TextBlock Text="冲程压边" VerticalAlignment="Center" Foreground="White" />
+                  </StackPanel>
+                </Button>
+                <TextBlock Text="松开停止" Margin="0,3,0,0" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
+              </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="1" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
@@ -624,12 +634,12 @@
         <!-- Right: settings content -->
         <Grid Grid.Column="1" Margin="10">
           <Grid.RowDefinitions>
-            <RowDefinition Height="30*" />
-            <RowDefinition Height="45*" />
-            <RowDefinition Height="25*" />
+            <RowDefinition Height="4*" />
+            <RowDefinition Height="5*" />
+            <RowDefinition Height="3*" />
           </Grid.RowDefinitions>
           <!-- 系统设置 -->
-          <Border Grid.Row="0" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+          <Border Grid.Row="0" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -640,24 +650,30 @@
               </Border>
               <Grid Grid.Row="1" Margin="30,10">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="*" />
+                  <RowDefinition Height="42" />
+                  <RowDefinition Height="14" />
+                  <RowDefinition Height="42" />
                   <RowDefinition Height="*" />
                   <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="90" />
-                  <ColumnDefinition Width="220" />
-                  <ColumnDefinition Width="120" />
-                  <ColumnDefinition Width="260" />
+                  <ColumnDefinition Width="200" />
+                  <ColumnDefinition Width="150" />
+                  <ColumnDefinition Width="70" />
+                  <ColumnDefinition Width="200" />
+                  <ColumnDefinition Width="42" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="联机IP" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" Width="160" HorizontalAlignment="Left" Margin="0,1" />
-                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,16,0,10" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <Button Grid.Row="0" Grid.Column="4" Width="30" Height="30" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Click="BrowseExcelFolder_Click">
+                  <iconPacks:PackIconBootstrapIcons Kind="FolderFill" Width="20" Height="20" Foreground="#1677FF" />
+                </Button>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1" />
+                <TextBox Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="72,1,0,1" />
+                <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,10,0,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Floppy2Fill" Width="20" Height="20" Margin="0,0,8,0" />
                     <TextBlock Text="保存系统参数" VerticalAlignment="Center" />
@@ -667,7 +683,7 @@
             </Grid>
           </Border>
           <!-- 试验参数 -->
-          <Border Grid.Row="1" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+          <Border Grid.Row="1" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -676,10 +692,13 @@
               <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="试验参数" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,10">
+              <Grid Grid.Row="1" Margin="30,6">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="*" />
-                  <RowDefinition Height="*" />
+                  <RowDefinition Height="34" />
+                  <RowDefinition Height="8" />
+                  <RowDefinition Height="34" />
+                  <RowDefinition Height="8" />
+                  <RowDefinition Height="34" />
                   <RowDefinition Height="*" />
                   <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -696,16 +715,16 @@
                 <TextBlock Grid.Row="0" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="停机比例设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="ShutdownRatioBox_PreviewTextInput" LostFocus="ShutdownRatioBox_LostFocus" />
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
-                <TextBlock Grid.Row="1" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                <TextBlock Grid.Row="1" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
-                <TextBlock Grid.Row="1" Grid.Column="5" Text="mm/s" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,16,0,10" HorizontalAlignment="Center" Click="WriteRecipe_Click">
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBlock Grid.Row="2" Grid.Column="5" Text="mm/s" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,24,0,4" HorizontalAlignment="Center" VerticalAlignment="Top" Click="WriteRecipe_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Calendar2PlusFill" Width="20" Height="20" Margin="0,0,8,0" />
                     <TextBlock Text="写入配方参数" VerticalAlignment="Center" />
@@ -715,7 +734,7 @@
             </Grid>
           </Border>
           <!-- 标定 -->
-          <Border Grid.Row="2" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+          <Border Grid.Row="2" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -724,16 +743,25 @@
               <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="标定" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Button Style="{StaticResource ButtonPrimary}" Width="210" Height="54" FontSize="16" Margin="12" Click="Calibration_Click">
+              <Grid Grid.Row="1" Margin="30,10">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="*" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="24" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Button Grid.Row="1" Style="{StaticResource ButtonPrimary}" Width="220" Height="48" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Click="Calibration_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Disc" Width="20" Height="20" Margin="0,0,8,0" />
                     <TextBlock Text="开始传感器归零" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="标定状态" FontSize="16" VerticalAlignment="Center" Margin="20,0,10,0" />
-                <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue}" />
-              </StackPanel>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <TextBlock Text="标定状态" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" />
+                  <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue}" />
+                </StackPanel>
+              </Grid>
             </Grid>
           </Border>
         </Grid>

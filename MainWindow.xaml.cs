@@ -72,6 +72,9 @@ public partial class MainWindow : Window
     {
         Logger.Info("启动程序");
         InitializePlot();
+        ChartHintPanel.Visibility = _viewModel.Setting.HideChartHintOnStartup
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         DataAqc.LoadDataChanged += _ => Dispatcher.Invoke(RefreshPlot);
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
         DataAqc.Refresh(Dispatcher);
@@ -254,6 +257,11 @@ public partial class MainWindow : Window
             : Visibility.Visible;
     }
 
+    private void ChartHintStartupCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SaveSettings();
+    }
+
     private void LogoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _logoClickCount++;
@@ -348,6 +356,25 @@ public partial class MainWindow : Window
     {
         _viewModel.SaveSettingsAndApplyLanguage();
         ShowSuccess("保存成功");
+    }
+
+    private void BrowseExcelFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "选择Excel保存路径"
+        };
+        if (System.IO.Directory.Exists(_viewModel.Setting.ExcelFolderPath))
+        {
+            dialog.InitialDirectory = _viewModel.Setting.ExcelFolderPath;
+        }
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _viewModel.Setting.ExcelFolderPath = dialog.FolderName;
     }
 
     private void OpenVariablesWindow_Click(object sender, RoutedEventArgs e)

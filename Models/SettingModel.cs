@@ -51,6 +51,13 @@ namespace TensileNeW.Models
             set => SetProperty(ref _Language, value);
         }
 
+        private bool _HideChartHintOnStartup;
+        public bool HideChartHintOnStartup
+        {
+            get => _HideChartHintOnStartup;
+            set => SetProperty(ref _HideChartHintOnStartup, value);
+        }
+
     }
 
 
