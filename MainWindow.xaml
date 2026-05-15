@@ -159,7 +159,7 @@
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="160" />
               <ColumnDefinition Width="112" />
-              <ColumnDefinition Width="64" />
+              <ColumnDefinition Width="160" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -185,33 +185,49 @@
                 <TextBlock Text="重新连接" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <TextBlock Grid.Column="5" Text="联机状态" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Right" />
-            <Grid Grid.Column="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="36" Height="36" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
-                <iconPacks:PackIconVaadinIcons.Style>
-                  <Style TargetType="iconPacks:PackIconVaadinIcons">
-                    <Setter Property="Visibility" Value="Collapsed" />
+            <TextBlock Grid.Column="5" Text="联机状态" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+            <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Grid Width="36" Height="36">
+                <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="36" Height="36" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+                  <iconPacks:PackIconVaadinIcons.Style>
+                    <Style TargetType="iconPacks:PackIconVaadinIcons">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
+                          <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </iconPacks:PackIconVaadinIcons.Style>
+                </iconPacks:PackIconVaadinIcons>
+                <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="36" Height="36" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+                  <iconPacks:PackIconPhosphorIcons.Style>
+                    <Style TargetType="iconPacks:PackIconPhosphorIcons">
+                      <Setter Property="Visibility" Value="Visible" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </iconPacks:PackIconPhosphorIcons.Style>
+                </iconPacks:PackIconPhosphorIcons>
+              </Grid>
+              <TextBlock Margin="8,0,16,0" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Text" Value="连接失败" />
+                    <Setter Property="Foreground" Value="#E03131" />
                     <Style.Triggers>
-                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
-                        <Setter Property="Visibility" Value="Visible" />
+                      <DataTrigger Binding="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}" Value="true">
+                        <Setter Property="Text" Value="已连接" />
+                        <Setter Property="Foreground" Value="#2FB344" />
                       </DataTrigger>
                     </Style.Triggers>
                   </Style>
-                </iconPacks:PackIconVaadinIcons.Style>
-              </iconPacks:PackIconVaadinIcons>
-              <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="36" Height="36" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
-                <iconPacks:PackIconPhosphorIcons.Style>
-                  <Style TargetType="iconPacks:PackIconPhosphorIcons">
-                    <Setter Property="Visibility" Value="Visible" />
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="true">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </iconPacks:PackIconPhosphorIcons.Style>
-              </iconPacks:PackIconPhosphorIcons>
-            </Grid>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
           </Grid>
         </Grid>
       </Border>
