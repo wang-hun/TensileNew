@@ -35,6 +35,10 @@ public partial class MainWindow : Window
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
     private VariableWindow? _variableWindow;
+    private readonly List<double> _plotXs = [];
+    private readonly List<double> _plotYs = [];
+    private ScottPlot.Plottables.Scatter? _loadScatter;
+    private int _plottedPointCount;
     private bool _plotInitialized;
     private int _logoClickCount;
 
@@ -106,7 +110,6 @@ public partial class MainWindow : Window
         }
         ApplyPlotLabels();
         LocalizePlotContextMenu();
-        LoadPlot.Plot.Axes.AutoScale();
         LoadPlot.Refresh();
         _plotInitialized = true;
     }
@@ -114,6 +117,10 @@ public partial class MainWindow : Window
     private void ResetPlot()
     {
         LoadPlot.Plot.Clear();
+        _plotXs.Clear();
+        _plotYs.Clear();
+        _loadScatter = null;
+        _plottedPointCount = 0;
         ApplyPlotLabels();
         LoadPlot.Refresh();
     }
@@ -125,15 +132,31 @@ public partial class MainWindow : Window
             InitializePlot();
         }
 
-        var items = (DataAqc.loadModels ?? []).TakeLast(50000).ToList();
-        LoadPlot.Plot.Clear();
-        if (items.Count > 0)
+        var items = DataAqc.loadModels;
+        if (items == null)
         {
-            double[] xs = items.Select(x => (double)x.RealDistance).ToArray();
-            double[] ys = items.Select(x => (double)x.RealForce).ToArray();
-            LoadPlot.Plot.Add.Scatter(xs, ys);
-            LoadPlot.Plot.Axes.AutoScale();
+            return;
         }
+
+        if (items.Count < _plottedPointCount)
+        {
+            ResetPlot();
+        }
+
+        while (_plottedPointCount < items.Count)
+        {
+            var item = items[_plottedPointCount];
+            _plotXs.Add(item.RealDistance);
+            _plotYs.Add(item.RealForce);
+            _plottedPointCount++;
+        }
+
+        if (_loadScatter == null && _plotXs.Count > 0)
+        {
+            _loadScatter = LoadPlot.Plot.Add.Scatter(_plotXs, _plotYs);
+            _loadScatter.Smooth = true;
+        }
+
         ApplyPlotLabels();
         LoadPlot.Refresh();
     }
