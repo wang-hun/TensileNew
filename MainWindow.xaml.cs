@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
     private VariableWindow? _variableWindow;
+    private LoadDataWindow? _loadDataWindow;
     private readonly List<double> _plotXs = [];
     private readonly List<double> _plotYs = [];
     private ScottPlot.Plottables.Scatter? _loadScatter;
@@ -97,6 +98,7 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _variableWindow?.Close();
+        _loadDataWindow?.Close();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         Logger.Info("关闭程序");
@@ -337,6 +339,24 @@ public partial class MainWindow : Window
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
     private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
+
+    private void OpenLoadDataWindow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loadDataWindow is { IsVisible: true })
+        {
+            _loadDataWindow.Activate();
+            return;
+        }
+
+        _loadDataWindow = new LoadDataWindow
+        {
+            Owner = this,
+            DataContext = _viewModel
+        };
+        _loadDataWindow.Closed += (_, _) => _loadDataWindow = null;
+        _loadDataWindow.Show();
+    }
+
     private void AddRecipe_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new RecipeNameDialog();
