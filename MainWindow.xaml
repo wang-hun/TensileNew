@@ -124,13 +124,13 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style x:Key="HoldActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-      <Setter Property="Background" Value="#F2C94C" />
-      <Setter Property="BorderBrush" Value="#D8A900" />
-      <Setter Property="Foreground" Value="#2B2B2B" />
+      <Setter Property="Background" Value="#D97706" />
+      <Setter Property="BorderBrush" Value="#B45309" />
+      <Setter Property="Foreground" Value="White" />
       <Style.Triggers>
         <Trigger Property="IsPressed" Value="True">
-          <Setter Property="Background" Value="#B8860B" />
-          <Setter Property="BorderBrush" Value="#8A6508" />
+          <Setter Property="Background" Value="#B45309" />
+          <Setter Property="BorderBrush" Value="#92400E" />
           <Setter Property="Foreground" Value="White" />
         </Trigger>
       </Style.Triggers>
