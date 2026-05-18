@@ -480,7 +480,7 @@
               </Border>
             </Grid>
           </Border>
-          <Grid Grid.Row="1" Background="White" Margin="8,10">
+          <Grid Grid.Row="1" Background="White" Margin="4,6">
             <Grid.RowDefinitions>
               <RowDefinition Height="*" />
               <RowDefinition Height="24" />
@@ -644,7 +644,7 @@
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <!-- Left: recipe list -->
-        <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="4">
+        <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="1">
           <Grid>
             <Grid.RowDefinitions>
               <RowDefinition Height="68" />
@@ -672,7 +672,7 @@
           </Grid>
         </Border>
         <!-- Right: settings content -->
-        <Grid Grid.Column="1" Margin="10">
+        <Grid Grid.Column="1" Margin="1">
           <Grid.RowDefinitions>
             <RowDefinition Height="4*" />
             <RowDefinition Height="5*" />
