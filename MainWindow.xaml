@@ -463,7 +463,7 @@
             <Grid>
               <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
               <CheckBox x:Name="AutoTrackLatestPointCheckBox"
-                        Content="自动跟踪最新点"
+                        Content="自动播放曲线图"
                         IsChecked="True"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
@@ -639,18 +639,33 @@
             <RowDefinition Height="98" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30,10">
-            <Button Style="{StaticResource ActionButtonStyle}" Width="220" FontSize="22" Click="SaveData_Click">
+          <Grid Margin="30,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="24" Height="24" Margin="0,0,8,0" />
-                <TextBlock Text="保存数据" VerticalAlignment="Center" />
+                <Button Style="{StaticResource ActionButtonStyle}" Width="220" FontSize="22" Click="SaveData_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="24" Height="24" Margin="0,0,8,0" />
+                    <TextBlock Text="保存数据" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Width="44" Height="44" Margin="8,0,0,0" Padding="0" Background="White" BorderBrush="#1677FF" BorderThickness="1" ToolTip="新窗口打开" Click="OpenLoadDataWindow_Click">
+                  <iconPacks:PackIconPhosphorIcons Kind="ArrowSquareOutBold" Width="24" Height="24" Foreground="#1677FF" />
+                </Button>
               </StackPanel>
-            </Button>
-            <Button Width="44" Height="44" Margin="8,0,0,0" Padding="0" Background="White" BorderBrush="#1677FF" BorderThickness="1" ToolTip="新窗口打开" Click="OpenLoadDataWindow_Click">
-              <iconPacks:PackIconPhosphorIcons Kind="ArrowSquareOutBold" Width="24" Height="24" Foreground="#1677FF" />
-            </Button>
-          </StackPanel>
-          <DataGrid Grid.Row="1" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0">
+              <CheckBox x:Name="MainLoadDataAutoScrollCheckBox"
+                        IsChecked="True"
+                        HorizontalAlignment="Center"
+                        Margin="0,8,0,0"
+                        Content="自动滚动到最新行"
+                        ToolTip="自动滚动到最新行" />
+            </StackPanel>
+          </Grid>
+          <DataGrid x:Name="MainLoadDataGrid" Grid.Row="1" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0">
             <DataGrid.Columns>
               <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="1.5*" />
               <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="2*" />

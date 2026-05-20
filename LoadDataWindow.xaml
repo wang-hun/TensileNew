@@ -21,14 +21,18 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
-                <TextBlock Text="数据表格"
-                           Foreground="#404040"
-                           FontSize="18"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
+                <Grid>
+                    <CheckBox x:Name="LoadDataAutoScrollCheckBox" Content="自动滚动到最新行" IsChecked="True" FontSize="14" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock Text="数据表格"
+                               Foreground="#404040"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
             </Border>
-            <DataGrid Grid.Row="1"
+            <DataGrid x:Name="LoadDataGrid"
+                      Grid.Row="1"
                       ItemsSource="{Binding LoadItems}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"

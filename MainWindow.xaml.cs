@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private bool _plotInitialized;
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
+    private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
+    private int _pendingLoadScrollIndex = -1;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -72,6 +74,15 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(200)
+        };
+        _loadScrollTimer.Tick += (_, _) =>
+        {
+            _loadScrollTimer.Stop();
+            ScrollMainLoadDataToLatest();
+        };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -83,6 +94,7 @@ public partial class MainWindow : Window
             : Visibility.Visible;
         DataAqc.LoadDataChanged += _ => Dispatcher.Invoke(RefreshPlot);
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
+        _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
 
@@ -100,6 +112,7 @@ public partial class MainWindow : Window
     {
         _variableWindow?.Close();
         _loadDataWindow?.Close();
+        _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         Logger.Info("关闭程序");
@@ -166,23 +179,13 @@ public partial class MainWindow : Window
         if (_autoTrackLatestPoint && _plotXs.Count > 0)
         {
             double xSpan = limits.Right - limits.Left;
-            double ySpan = limits.Top - limits.Bottom;
             if (xSpan <= 0)
             {
                 xSpan = Math.Max(1, _plotXs.Max() - _plotXs.Min());
             }
-            if (ySpan <= 0)
-            {
-                ySpan = Math.Max(1, _plotYs.Max() - _plotYs.Min());
-            }
 
             double latestX = _plotXs[^1];
-            double latestY = _plotYs[^1];
-            LoadPlot.Plot.Axes.SetLimits(latestX - xSpan, latestX, latestY - ySpan / 2, latestY + ySpan / 2);
-        }
-        else
-        {
-            LoadPlot.Plot.Axes.SetLimits(limits);
+            LoadPlot.Plot.Axes.SetLimits(latestX - xSpan, latestX, limits.Bottom, limits.Top);
         }
         LoadPlot.Refresh();
     }
@@ -314,6 +317,33 @@ public partial class MainWindow : Window
     private void AutoTrackLatestPointCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         _autoTrackLatestPoint = AutoTrackLatestPointCheckBox.IsChecked == true;
+    }
+
+    private void LoadItems_ListChanged(object? sender, ListChangedEventArgs e)
+    {
+        if (MainLoadDataAutoScrollCheckBox.IsChecked != true ||
+            e.ListChangedType != ListChangedType.ItemAdded ||
+            e.NewIndex < 0)
+        {
+            return;
+        }
+
+        _pendingLoadScrollIndex = e.NewIndex;
+        if (!_loadScrollTimer.IsEnabled)
+        {
+            _loadScrollTimer.Start();
+        }
+    }
+
+    private void ScrollMainLoadDataToLatest()
+    {
+        if (_pendingLoadScrollIndex < 0 || _pendingLoadScrollIndex >= _viewModel.LoadItems.Count)
+        {
+            return;
+        }
+
+        MainLoadDataGrid.ScrollIntoView(_viewModel.LoadItems[_pendingLoadScrollIndex]);
+        _pendingLoadScrollIndex = -1;
     }
 
     private void LogoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
