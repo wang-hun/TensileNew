@@ -1,3 +1,4 @@
+using System;
 using HandyControl.Controls;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,7 +8,7 @@ namespace TensileNeW;
 
 public partial class SettingsPinDialog : UserControl
 {
-    private const string SettingsPassword = "JG123";
+    private const string SettingsPassword = "GB123";
 
     public event EventHandler? Unlocked;
 
@@ -19,7 +20,7 @@ public partial class SettingsPinDialog : UserControl
 
     private void PinBox_OnCompleted(object sender, RoutedEventArgs e)
     {
-        if (PinBox.UnsafePassword != SettingsPassword)
+        if (!string.Equals(PinBox.UnsafePassword, SettingsPassword, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
