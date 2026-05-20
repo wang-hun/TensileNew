@@ -11,6 +11,16 @@ internal static class Program
     {
         try
         {
+            if (args.Length == 0)
+            {
+                string defaultProjectPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "TensileNeW.csproj"));
+                string defaultConfiguration = GetConfigurationFromBaseDirectory();
+                string defaultOutputRoot = Path.Combine(AppContext.BaseDirectory, "publish");
+
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot);
+                return 0;
+            }
+
             if (args.Length > 0 && args[0].Equals("pack", StringComparison.OrdinalIgnoreCase))
             {
                 if (args.Length < 4)
@@ -33,6 +43,21 @@ internal static class Program
         }
     }
 
+    private static string GetConfigurationFromBaseDirectory()
+    {
+        DirectoryInfo? directory = Directory.GetParent(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (directory?.Parent is not null)
+        {
+            string name = directory.Parent.Name;
+            if (name.Equals("Debug", StringComparison.OrdinalIgnoreCase) || name.Equals("Release", StringComparison.OrdinalIgnoreCase))
+            {
+                return name;
+            }
+        }
+
+        return "Debug";
+    }
+
     private static void PackageExternalProject(string projectPath, string configuration, string outputRoot)
     {
         projectPath = Path.GetFullPath(projectPath);
@@ -45,11 +70,20 @@ internal static class Program
 
         string assemblyName = GetAssemblyName(projectPath);
         string packageDirectory = Path.Combine(outputRoot, assemblyName);
+        string projectName = Path.GetFileNameWithoutExtension(projectPath);
         string? builderOutputDirectory = Directory.GetParent(outputRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))?.FullName;
 
         if (!string.IsNullOrWhiteSpace(builderOutputDirectory))
         {
             CleanStaleRootOutput(builderOutputDirectory, assemblyName);
+        }
+
+        DeleteDirectoryIfExists(outputRoot);
+        Directory.CreateDirectory(outputRoot);
+
+        if (!projectName.Equals(assemblyName, StringComparison.OrdinalIgnoreCase))
+        {
+            DeleteDirectoryIfExists(Path.Combine(outputRoot, projectName));
         }
 
         if (Directory.Exists(packageDirectory))
