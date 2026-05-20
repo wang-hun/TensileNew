@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using TensileNeW.Models;
@@ -8,6 +10,11 @@ namespace TensileNeW;
 
 public partial class App : Application
 {
+    static App()
+    {
+        AppDomain.CurrentDomain.AssemblyResolve += ResolveAssemblyFromLib;
+    }
+
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -75,5 +82,17 @@ public partial class App : Application
         {
             return false;
         }
+    }
+
+    private static Assembly? ResolveAssemblyFromLib(object? sender, ResolveEventArgs args)
+    {
+        string? assemblyName = new AssemblyName(args.Name).Name;
+        if (string.IsNullOrWhiteSpace(assemblyName))
+        {
+            return null;
+        }
+
+        string libPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lib", assemblyName + ".dll");
+        return File.Exists(libPath) ? Assembly.LoadFrom(libPath) : null;
     }
 }
