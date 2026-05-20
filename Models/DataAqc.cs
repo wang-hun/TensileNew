@@ -76,7 +76,7 @@ namespace TensileNeW.Models
                 //M30 冲程压边 布尔
                 //M80 压边  布尔
                 //M10 压边释放 布尔
-                //M2  拉伸  布尔
+                //M50 拉伸  布尔
                 //M30 拉伸释放 布尔
                 //M9  停止  布尔
 
@@ -98,7 +98,7 @@ namespace TensileNeW.Models
 
 
                 PLCVariables.Add(new PLCVariable { Name = "压边释放", Address = "M1", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸", Address = "M2", DataType = "Boolean" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸", Address = "M50", DataType = "Boolean" });
                 PLCVariables.Add(new PLCVariable { Name = "拉伸释放", Address = "M3", DataType = "Boolean" });
                 PLCVariables.Add(new PLCVariable { Name = "停止", Address = "M9", DataType = "Boolean" });
                 PLCVariables.Add(new PLCVariable { Name = "数据重置", Address = "M10", DataType = "Boolean" });
@@ -215,7 +215,7 @@ namespace TensileNeW.Models
                             var d249FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D249").HexAddress));
                             var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
                             var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
-                            var m2bValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
+                            var mBoolValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
                             var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
 
                             dispatcher.Invoke(() =>
@@ -241,17 +241,17 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
                                 PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
 
-                                PLCVariables.First(t => t.Name == "压边释放").CurrentValue = m2bValue[0].ToString();
-                                PLCVariables.First(t => t.Name == "拉伸").CurrentValue = m2bValue[1].ToString();
-                                PLCVariables.First(t => t.Name == "拉伸释放").CurrentValue = m2bValue[2].ToString();
-                                PLCVariables.First(t => t.Name == "停止").CurrentValue = m2bValue[8].ToString();
-                                PLCVariables.First(t => t.Name == "数据重置").CurrentValue = m2bValue[9].ToString();
-                                PLCVariables.First(t => t.Name == "冲程压边").CurrentValue = m2bValue[29].ToString();
-                                PLCVariables.First(t => t.Name == "传感器标零").CurrentValue = m2bValue[59].ToString();
-                                PLCVariables.First(t => t.Name == "传感器标零状态").CurrentValue = m2bValue[60].ToString();
-                                PLCVariables.First(t => t.Name == "弹料").CurrentValue = m2bValue[69].ToString();
-                                PLCVariables.First(t => t.Name == "压边").CurrentValue = m2bValue[79].ToString();
-                                PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = m2bValue[36].ToString();
+                                PLCVariables.First(t => t.Name == "压边释放").CurrentValue = mBoolValue[0].ToString();
+                                PLCVariables.First(t => t.Name == "拉伸").CurrentValue = mBoolValue[49].ToString();
+                                PLCVariables.First(t => t.Name == "拉伸释放").CurrentValue = mBoolValue[2].ToString();
+                                PLCVariables.First(t => t.Name == "停止").CurrentValue = mBoolValue[8].ToString();
+                                PLCVariables.First(t => t.Name == "数据重置").CurrentValue = mBoolValue[9].ToString();
+                                PLCVariables.First(t => t.Name == "冲程压边").CurrentValue = mBoolValue[29].ToString();
+                                PLCVariables.First(t => t.Name == "传感器标零").CurrentValue = mBoolValue[59].ToString();
+                                PLCVariables.First(t => t.Name == "传感器标零状态").CurrentValue = mBoolValue[60].ToString();
+                                PLCVariables.First(t => t.Name == "弹料").CurrentValue = mBoolValue[69].ToString();
+                                PLCVariables.First(t => t.Name == "压边").CurrentValue = mBoolValue[79].ToString();
+                                PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = mBoolValue[36].ToString();
 
                                 PLCVariables.First(t => t.Name == "拉伸线圈").CurrentValue = y4Value[0].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸释放线圈").CurrentValue = y4Value[1].ToString();
@@ -259,21 +259,21 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = y4Value[3].ToString();
 
                                 #region 数据重置触发
-                                if (m2bValue[9] && dataResetFlag == false)
+                                if (mBoolValue[9] && dataResetFlag == false)
                                 {
                                     dataResetFlag = true;
                                     loadModels?.Clear();
                                     ChartCleared?.Invoke();
                                 }
 
-                                if (dataResetFlag && m2bValue[9] == false)
+                                if (dataResetFlag && mBoolValue[9] == false)
                                 {
                                     dataResetFlag = false;
                                 }
                                 #endregion
 
 
-                                if (m2bValue[36] && beginScan == false)
+                                if (mBoolValue[36] && beginScan == false)
                                 {
                                     temp = 0;
                                     beginScan = true;
@@ -297,7 +297,7 @@ namespace TensileNeW.Models
                                     });
                                 }
 
-                                if (beginScan && m2bValue[36] == false)
+                                if (beginScan && mBoolValue[36] == false)
                                 {
                                     beginScan = false;
                                 }
