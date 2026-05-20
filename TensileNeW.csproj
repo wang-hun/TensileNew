@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="builder\**" />
+    <EmbeddedResource Remove="builder\**" />
+    <None Remove="builder\**" />
+    <Page Remove="builder\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Tools\DeltaPlcController .cs" />
     <Compile Remove="Tools\Converter\BindingHelper.cs" />
     <Compile Remove="Tools\Converter\IValueConverter.cs" />
