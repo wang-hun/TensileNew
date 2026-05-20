@@ -467,7 +467,7 @@
                         IsChecked="True"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
-                        Margin="16,12,0,0"
+                        Margin="48,12,0,0"
                         Panel.ZIndex="20"
                         FontSize="14"
                         Foreground="#404040"
