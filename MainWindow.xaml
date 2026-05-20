@@ -42,6 +42,19 @@
       <Setter Property="FontSize" Value="18" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
+    <Style x:Key="IndicatorActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+      <Setter Property="Background" Value="#0F4C97" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#0F4C97" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+          <Setter Property="Background" Value="#1677FF" />
+          <Setter Property="Foreground" Value="White" />
+          <Setter Property="BorderBrush" Value="#1677FF" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="DeleteRecipeButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonDanger}">
       <Setter Property="IsEnabled" Value="True" />
       <Style.Triggers>
@@ -268,7 +281,7 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="当前配方：" FontSize="15" Foreground="#404040" VerticalAlignment="Center" Margin="18,0,8,0" />
+                <TextBlock Text="当前配置：" FontSize="15" Foreground="#404040" VerticalAlignment="Center" Margin="18,0,8,0" />
                 <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" Margin="4,0" />
               </Grid>
               <!-- real-time readouts -->
@@ -373,7 +386,7 @@
                 </Grid>
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="3">
+              <Grid Grid.Row="3" Margin="0,100,0,0">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
@@ -498,7 +511,7 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="StartPress_Click">
+              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue}" Click="StartPress_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconCodicons Kind="RepoPush" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="压边" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -511,7 +524,7 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="ReleasePress_Click">
+              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue}" Click="ReleasePress_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconCodicons Kind="RepoFetch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="释放压边" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -524,7 +537,7 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="StartTensile_Click">
+              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue}" Click="StartTensile_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconFontAwesome6 Kind="UpRightAndDownLeftFromCenterSolid" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="启动拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -537,7 +550,7 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="ReleaseTensile_Click">
+              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" Click="ReleaseTensile_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconBoxIcons Kind="RegularChevronsRightLeft" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="释放拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -590,7 +603,7 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.TanliaoVariable}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" PreviewMouseDown="Tanliao_Down" PreviewMouseUp="Tanliao_Up">
+              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.TanliaoVariable}, Path=CurrentValue}" PreviewMouseDown="Tanliao_Down" PreviewMouseUp="Tanliao_Up">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconBoxIcons2 Kind="SolidArchiveOut" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="弹料" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -620,7 +633,7 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="70" />
               <DataGridTextColumn Header="位移" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="80" />
-              <DataGridTextColumn Header="载荷" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="80" />
+              <DataGridTextColumn Header="力" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="80" />
               <DataGridTextColumn Header="压边" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="80" />
               <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="*" />
             </DataGrid.Columns>
@@ -767,7 +780,7 @@
                 <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,24,0,4" HorizontalAlignment="Center" VerticalAlignment="Top" Click="WriteRecipe_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Calendar2PlusFill" Width="20" Height="20" Margin="0,0,8,0" />
-                    <TextBlock Text="写入配方参数" VerticalAlignment="Center" />
+                    <TextBlock Text="写入配置参数" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
               </Grid>

@@ -165,9 +165,9 @@ public partial class MainWindow : Window
 
     private void ApplyPlotLabels()
     {
-        LoadPlot.Plot.Title("载荷位移数据", 30);
+        LoadPlot.Plot.Title("力位移数据", 30);
         LoadPlot.Plot.XLabel("位移", 30);
-        LoadPlot.Plot.YLabel("载荷", 30);
+        LoadPlot.Plot.YLabel("力", 30);
         LoadPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 22;
         LoadPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 22;
         LoadPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
@@ -326,11 +326,11 @@ public partial class MainWindow : Window
         bool ok = await _viewModel.WriteRecipeAsync();
         if (ok)
         {
-            ShowSuccess("写入配方参数完成");
+            ShowSuccess("写入配置参数完成");
         }
         else
         {
-            ShowError("写入配方参数失败，请检查连接");
+            ShowError("写入配置参数失败，请检查连接");
         }
     }
     private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", true);
