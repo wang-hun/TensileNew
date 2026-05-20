@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private VariableWindow? _variableWindow;
     private LoadDataWindow? _loadDataWindow;
+    private PlotWindow? _plotWindow;
     private readonly List<double> _plotXs = [];
     private readonly List<double> _plotYs = [];
     private ScottPlot.Plottables.Scatter? _loadScatter;
@@ -112,6 +113,7 @@ public partial class MainWindow : Window
     {
         _variableWindow?.Close();
         _loadDataWindow?.Close();
+        _plotWindow?.Close();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
@@ -204,14 +206,10 @@ public partial class MainWindow : Window
 
     private void LocalizePlotContextMenu()
     {
-        if (string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
         var menu = LoadPlot.Menu;
         if (menu == null) return;
 
+        bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);
         var items = menu.ContextMenuItems;
         for (int i = 0; i < items.Count; i++)
         {
@@ -219,23 +217,52 @@ public partial class MainWindow : Window
             switch (item.Label)
             {
                 case "Save Image":
-                    item.Label = "保存图片";
+                    if (!isEn)
+                    {
+                        item.Label = "保存图片";
+                    }
                     items[i] = item;
                     break;
                 case "Copy to Clipboard":
-                    item.Label = "复制到剪贴板";
+                    if (!isEn)
+                    {
+                        item.Label = "复制到剪贴板";
+                    }
                     items[i] = item;
                     break;
                 case "Autoscale":
-                    item.Label = "自动缩放";
+                    if (!isEn)
+                    {
+                        item.Label = "自动缩放";
+                    }
                     items[i] = item;
                     break;
                 case "Open in New Window":
-                    item.Label = "新窗口打开";
+                    if (!isEn)
+                    {
+                        item.Label = "新窗口打开";
+                    }
+                    item.OnInvoke = _ => OpenPlotWindow();
                     items[i] = item;
                     break;
             }
         }
+    }
+
+    private void OpenPlotWindow()
+    {
+        if (_plotWindow is { IsVisible: true })
+        {
+            _plotWindow.Activate();
+            return;
+        }
+
+        _plotWindow = new PlotWindow(() => _autoTrackLatestPoint)
+        {
+            Owner = this
+        };
+        _plotWindow.Closed += (_, _) => _plotWindow = null;
+        _plotWindow.Show();
     }
 
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
