@@ -21,6 +21,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly Dictionary<string, PLCVariable> _variables;
     private readonly string _startupLanguage;
     private string _currentPage = "Home";
+    private string _trialSerialNumber = SNModel.GetSn();
     private RecipeModel? _selectedRecipe;
 
     public event Action<string>? RecipeWritten;
@@ -37,7 +38,7 @@ public sealed class MainViewModel : ObservableObject
         _startupLanguage = RAM.SettingModel.Language;
 
         SNModel.LoadSN();
-        CurrentSn = SNModel.GetSn();
+        _trialSerialNumber = SNModel.GetSn();
 
         DataAqc.LoadDataChanged += _ => OnPropertyChanged(nameof(ChartPolylinePoints));
         DataAqc.ChartCleared += () => OnPropertyChanged(nameof(ChartPolylinePoints));
@@ -75,7 +76,24 @@ public sealed class MainViewModel : ObservableObject
         set => SetProperty(ref _currentPage, value);
     }
 
-    public string CurrentSn { get; private set; }
+    public string TrialSerialNumber
+    {
+        get => _trialSerialNumber;
+        set
+        {
+            if (!SetProperty(ref _trialSerialNumber, value))
+            {
+                return;
+            }
+
+            if (int.TryParse(value, out int sn) && sn > 0)
+            {
+                SNModel.SN = sn;
+            }
+        }
+    }
+
+    public string CurrentSn => SNModel.GetSn();
 
     public RecipeModel? SelectedRecipe
     {
@@ -291,8 +309,8 @@ public sealed class MainViewModel : ObservableObject
             .SaveToFile(dialog.FileName);
 
         SNModel.WriteSN();
-        CurrentSn = SNModel.GetSn();
         OnPropertyChanged(nameof(CurrentSn));
+        TrialSerialNumber = SNModel.GetSn();
     }
 
     public static void StopConsumers()

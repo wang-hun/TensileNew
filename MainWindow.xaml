@@ -268,6 +268,7 @@
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
                 <RowDefinition Height="60" />
+                <RowDefinition Height="60" />
                 <RowDefinition Height="3*" />
                 <RowDefinition Height="1*" />
                 <RowDefinition Height="2*" />
@@ -285,8 +286,16 @@
                 <TextBlock Text="当前配置：" FontSize="15" Foreground="#404040" VerticalAlignment="Center" Margin="18,0,8,0" />
                 <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" Margin="4,0" />
               </Grid>
+              <Grid Grid.Row="2" Margin="8,4" HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="试验序列号：" FontSize="15" Foreground="#404040" VerticalAlignment="Center" Margin="18,0,8,0" />
+                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Width="175" Height="34" FontSize="16" VerticalContentAlignment="Center" Margin="4,0" />
+              </Grid>
               <!-- real-time readouts -->
-              <Grid Grid.Row="2">
+              <Grid Grid.Row="3">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
@@ -387,8 +396,8 @@
                 </Grid>
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="3" />
-              <Grid Grid.Row="4">
+              <Grid Grid.Row="4" />
+              <Grid Grid.Row="5">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
@@ -444,7 +453,6 @@
             </Grid>
           </ScrollViewer>
         </Border>
-        <TextBlock Grid.Column="0" Text="{Binding CurrentSn, StringFormat={}序列号：{0}}" FontSize="12" Foreground="#606266" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,0,8" Panel.ZIndex="5" IsHitTestVisible="False" />
         <!-- Middle: chart + action buttons -->
         <Grid Grid.Column="1">
           <Grid.RowDefinitions>
