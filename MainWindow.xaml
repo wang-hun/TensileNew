@@ -268,8 +268,9 @@
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
                 <RowDefinition Height="60" />
-                <RowDefinition Height="240" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="3*" />
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="2*" />
               </Grid.RowDefinitions>
               <!-- 当前试验 title -->
               <Border Style="{StaticResource SectionTitleStyle}" Grid.Row="0" Height="55">
@@ -386,7 +387,8 @@
                 </Grid>
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="3" Margin="0,100,0,0">
+              <Grid Grid.Row="3" />
+              <Grid Grid.Row="4">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
