@@ -3,10 +3,10 @@
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
-      <Setter Property="Height" Value="69" />
-      <Setter Property="MinWidth" Value="112" />
-      <Setter Property="Margin" Value="0,7,12,7" />
-      <Setter Property="FontSize" Value="18" />
+      <Setter Property="Height" Value="55" />
+      <Setter Property="MinWidth" Value="90" />
+      <Setter Property="Margin" Value="0,6,10,6" />
+      <Setter Property="FontSize" Value="14" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="#606266" />
       <Setter Property="Background" Value="#F5F6F8" />
@@ -121,14 +121,14 @@
       </Style.Triggers>
     </Style>
     <Style x:Key="HeaderReconnectButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
-      <Setter Property="Width" Value="142" />
-      <Setter Property="Height" Value="44" />
-      <Setter Property="Margin" Value="10,0,2,0" />
-      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Width" Value="114" />
+      <Setter Property="Height" Value="35" />
+      <Setter Property="Margin" Value="8,0,2,0" />
+      <Setter Property="Padding" Value="10,0" />
       <Setter Property="Background" Value="White" />
       <Setter Property="BorderBrush" Value="#1677FF" />
       <Setter Property="ToolTip" Value="重新连接设备主机" />
-      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="#1677FF" />
       <Setter Property="BorderThickness" Value="1" />
@@ -152,7 +152,7 @@
   <hc:DialogContainer>
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="85" />
+        <RowDefinition Height="68" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <StackPanel Grid.RowSpan="2" hc:Growl.Token="MainGrowl" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,16,16,0" Width="360" Panel.ZIndex="9999" />
@@ -163,45 +163,45 @@
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Image x:Name="LogoImage" Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,38,0" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
+          <Image x:Name="LogoImage" Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,0" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
           <Grid Grid.Column="1">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="112" />
-              <ColumnDefinition Width="112" />
-              <ColumnDefinition Width="112" />
+              <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="90" />
               <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="160" />
-              <ColumnDefinition Width="112" />
-              <ColumnDefinition Width="160" />
+              <ColumnDefinition Width="128" />
+              <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="128" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBoxIcons2 Kind="RegularHome" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="主页" Margin="0,8,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconBoxIcons2 Kind="RegularHome" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="主页" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button Grid.Column="1" Style="{StaticResource SettingsNavButtonStyle}" Click="Settings_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconCircumIcons Kind="Settings" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="设置" Margin="0,8,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconCircumIcons Kind="Settings" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="设置" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="VariablesButton" Grid.Column="2" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="变量" Margin="0,8,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="变量" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="ReconnectButton" Grid.Column="4" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="22" Height="22" Margin="0,0,8,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="18" Height="18" Margin="0,0,6,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="重新连接" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <TextBlock Grid.Column="5" Text="联机状态" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+            <TextBlock Grid.Column="5" Text="联机状态" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
             <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Grid Width="36" Height="36">
-                <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="36" Height="36" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+              <Grid Width="29" Height="29">
+                <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="29" Height="29" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
                   <iconPacks:PackIconVaadinIcons.Style>
                     <Style TargetType="iconPacks:PackIconVaadinIcons">
                       <Setter Property="Visibility" Value="Collapsed" />
@@ -213,7 +213,7 @@
                     </Style>
                   </iconPacks:PackIconVaadinIcons.Style>
                 </iconPacks:PackIconVaadinIcons>
-                <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="36" Height="36" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+                <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="29" Height="29" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
                   <iconPacks:PackIconPhosphorIcons.Style>
                     <Style TargetType="iconPacks:PackIconPhosphorIcons">
                       <Setter Property="Visibility" Value="Visible" />
@@ -226,7 +226,7 @@
                   </iconPacks:PackIconPhosphorIcons.Style>
                 </iconPacks:PackIconPhosphorIcons>
               </Grid>
-              <TextBlock Margin="8,0,16,0" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
+              <TextBlock Margin="6,0,12,0" VerticalAlignment="Center" FontSize="13" FontWeight="Bold">
                 <TextBlock.Style>
                   <Style TargetType="TextBlock">
                     <Setter Property="Text" Value="连接失败" />
