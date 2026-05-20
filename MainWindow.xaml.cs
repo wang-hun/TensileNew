@@ -250,8 +250,8 @@ public partial class MainWindow : Window
     private static string GetConnectWaitText()
     {
         return string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase)
-            ? "Connecting to PLC controller, please wait..."
-            : "\u8fde\u63a5PLC\u63a7\u5236\u5668\u4e2d\uff0c\u8bf7\u7a0d\u540e...";
+            ? "Connecting to device host, please wait..."
+            : "正在连接 设备主机，请稍后...";
     }
 
     private static async Task<bool> TryReconnectWithTimeoutAsync()

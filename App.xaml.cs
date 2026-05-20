@@ -27,8 +27,8 @@ public partial class App : Application
 
             bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);
             string waitText = isEn
-                ? "Connecting to PLC controller, please wait..."
-                : "连接PLC控制器中，请稍后...";
+                ? "Connecting to device host, please wait..."
+                : "正在连接 设备主机，请稍后...";
 
             waitWindow = new StartupWaitWindow(waitText);
             waitWindow.Show();
