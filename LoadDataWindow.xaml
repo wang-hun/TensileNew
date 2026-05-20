@@ -37,11 +37,11 @@
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="90" />
-                    <DataGridTextColumn Header="位移" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="120" />
-                    <DataGridTextColumn Header="载荷" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="120" />
-                    <DataGridTextColumn Header="压边" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="120" />
-                    <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="*" MinWidth="180" />
+                    <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="*" />
+                    <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="*" />
+                    <DataGridTextColumn Header="力(kN)" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="*" />
+                    <DataGridTextColumn Header="压边(kN)" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="*" />
+                    <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="*" />
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

@@ -41,7 +41,7 @@ namespace TensileNeW.Tools
             ISheet sheet = workbook.CreateSheet("Sheet1");
 
             // 生成标题行（使用反射获取属性名）
-            var headers = new string[] {"序号", "位移", "力", "压边", "时间"};
+            var headers = new string[] {"序号", "位移(mm)", "力(kN)", "压边(kN)", "时间(s)"};
             IRow headerRow = sheet.CreateRow(0);
             for (int i = 0; i < headers.Length; i++)
             {
