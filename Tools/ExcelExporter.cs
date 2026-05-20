@@ -41,7 +41,7 @@ namespace TensileNeW.Tools
             ISheet sheet = workbook.CreateSheet("Sheet1");
 
             // 生成标题行（使用反射获取属性名）
-            var headers = new string[] {"序号", "压力", "位移", "载荷", "时间"};
+            var headers = new string[] {"序号", "位移", "力", "压边", "时间"};
             IRow headerRow = sheet.CreateRow(0);
             for (int i = 0; i < headers.Length; i++)
             {
@@ -57,13 +57,13 @@ namespace TensileNeW.Tools
                 cell.SetCellValue(Convert.ToInt32(item.Index));
 
                 cell = dataRow.CreateCell(1);
-                cell.SetCellValue(Convert.ToDouble(item.RealPress));
-                 
-                cell = dataRow.CreateCell(2);
                 cell.SetCellValue(Convert.ToDouble(item.RealDistance));
                  
-                cell = dataRow.CreateCell(3);
+                cell = dataRow.CreateCell(2);
                 cell.SetCellValue(Convert.ToDouble(item.RealForce));
+                 
+                cell = dataRow.CreateCell(3);
+                cell.SetCellValue(Convert.ToDouble(item.RealPress));
                  
                 cell = dataRow.CreateCell(4);
                 cell.SetCellValue(item.Time);
