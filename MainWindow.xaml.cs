@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private int _plottedPointCount;
     private bool _plotInitialized;
     private int _logoClickCount;
+    private bool _autoTrackLatestPoint = true;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -140,9 +141,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        var limits = LoadPlot.Plot.Axes.GetLimits();
         if (items.Count < _plottedPointCount)
         {
             ResetPlot();
+            limits = LoadPlot.Plot.Axes.GetLimits();
         }
 
         while (_plottedPointCount < items.Count)
@@ -160,6 +163,27 @@ public partial class MainWindow : Window
         }
 
         ApplyPlotLabels();
+        if (_autoTrackLatestPoint && _plotXs.Count > 0)
+        {
+            double xSpan = limits.Right - limits.Left;
+            double ySpan = limits.Top - limits.Bottom;
+            if (xSpan <= 0)
+            {
+                xSpan = Math.Max(1, _plotXs.Max() - _plotXs.Min());
+            }
+            if (ySpan <= 0)
+            {
+                ySpan = Math.Max(1, _plotYs.Max() - _plotYs.Min());
+            }
+
+            double latestX = _plotXs[^1];
+            double latestY = _plotYs[^1];
+            LoadPlot.Plot.Axes.SetLimits(latestX - xSpan, latestX, latestY - ySpan / 2, latestY + ySpan / 2);
+        }
+        else
+        {
+            LoadPlot.Plot.Axes.SetLimits(limits);
+        }
         LoadPlot.Refresh();
     }
 
@@ -285,6 +309,11 @@ public partial class MainWindow : Window
     private void ChartHintStartupCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         _viewModel.SaveSettings();
+    }
+
+    private void AutoTrackLatestPointCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _autoTrackLatestPoint = AutoTrackLatestPointCheckBox.IsChecked == true;
     }
 
     private void LogoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
