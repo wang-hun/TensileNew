@@ -315,11 +315,7 @@ public partial class MainWindow : Window
         ReconnectButton.IsEnabled = false;
         IsEnabled = false;
 
-        var waitWindow = new StartupWaitWindow(GetConnectWaitText())
-        {
-            Owner = this,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
+        var waitWindow = new StartupWaitWindow(GetConnectWaitText());
 
         try
         {

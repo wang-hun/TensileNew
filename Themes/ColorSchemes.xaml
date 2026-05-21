@@ -20,4 +20,5 @@
   <SolidColorBrush x:Key="AppConnectionBadgeBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppStartupWaitBackgroundBrush" Color="#5CAB8C" />
   <SolidColorBrush x:Key="AppStartupWaitForegroundBrush" Color="White" />
+  <SolidColorBrush x:Key="AppStartupWaitBorderBrush" Color="#FBFE8D" />
 </ResourceDictionary>

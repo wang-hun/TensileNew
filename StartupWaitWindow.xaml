@@ -22,7 +22,7 @@
         </PathGeometry>
     </Window.Resources>
 
-    <Border BorderBrush="#D8DBE3" BorderThickness="1" Background="{DynamicResource AppStartupWaitBackgroundBrush}">
+    <Border BorderBrush="{DynamicResource AppStartupWaitBorderBrush}" BorderThickness="1" Background="{DynamicResource AppStartupWaitBackgroundBrush}">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Grid Width="82" Height="82" Margin="0,0,0,22">
                 <hc:AnimationPath Data="{StaticResource HexagonGeometry}"
