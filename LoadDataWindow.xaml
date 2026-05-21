@@ -7,14 +7,14 @@
         Height="620"
         MinWidth="520"
         MinHeight="360"
-        Background="#F5F6F8"
+        Background="{DynamicResource AppSidebarBackgroundBrush}"
         FontFamily="Microsoft YaHei"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <local:FloatFormatConverter x:Key="FloatFormat" />
     </Window.Resources>
-    <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+    <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="10">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -38,6 +38,7 @@
                       IsReadOnly="True"
                       Margin="10"
                       RowHeaderWidth="0"
+                      Background="{DynamicResource AppSidebarBackgroundBrush}"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>

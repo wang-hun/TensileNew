@@ -26,6 +26,12 @@ public partial class LoadDataWindow : Window
         Closed += (_, _) => DataAqc.loadModels.ListChanged -= LoadModels_ListChanged;
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        NativeTitleBarHelper.ApplyTheme(this);
+    }
+
     private void LoadModels_ListChanged(object? sender, ListChangedEventArgs e)
     {
         if (LoadDataAutoScrollCheckBox.IsChecked != true ||

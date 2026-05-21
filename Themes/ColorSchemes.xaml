@@ -13,6 +13,8 @@
   <SolidColorBrush x:Key="AppSidebarLabelForegroundBrush" Color="#005bc2" />
   <SolidColorBrush x:Key="AppMetricNameForegroundBrush" Color="#5CAB8C" />
   <SolidColorBrush x:Key="AppMetricValueForegroundBrush" Color="#005bc2" />
+  <SolidColorBrush x:Key="AppHomeCenterBackgroundBrush" Color="#D4D5CF" />
+  <SolidColorBrush x:Key="AppLayoutBorderBrush" Color="#FBFE8D" />
 
   <SolidColorBrush x:Key="AppReconnectBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppReconnectForegroundBrush" Color="#5CAB8C" />

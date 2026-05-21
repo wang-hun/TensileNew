@@ -204,16 +204,16 @@
                 <TextBlock Text="设置" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="VariablesButton" Grid.Column="2" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="变量" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-              </StackPanel>
-            </Button>
-            <Button x:Name="ColorSchemesButton" Grid.Column="3" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
+            <Button x:Name="ColorSchemesButton" Grid.Column="2" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="配色" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="VariablesButton" Grid.Column="3" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="变量" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="ReconnectButton" Grid.Column="5" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click">
@@ -290,7 +290,7 @@
           <ColumnDefinition Width="374" />
         </Grid.ColumnDefinitions>
         <!-- Left side panel: current trial -->
-        <Border BorderThickness="0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+        <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
           <ScrollViewer VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
             <Grid MinHeight="415">
               <Grid.RowDefinitions>
@@ -482,12 +482,12 @@
           </ScrollViewer>
         </Border>
         <!-- Middle: chart + action buttons -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="260" />
           </Grid.RowDefinitions>
-          <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="1">
+          <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="1">
             <Grid>
               <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
               <CheckBox x:Name="AutoTrackLatestPointCheckBox"
@@ -542,7 +542,7 @@
               </Border>
             </Grid>
           </Border>
-          <Grid Grid.Row="1" Background="White" Margin="4,6">
+          <Grid Grid.Row="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="4,6">
             <Grid.RowDefinitions>
               <RowDefinition Height="*" />
               <RowDefinition Height="24" />
@@ -662,12 +662,13 @@
           </Grid>
         </Grid>
         <!-- Right: save + data grid -->
-        <Grid Grid.Column="2" Background="White">
+        <Border Grid.Column="2" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1,0,0,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+          <Grid Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="98" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <Grid Margin="30,10">
+          <Grid Margin="5" Background="White">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="Auto" />
@@ -693,7 +694,7 @@
                         ToolTip="自动滚动到最新行" />
             </StackPanel>
           </Grid>
-          <DataGrid x:Name="MainLoadDataGrid" Grid.Row="1" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0">
+          <DataGrid x:Name="MainLoadDataGrid" Grid.Row="1" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0" Background="{DynamicResource AppSidebarBackgroundBrush}">
             <DataGrid.Columns>
               <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="1.5*" />
               <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="2*" />
@@ -702,7 +703,8 @@
               <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="2.5*" />
             </DataGrid.Columns>
           </DataGrid>
-        </Grid>
+          </Grid>
+        </Border>
       </Grid>
       <!-- ==================== SETTINGS PAGE ==================== -->
       <Grid Grid.Row="1">
@@ -721,7 +723,7 @@
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <!-- Left: recipe list -->
-        <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="1">
+        <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="1">
           <Grid>
             <Grid.RowDefinitions>
               <RowDefinition Height="68" />
@@ -756,7 +758,7 @@
             <RowDefinition Height="3*" />
           </Grid.RowDefinitions>
           <!-- 系统设置 -->
-          <Border Grid.Row="0" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
+          <Border Grid.Row="0" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -765,7 +767,7 @@
               <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="系统设置" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,10">
+              <Grid Grid.Row="1" Margin="30,10" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="42" />
                   <RowDefinition Height="14" />
@@ -800,7 +802,7 @@
             </Grid>
           </Border>
           <!-- 试验参数 -->
-          <Border Grid.Row="1" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
+          <Border Grid.Row="1" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -809,7 +811,7 @@
               <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="试验参数" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,6">
+              <Grid Grid.Row="1" Margin="30,6" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="34" />
                   <RowDefinition Height="8" />
@@ -851,7 +853,7 @@
             </Grid>
           </Border>
           <!-- 标定 -->
-          <Border Grid.Row="2" BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="0">
+          <Border Grid.Row="2" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="0">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
@@ -860,7 +862,7 @@
               <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="标定" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,10">
+              <Grid Grid.Row="1" Margin="30,10" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="*" />
                   <RowDefinition Height="Auto" />

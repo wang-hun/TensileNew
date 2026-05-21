@@ -2,10 +2,8 @@ using HandyControl.Data;
 using NLog;
 using System.ComponentModel;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Input;
 using TensileNeW.Models;
 using Dialog = HandyControl.Controls.Dialog;
@@ -91,40 +89,8 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        ApplyNativeTitleBarColors();
+        NativeTitleBarHelper.ApplyTheme(this);
     }
-
-    private void ApplyNativeTitleBarColors()
-    {
-        IntPtr hwnd = new WindowInteropHelper(this).Handle;
-        if (hwnd == IntPtr.Zero)
-        {
-            return;
-        }
-
-        SetDwmWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ColorToBgr(ThemeManager.CurrentScheme.CaptionColor));
-        SetDwmWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ColorToBgr(ThemeManager.CurrentScheme.CaptionTextColor));
-    }
-
-    private static void SetDwmWindowAttribute(IntPtr hwnd, int attribute, uint color)
-    {
-        _ = DwmSetWindowAttribute(hwnd, attribute, ref color, Marshal.SizeOf<uint>());
-    }
-
-    private static uint ColorToBgr(System.Windows.Media.Color color)
-    {
-        return ((uint)color.B << 16) | ((uint)color.G << 8) | color.R;
-    }
-
-    private const int DWMWA_CAPTION_COLOR = 35;
-    private const int DWMWA_TEXT_COLOR = 36;
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(
-        IntPtr hwnd,
-        int dwAttribute,
-        ref uint pvAttribute,
-        int cbAttribute);
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
@@ -452,7 +418,7 @@ public partial class MainWindow : Window
         ThemeManager.Apply(scheme);
         _viewModel.Setting.ColorSchemeName = scheme.Name;
         _viewModel.SaveSettings();
-        ApplyNativeTitleBarColors();
+        NativeTitleBarHelper.ApplyTheme(this);
         ShowSuccess($"已应用配色方案：{scheme.Name}");
     }
 
