@@ -2,8 +2,10 @@ using HandyControl.Data;
 using NLog;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Input;
 using TensileNeW.Models;
 using Dialog = HandyControl.Controls.Dialog;
@@ -85,6 +87,47 @@ public partial class MainWindow : Window
             ScrollMainLoadDataToLatest();
         };
     }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        ApplyNativeTitleBarColors();
+    }
+
+    private void ApplyNativeTitleBarColors()
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        SetDwmWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ColorToBgr(0x5CAB8C));
+        SetDwmWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ColorToBgr(0xD4D5CF));
+    }
+
+    private static void SetDwmWindowAttribute(IntPtr hwnd, int attribute, uint color)
+    {
+        _ = DwmSetWindowAttribute(hwnd, attribute, ref color, Marshal.SizeOf<uint>());
+    }
+
+    private static uint ColorToBgr(int rgb)
+    {
+        uint r = (uint)((rgb >> 16) & 0xFF);
+        uint g = (uint)((rgb >> 8) & 0xFF);
+        uint b = (uint)(rgb & 0xFF);
+        return (b << 16) | (g << 8) | r;
+    }
+
+    private const int DWMWA_CAPTION_COLOR = 35;
+    private const int DWMWA_TEXT_COLOR = 36;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int dwAttribute,
+        ref uint pvAttribute,
+        int cbAttribute);
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
