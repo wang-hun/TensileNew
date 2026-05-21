@@ -30,7 +30,9 @@ public static class ThemeManager
                 ["AppReconnectPressedForegroundBrush"] = MediaColors.Black,
                 ["AppReconnectBorderBrush"] = ColorFromRgb(0xFBFE8D),
                 ["AppConnectionLabelBrush"] = MediaColors.White,
-                ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF)
+                ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppStartupWaitBackgroundBrush"] = ColorFromRgb(0x5CAB8C),
+                ["AppStartupWaitForegroundBrush"] = MediaColors.White
             }
         },
         new()
@@ -51,7 +53,9 @@ public static class ThemeManager
                 ["AppReconnectPressedForegroundBrush"] = MediaColors.Black,
                 ["AppReconnectBorderBrush"] = ColorFromRgb(0x1677FF),
                 ["AppConnectionLabelBrush"] = MediaColors.Black,
-                ["AppConnectionBadgeBackgroundBrush"] = MediaColors.White
+                ["AppConnectionBadgeBackgroundBrush"] = MediaColors.White,
+                ["AppStartupWaitBackgroundBrush"] = MediaColors.White,
+                ["AppStartupWaitForegroundBrush"] = MediaColors.Black
             }
         }
     ];

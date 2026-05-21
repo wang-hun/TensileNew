@@ -4,7 +4,7 @@
         xmlns:hc="https://handyorg.github.io/handycontrol"
         Width="440" Height="190" WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="NoResize" Topmost="True"
-        Background="White" ShowInTaskbar="False">
+        Background="{DynamicResource AppStartupWaitBackgroundBrush}" ShowInTaskbar="False">
     <Window.Resources>
         <PathGeometry x:Key="HexagonGeometry">
             <PathFigure StartPoint="42.2, 9.5" IsClosed="False">
@@ -22,18 +22,18 @@
         </PathGeometry>
     </Window.Resources>
 
-    <Border BorderBrush="#D8DBE3" BorderThickness="1" Background="White">
+    <Border BorderBrush="#D8DBE3" BorderThickness="1" Background="{DynamicResource AppStartupWaitBackgroundBrush}">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Grid Width="82" Height="82" Margin="0,0,0,22">
                 <hc:AnimationPath Data="{StaticResource HexagonGeometry}"
                                   Duration="00:00:01.4"
                                   Stretch="Uniform"
                                   StrokeThickness="4"
-                                  Stroke="#2F80ED"
+                                  Stroke="#005bc2"
                                   StrokeStartLineCap="Flat"
                                   StrokeEndLineCap="Flat" />
             </Grid>
-            <TextBlock x:Name="WaitTextBlock" FontSize="20" HorizontalAlignment="Center" />
+            <TextBlock x:Name="WaitTextBlock" FontSize="20" Foreground="{DynamicResource AppStartupWaitForegroundBrush}" HorizontalAlignment="Center" />
         </StackPanel>
     </Border>
 </Window>
