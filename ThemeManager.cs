@@ -10,6 +10,8 @@ namespace TensileNeW;
 
 public static class ThemeManager
 {
+    public const string DefaultSchemeName = "早苗";
+
     public static IReadOnlyList<ColorScheme> Schemes { get; } =
     [
         new()

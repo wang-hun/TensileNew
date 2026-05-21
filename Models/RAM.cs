@@ -77,7 +77,7 @@ namespace TensileNeW.Models
             if (string.IsNullOrWhiteSpace(SettingModel.ColorSchemeName) ||
                 !ThemeManager.Schemes.Any(scheme => string.Equals(scheme.Name, SettingModel.ColorSchemeName, StringComparison.Ordinal)))
             {
-                SettingModel.ColorSchemeName = ThemeManager.Schemes[0].Name;
+                SettingModel.ColorSchemeName = ThemeManager.DefaultSchemeName;
             }
         }
 
