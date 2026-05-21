@@ -23,6 +23,7 @@ public partial class App : Application
         try
         {
             RAM.Init();
+            ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
             DataAqc.InitVariables();
 
             bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);

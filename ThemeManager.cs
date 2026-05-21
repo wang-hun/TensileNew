@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using TensileNeW.Models;
@@ -68,6 +70,13 @@ public static class ThemeManager
         {
             resources[key] = new SolidColorBrush(color);
         }
+    }
+
+    public static void Apply(string schemeName)
+    {
+        ColorScheme scheme = Schemes.FirstOrDefault(item =>
+            string.Equals(item.Name, schemeName, StringComparison.Ordinal)) ?? Schemes[0];
+        Apply(scheme);
     }
 
     private static Color ColorFromRgb(int rgb)

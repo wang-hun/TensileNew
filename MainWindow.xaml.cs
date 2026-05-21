@@ -454,7 +454,10 @@ public partial class MainWindow : Window
         }
 
         ThemeManager.Apply(scheme);
+        _viewModel.Setting.ColorSchemeName = scheme.Name;
+        _viewModel.SaveSettings();
         ApplyNativeTitleBarColors();
+        ShowSuccess($"已应用配色方案：{scheme.Name}");
     }
 
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
