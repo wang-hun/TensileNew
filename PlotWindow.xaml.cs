@@ -13,6 +13,8 @@ public partial class PlotWindow : Window
     private ScottPlot.Plottables.Scatter? _scatter;
     private int _pointCount;
     private bool _initialized;
+    private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#D4D5CF");
+    private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
 
     public PlotWindow(Func<bool> autoPlayEnabled)
     {
@@ -102,6 +104,7 @@ public partial class PlotWindow : Window
         {
             _scatter = PlotHost.Plot.Add.Scatter(_xs, _ys);
             _scatter.Smooth = true;
+            _scatter.Color = SanaePlotLineColor;
         }
 
         ApplyPlotLabels();
@@ -122,6 +125,7 @@ public partial class PlotWindow : Window
 
     private void ApplyPlotLabels()
     {
+        ApplyPlotStyle();
         PlotHost.Plot.Title("力位移数据", 30);
         PlotHost.Plot.XLabel("位移", 30);
         PlotHost.Plot.YLabel("力", 30);
@@ -130,6 +134,15 @@ public partial class PlotWindow : Window
         PlotHost.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
         PlotHost.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
         PlotHost.Plot.Font.Automatic();
+    }
+
+    private void ApplyPlotStyle()
+    {
+        PlotHost.Plot.DataBackground.Color = SanaePlotBackgroundColor;
+        if (_scatter != null)
+        {
+            _scatter.Color = SanaePlotLineColor;
+        }
     }
 
     private void LocalizePlotContextMenu()

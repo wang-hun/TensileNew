@@ -46,6 +46,8 @@ public partial class MainWindow : Window
     private bool _autoTrackLatestPoint = true;
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private int _pendingLoadScrollIndex = -1;
+    private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#D4D5CF");
+    private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -181,6 +183,7 @@ public partial class MainWindow : Window
         {
             _loadScatter = LoadPlot.Plot.Add.Scatter(_plotXs, _plotYs);
             _loadScatter.Smooth = true;
+            _loadScatter.Color = SanaePlotLineColor;
         }
 
         ApplyPlotLabels();
@@ -200,6 +203,7 @@ public partial class MainWindow : Window
 
     private void ApplyPlotLabels()
     {
+        ApplyPlotStyle();
         LoadPlot.Plot.Title("力位移数据", 30);
         LoadPlot.Plot.XLabel("位移", 30);
         LoadPlot.Plot.YLabel("力", 30);
@@ -208,6 +212,15 @@ public partial class MainWindow : Window
         LoadPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
         LoadPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
         LoadPlot.Plot.Font.Automatic();
+    }
+
+    private void ApplyPlotStyle()
+    {
+        LoadPlot.Plot.DataBackground.Color = SanaePlotBackgroundColor;
+        if (_loadScatter != null)
+        {
+            _loadScatter.Color = SanaePlotLineColor;
+        }
     }
 
     private void LocalizePlotContextMenu()
