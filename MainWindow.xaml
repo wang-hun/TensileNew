@@ -42,6 +42,19 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="RecipeListBoxItemStyle" TargetType="ListBoxItem">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
+        </Trigger>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="ActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonPrimary}">
       <Setter Property="MinWidth" Value="0" />
       <Setter Property="Height" Value="44" />
@@ -71,7 +84,7 @@
       </Style.Triggers>
     </Style>
     <Style x:Key="SectionTitleStyle" TargetType="Border">
-      <Setter Property="Background" Value="#F5F6F8" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="#D8DBE3" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Height" Value="44" />
@@ -114,7 +127,7 @@
       <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
     <Style x:Key="MetricValueCellStyle" TargetType="Border">
-      <Setter Property="Background" Value="White" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppLayoutBorderBrush}" />
       <Setter Property="BorderThickness" Value="1,0,0,0" />
     </Style>
@@ -317,7 +330,7 @@
                   <ColumnDefinition Width="175" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" HorizontalAlignment="Left" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
               <Grid Grid.Row="2" Margin="8,4" HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>
@@ -325,7 +338,7 @@
                   <ColumnDefinition Width="175" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Width="175" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Left" />
+                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Width="175" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
               <!-- real-time readouts -->
               <Grid Grid.Row="3">
@@ -701,7 +714,7 @@
             <RowDefinition Height="98" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <Grid Margin="5" Background="White">
+          <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="Auto" />
@@ -715,7 +728,7 @@
                     <TextBlock Text="保存数据" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
-                <Button Width="44" Height="44" Margin="8,0,0,0" Padding="0" Background="White" BorderBrush="#1677FF" BorderThickness="1" ToolTip="新窗口打开" Click="OpenLoadDataWindow_Click">
+                <Button Width="44" Height="44" Margin="8,0,0,0" Padding="0" Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#1677FF" BorderThickness="1" ToolTip="新窗口打开" Click="OpenLoadDataWindow_Click">
                   <iconPacks:PackIconPhosphorIcons Kind="ArrowSquareOutBold" Width="24" Height="24" Foreground="#1677FF" />
                 </Button>
               </StackPanel>
@@ -777,10 +790,10 @@
                 </StackPanel>
               </Button>
             </UniformGrid>
-            <Border Grid.Row="1" Background="White">
+            <Border Grid.Row="1" Background="{DynamicResource AppSurfaceBackgroundBrush}">
               <TextBlock Text="试验列表" FontSize="16" FontWeight="Bold" Foreground="#404040" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <ListBox Grid.Row="2" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" FontSize="16" Margin="4" Background="{DynamicResource AppSidebarBackgroundBrush}" />
+            <ListBox Grid.Row="2" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" FontSize="16" Margin="4" Background="{DynamicResource AppSidebarBackgroundBrush}" ItemContainerStyle="{StaticResource RecipeListBoxItemStyle}" />
           </Grid>
         </Border>
         <!-- Right: settings content -->
@@ -797,7 +810,7 @@
                 <RowDefinition Height="55" />
                 <RowDefinition Height="*" />
               </Grid.RowDefinitions>
-              <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+              <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="系统设置" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
               <Grid Grid.Row="1" Margin="30,10" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
@@ -817,14 +830,14 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="联机IP" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Setting.PLC_IP, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="Excel保存路径" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
                 <Button Grid.Row="0" Grid.Column="4" Width="30" Height="30" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Click="BrowseExcelFolder_Click">
                   <iconPacks:PackIconBootstrapIcons Kind="FolderFill" Width="20" Height="20" Foreground="#1677FF" />
                 </Button>
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="语言" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1" />
-                <TextBox Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="92,1,0,1" />
+                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBox Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="92,1,0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,10,0,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Floppy2Fill" Width="20" Height="20" Margin="0,0,8,0" />
@@ -841,7 +854,7 @@
                 <RowDefinition Height="55" />
                 <RowDefinition Height="*" />
               </Grid.RowDefinitions>
-              <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+              <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="试验参数" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
               <Grid Grid.Row="1" Margin="30,6" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
@@ -863,18 +876,18 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="冲程压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
                 <TextBlock Grid.Row="0" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="停机比例设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="ShutdownRatioBox_PreviewTextInput" LostFocus="ShutdownRatioBox_LostFocus" />
+                <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="ShutdownRatioBox_PreviewTextInput" LostFocus="ShutdownRatioBox_LostFocus" />
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
                 <TextBlock Grid.Row="2" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="2" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
                 <TextBlock Grid.Row="2" Grid.Column="5" Text="mm/s" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" />
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="4" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,24,0,4" HorizontalAlignment="Center" VerticalAlignment="Top" Click="WriteRecipe_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -892,7 +905,7 @@
                 <RowDefinition Height="55" />
                 <RowDefinition Height="*" />
               </Grid.RowDefinitions>
-              <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+              <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="标定" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
               <Grid Grid.Row="1" Margin="30,10" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">

@@ -46,7 +46,7 @@ public partial class MainWindow : Window
     private bool _autoTrackLatestPoint = true;
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private int _pendingLoadScrollIndex = -1;
-    private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#D4D5CF");
+    private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#E1E2DC");
     private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
     private static readonly ScottPlot.Color SanaePlotGridLineColor = ScottPlot.Color.FromHex("#000000");
     private ScottPlot.Color _defaultPlotBackgroundColor;
