@@ -9,8 +9,10 @@ namespace TensileNeW;
 public partial class SettingsPinDialog : UserControl
 {
     private const string SettingsPassword = "GB123";
+    private const string ColorPassword = "COLOR";
 
     public event EventHandler? Unlocked;
+    public event EventHandler? ColorUnlocked;
 
     public SettingsPinDialog()
     {
@@ -20,13 +22,18 @@ public partial class SettingsPinDialog : UserControl
 
     private void PinBox_OnCompleted(object sender, RoutedEventArgs e)
     {
-        if (!string.Equals(PinBox.UnsafePassword, SettingsPassword, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(PinBox.UnsafePassword, SettingsPassword, StringComparison.OrdinalIgnoreCase))
         {
+            Unlocked?.Invoke(this, EventArgs.Empty);
+            CloseDialog();
             return;
         }
 
-        Unlocked?.Invoke(this, EventArgs.Empty);
-        CloseDialog();
+        if (string.Equals(PinBox.UnsafePassword, ColorPassword, StringComparison.OrdinalIgnoreCase))
+        {
+            ColorUnlocked?.Invoke(this, EventArgs.Empty);
+            CloseDialog();
+        }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

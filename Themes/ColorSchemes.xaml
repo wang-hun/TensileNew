@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- 当前默认方案：早苗 -->
+  <Color x:Key="AppCaptionColorValue">#5CAB8C</Color>
+  <Color x:Key="AppCaptionTextColorValue">#D4D5CF</Color>
+
+  <SolidColorBrush x:Key="AppHeaderBackgroundBrush" Color="#5CAB8C" />
+  <SolidColorBrush x:Key="AppHeaderBorderBrush" Color="#D8DBE3" />
+  <SolidColorBrush x:Key="AppNavBackgroundBrush" Color="#5CAB8C" />
+  <SolidColorBrush x:Key="AppNavForegroundBrush" Color="White" />
+  <SolidColorBrush x:Key="AppNavSelectedForegroundBrush" Color="#FBFE8D" />
+
+  <SolidColorBrush x:Key="AppReconnectBackgroundBrush" Color="#D4D5CF" />
+  <SolidColorBrush x:Key="AppReconnectForegroundBrush" Color="#5CAB8C" />
+  <SolidColorBrush x:Key="AppReconnectHoverForegroundBrush" Color="#FBFE8D" />
+  <SolidColorBrush x:Key="AppReconnectPressedForegroundBrush" Color="Black" />
+  <SolidColorBrush x:Key="AppReconnectBorderBrush" Color="#FBFE8D" />
+
+  <SolidColorBrush x:Key="AppConnectionLabelBrush" Color="White" />
+  <SolidColorBrush x:Key="AppConnectionBadgeBackgroundBrush" Color="#D4D5CF" />
+</ResourceDictionary>

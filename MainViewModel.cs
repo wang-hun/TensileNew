@@ -51,6 +51,7 @@ public sealed class MainViewModel : ObservableObject
     public BindingList<RecipeModel> Recipes { get; }
     public BindingList<Loadmodel> LoadItems { get; }
     public BindingList<PLCVariable> PlcVariables { get; }
+    public IReadOnlyList<ColorScheme> ColorSchemes => ThemeManager.Schemes;
     public SettingModel Setting => RAM.SettingModel;
     public bool IsEnglish => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase);
     public string[] Languages { get; } = ["CN", "EN"];

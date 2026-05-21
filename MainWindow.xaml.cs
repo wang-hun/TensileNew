@@ -102,8 +102,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        SetDwmWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ColorToBgr(0x5CAB8C));
-        SetDwmWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ColorToBgr(0xD4D5CF));
+        SetDwmWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ColorToBgr(ThemeManager.CurrentScheme.CaptionColor));
+        SetDwmWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ColorToBgr(ThemeManager.CurrentScheme.CaptionTextColor));
     }
 
     private static void SetDwmWindowAttribute(IntPtr hwnd, int attribute, uint color)
@@ -111,12 +111,9 @@ public partial class MainWindow : Window
         _ = DwmSetWindowAttribute(hwnd, attribute, ref color, Marshal.SizeOf<uint>());
     }
 
-    private static uint ColorToBgr(int rgb)
+    private static uint ColorToBgr(System.Windows.Media.Color color)
     {
-        uint r = (uint)((rgb >> 16) & 0xFF);
-        uint g = (uint)((rgb >> 8) & 0xFF);
-        uint b = (uint)(rgb & 0xFF);
-        return (b << 16) | (g << 8) | r;
+        return ((uint)color.B << 16) | ((uint)color.G << 8) | color.R;
     }
 
     private const int DWMWA_CAPTION_COLOR = 35;
@@ -311,6 +308,7 @@ public partial class MainWindow : Window
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
+    private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
 
     private async void Reconnect_Click(object sender, RoutedEventArgs e)
     {
@@ -440,7 +438,23 @@ public partial class MainWindow : Window
         {
             VariablesButton.Visibility = Visibility.Visible;
         };
+        dialog.ColorUnlocked += (_, _) =>
+        {
+            ColorSchemesButton.Visibility = Visibility.Visible;
+            _viewModel.CurrentPage = "ColorSchemes";
+        };
         Dialog.Show(dialog);
+    }
+
+    private void ApplyColorScheme_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not ColorScheme scheme)
+        {
+            return;
+        }
+
+        ThemeManager.Apply(scheme);
+        ApplyNativeTitleBarColors();
     }
 
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
