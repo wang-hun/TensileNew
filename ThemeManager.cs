@@ -24,6 +24,10 @@ public static class ThemeManager
                 ["AppNavBackgroundBrush"] = ColorFromRgb(0x5CAB8C),
                 ["AppNavForegroundBrush"] = MediaColors.White,
                 ["AppNavSelectedForegroundBrush"] = ColorFromRgb(0xFBFE8D),
+                ["AppSidebarBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppSidebarLabelForegroundBrush"] = ColorFromRgb(0x005BC2),
+                ["AppMetricNameForegroundBrush"] = ColorFromRgb(0x5CAB8C),
+                ["AppMetricValueForegroundBrush"] = ColorFromRgb(0x005BC2),
                 ["AppReconnectBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
                 ["AppReconnectForegroundBrush"] = ColorFromRgb(0x5CAB8C),
                 ["AppReconnectHoverForegroundBrush"] = ColorFromRgb(0xFBFE8D),
@@ -33,7 +37,9 @@ public static class ThemeManager
                 ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
                 ["AppStartupWaitBackgroundBrush"] = ColorFromRgb(0x5CAB8C),
                 ["AppStartupWaitForegroundBrush"] = MediaColors.White,
-                ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xFBFE8D)
+                ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xFBFE8D),
+                ["AppConnectionErrorBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppConnectionErrorForegroundBrush"] = ColorFromRgb(0xD03050)
             }
         },
         new()
@@ -48,6 +54,10 @@ public static class ThemeManager
                 ["AppNavBackgroundBrush"] = ColorFromRgb(0xF5F6F8),
                 ["AppNavForegroundBrush"] = ColorFromRgb(0x606266),
                 ["AppNavSelectedForegroundBrush"] = ColorFromRgb(0x1677FF),
+                ["AppSidebarBackgroundBrush"] = MediaColors.White,
+                ["AppSidebarLabelForegroundBrush"] = ColorFromRgb(0x404040),
+                ["AppMetricNameForegroundBrush"] = ColorFromRgb(0x696969),
+                ["AppMetricValueForegroundBrush"] = MediaColors.Black,
                 ["AppReconnectBackgroundBrush"] = MediaColors.White,
                 ["AppReconnectForegroundBrush"] = ColorFromRgb(0x1677FF),
                 ["AppReconnectHoverForegroundBrush"] = ColorFromRgb(0x1677FF),
@@ -57,7 +67,9 @@ public static class ThemeManager
                 ["AppConnectionBadgeBackgroundBrush"] = MediaColors.White,
                 ["AppStartupWaitBackgroundBrush"] = MediaColors.White,
                 ["AppStartupWaitForegroundBrush"] = MediaColors.Black,
-                ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xD8DBE3)
+                ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xD8DBE3),
+                ["AppConnectionErrorBackgroundBrush"] = MediaColors.White,
+                ["AppConnectionErrorForegroundBrush"] = ColorFromRgb(0x303133)
             }
         }
     ];

@@ -9,6 +9,10 @@
   <SolidColorBrush x:Key="AppNavBackgroundBrush" Color="#5CAB8C" />
   <SolidColorBrush x:Key="AppNavForegroundBrush" Color="White" />
   <SolidColorBrush x:Key="AppNavSelectedForegroundBrush" Color="#FBFE8D" />
+  <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#D4D5CF" />
+  <SolidColorBrush x:Key="AppSidebarLabelForegroundBrush" Color="#005bc2" />
+  <SolidColorBrush x:Key="AppMetricNameForegroundBrush" Color="#5CAB8C" />
+  <SolidColorBrush x:Key="AppMetricValueForegroundBrush" Color="#005bc2" />
 
   <SolidColorBrush x:Key="AppReconnectBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppReconnectForegroundBrush" Color="#5CAB8C" />
@@ -21,4 +25,6 @@
   <SolidColorBrush x:Key="AppStartupWaitBackgroundBrush" Color="#5CAB8C" />
   <SolidColorBrush x:Key="AppStartupWaitForegroundBrush" Color="White" />
   <SolidColorBrush x:Key="AppStartupWaitBorderBrush" Color="#FBFE8D" />
+  <SolidColorBrush x:Key="AppConnectionErrorBackgroundBrush" Color="#D4D5CF" />
+  <SolidColorBrush x:Key="AppConnectionErrorForegroundBrush" Color="#D03050" />
 </ResourceDictionary>
