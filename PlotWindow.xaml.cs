@@ -15,11 +15,17 @@ public partial class PlotWindow : Window
     private bool _initialized;
     private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#D4D5CF");
     private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
+    private static readonly ScottPlot.Color SanaePlotGridLineColor = ScottPlot.Color.FromHex("#000000");
+    private ScottPlot.Color _defaultPlotBackgroundColor;
+    private ScottPlot.Color _defaultPlotMajorGridLineColor;
+    private ScottPlot.Color? _defaultScatterColor;
 
     public PlotWindow(Func<bool> autoPlayEnabled)
     {
         _autoPlayEnabled = autoPlayEnabled;
         InitializeComponent();
+        _defaultPlotBackgroundColor = PlotHost.Plot.DataBackground.Color;
+        _defaultPlotMajorGridLineColor = PlotHost.Plot.Grid.MajorLineColor;
         Owner = Application.Current?.MainWindow;
         Topmost = true;
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -104,7 +110,7 @@ public partial class PlotWindow : Window
         {
             _scatter = PlotHost.Plot.Add.Scatter(_xs, _ys);
             _scatter.Smooth = true;
-            _scatter.Color = SanaePlotLineColor;
+            _defaultScatterColor = _scatter.Color;
         }
 
         ApplyPlotLabels();
@@ -138,11 +144,23 @@ public partial class PlotWindow : Window
 
     private void ApplyPlotStyle()
     {
-        PlotHost.Plot.DataBackground.Color = SanaePlotBackgroundColor;
+        bool useSanae = string.Equals(ThemeManager.CurrentScheme.Name, ThemeManager.DefaultSchemeName, StringComparison.Ordinal);
+
+        PlotHost.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
+        PlotHost.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
+        PlotHost.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
         if (_scatter != null)
         {
-            _scatter.Color = SanaePlotLineColor;
+            _scatter.Color = useSanae
+                ? SanaePlotLineColor
+                : _defaultScatterColor ?? _scatter.Color;
         }
+    }
+
+    public void ApplyCurrentTheme()
+    {
+        ApplyPlotLabels();
+        PlotHost.Refresh();
     }
 
     private void LocalizePlotContextMenu()

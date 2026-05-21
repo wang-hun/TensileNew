@@ -48,6 +48,10 @@ public partial class MainWindow : Window
     private int _pendingLoadScrollIndex = -1;
     private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#D4D5CF");
     private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
+    private static readonly ScottPlot.Color SanaePlotGridLineColor = ScottPlot.Color.FromHex("#000000");
+    private ScottPlot.Color _defaultPlotBackgroundColor;
+    private ScottPlot.Color _defaultPlotMajorGridLineColor;
+    private ScottPlot.Color? _defaultLoadScatterColor;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -77,6 +81,8 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _defaultPlotBackgroundColor = LoadPlot.Plot.DataBackground.Color;
+        _defaultPlotMajorGridLineColor = LoadPlot.Plot.Grid.MajorLineColor;
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -183,7 +189,7 @@ public partial class MainWindow : Window
         {
             _loadScatter = LoadPlot.Plot.Add.Scatter(_plotXs, _plotYs);
             _loadScatter.Smooth = true;
-            _loadScatter.Color = SanaePlotLineColor;
+            _defaultLoadScatterColor = _loadScatter.Color;
         }
 
         ApplyPlotLabels();
@@ -216,10 +222,16 @@ public partial class MainWindow : Window
 
     private void ApplyPlotStyle()
     {
-        LoadPlot.Plot.DataBackground.Color = SanaePlotBackgroundColor;
+        bool useSanae = string.Equals(ThemeManager.CurrentScheme.Name, ThemeManager.DefaultSchemeName, StringComparison.Ordinal);
+
+        LoadPlot.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
+        LoadPlot.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
+        LoadPlot.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
         if (_loadScatter != null)
         {
-            _loadScatter.Color = SanaePlotLineColor;
+            _loadScatter.Color = useSanae
+                ? SanaePlotLineColor
+                : _defaultLoadScatterColor ?? _loadScatter.Color;
         }
     }
 
@@ -432,6 +444,9 @@ public partial class MainWindow : Window
         _viewModel.Setting.ColorSchemeName = scheme.Name;
         _viewModel.SaveSettings();
         NativeTitleBarHelper.ApplyTheme(this);
+        ApplyPlotLabels();
+        LoadPlot.Refresh();
+        _plotWindow?.ApplyCurrentTheme();
         ShowSuccess($"已应用配色方案：{scheme.Name}");
     }
 
