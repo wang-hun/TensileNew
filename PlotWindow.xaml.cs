@@ -16,7 +16,7 @@ public partial class PlotWindow : Window
     private int _pointCount;
     private bool _initialized;
     private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#E1E2DC");
-    private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
+    private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#101010");
     private static readonly ScottPlot.Color SanaePlotGridLineColor = ScottPlot.Color.FromHex("#000000");
     private ScottPlot.Color _defaultPlotBackgroundColor;
     private ScottPlot.Color _defaultPlotMajorGridLineColor;

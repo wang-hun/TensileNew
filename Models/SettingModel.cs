@@ -58,7 +58,7 @@ namespace TensileNeW.Models
             set => SetProperty(ref _HideChartHintOnStartup, value);
         }
 
-        private string _ColorSchemeName = "早苗";
+        private string _ColorSchemeName = "黑金";
         public string ColorSchemeName
         {
             get => _ColorSchemeName;

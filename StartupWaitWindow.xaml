@@ -29,7 +29,7 @@
                                   Duration="00:00:01.4"
                                   Stretch="Uniform"
                                   StrokeThickness="4"
-                                  Stroke="#005bc2"
+                                  Stroke="#FFDD00"
                                   StrokeStartLineCap="Flat"
                                   StrokeEndLineCap="Flat" />
             </Grid>

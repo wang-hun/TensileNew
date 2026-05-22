@@ -652,7 +652,7 @@
                 </StackPanel>
               </Button>
             </Grid>
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="按住启动" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Stretch" TextAlignment="Center" VerticalAlignment="Center" Margin="44,0,6,0" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="按住加速" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Stretch" TextAlignment="Center" VerticalAlignment="Center" Margin="44,0,6,0" />
             <Grid Grid.Row="2" Grid.Column="0" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="38" />
@@ -665,7 +665,7 @@
                     <TextBlock Text="冲程压边" VerticalAlignment="Center" Foreground="White" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="松开停止" Margin="0,3,0,0" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
+                <TextBlock Text="松开待速" Margin="0,3,0,0" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
               </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="1" Margin="6,3,6,5" VerticalAlignment="Top">
@@ -922,6 +922,7 @@
                     <TextBlock Text="开始传感器归零" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
+                <TextBlock Grid.Row="2" Text="标定前确定设备空载且不处于运行状态。" FontSize="16" FontWeight="Bold" Foreground="Red" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <TextBlock Text="标定状态" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" />
                   <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.CalibrationStateVariable}, Path=CurrentValue}" />
