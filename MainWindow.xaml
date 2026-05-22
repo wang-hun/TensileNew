@@ -240,7 +240,7 @@
             <Button Grid.Column="2" Style="{StaticResource HelpNavButtonStyle}" Click="Help_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="QuestionCircle" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="帮助" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="试验指导" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="ColorSchemesButton" Grid.Column="3" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
@@ -803,9 +803,9 @@
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Border Style="{StaticResource SectionTitleStyle}" Height="55">
-              <TextBlock Text="帮助" Style="{StaticResource SectionTitleTextStyle}" />
+              <TextBlock Text="试验指导" Style="{StaticResource SectionTitleTextStyle}" />
             </Border>
-            <TreeView x:Name="HelpNavigationTree" Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectedItemChanged="HelpNavigationTree_SelectedItemChanged" />
+            <TreeView x:Name="HelpNavigationTree" Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectedItemChanged="HelpNavigationTree_SelectedItemChanged" MouseDoubleClick="HelpNavigationTree_MouseDoubleClick" />
           </Grid>
         </Border>
         <Border Grid.Column="1" Background="{DynamicResource AppSurfaceBackgroundBrush}">

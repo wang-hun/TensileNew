@@ -46,6 +46,17 @@
       font-weight: 700;
     }
 
+    .danger {
+      color: #d03050;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .term {
+      font-weight: 700;
+    }
+
     figure {
       margin: 18px 0 0;
     }
@@ -66,6 +77,37 @@
       text-align: center;
       width: min(860px, 100%);
     }
+
+    .back-to-top {
+      position: fixed;
+      right: 26px;
+      bottom: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: 1px solid #303133;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #303133;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    .back-to-top:hover {
+      background: #f5f6f8;
+    }
+
+    .back-to-top:active {
+      transform: translateY(1px);
+    }
+
+    .back-to-top svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
   </style>
 </head>
 <body>
@@ -74,8 +116,7 @@
 
   <section id="step1">
     <h2>1.设置试验参数</h2>
-    <p>在如下界面中选择已有配置，或新建配置并填写试验参数。参数确认无误后，点击保存按钮保存当前配置。</p>
-    <p>开始试验前，请确认当前配置和试验序列号均已设置正确，避免后续保存数据时信息不完整。</p>
+    <p>在如下<span class="term">“界面”</span>中选择已有配置，或新建配置并填写试验参数。参数确认无误后，点击<span class="term">“写入配置参数按钮”</span>保存当前配置。</p>
     <figure>
       <img src="image/实验准备/1.png" alt="设置试验参数">
       <figcaption>图1 设置试验参数</figcaption>
@@ -84,7 +125,7 @@
 
   <section id="step2">
     <h2>2.校准传感器</h2>
-    <p>在设置页的如下界面中，点击“开始传感器归零”按钮，开始校准力传感器。</p>
+    <p>在<span class="term">“设置页”</span>的如下<span class="term">“界面”</span>中，点击<span class="term">“开始传感器归零按钮”</span>，开始校准力传感器。</p>
     <p class="warning">需注意：请确保设备空载，且不处于试验进行中。</p>
     <figure>
       <img src="image/实验准备/2.png" alt="校准传感器">
@@ -94,9 +135,12 @@
 
   <section id="step3">
     <h2>3.开始试验</h2>
-    <p>放置并固定待测板材。点击主页界面中的“压边”按钮后，夹具会缓慢上升，并按照设定的压边力夹住测试板材。</p>
-    <p>如需加快夹具上升过程，可按住“冲程压边”按钮；松开按钮后，夹具会恢复一般速度。</p>
-    <p>等待“实时压边力”和“闭环压边力”一致后，再进行下一步操作。</p>
+    <p class="warning">开始试验前，请先检查设备模具上是否有杂物，例如铁屑、板材碎片。</p>
+    <p class="danger">试验过程中严禁将手伸入型腔内。</p>
+    <p>开始试验前，请确认<span class="term">“当前配置”</span>和<span class="term">“试验序列号”</span>均已设置正确，避免后续保存数据时信息不完整。</p>
+    <p>确认现场和参数无误后，放置并固定待测板材。点击<span class="term">“主页界面”</span>中的<span class="term">“压边按钮”</span>，夹具会缓慢上升，并按照设定的压边力夹住测试板材。</p>
+    <p>如需加快夹具上升过程，可按住<span class="term">“冲程压边按钮”</span>；松开按钮后，夹具会恢复一般速度。</p>
+    <p>压边完成后，等待<span class="term">“实时压边力”</span>和<span class="term">“闭环压边力”</span>一致，再进行下一步操作。</p>
     <figure>
       <img src="image/实验准备/3.png" alt="开始试验">
       <figcaption>图3 开始试验</figcaption>
@@ -105,8 +149,8 @@
 
   <section id="step4">
     <h2>4.开始拉伸</h2>
-    <p>点击界面中的“启动拉伸”按钮，等待模具缓慢上升。</p>
-    <p>模具接触到板材后，“实时拉伸位移”和“实时拉伸力”的数值会开始变化。此时可通过界面中的实时数据和曲线图观察试验状态。</p>
+    <p>点击<span class="term">“界面”</span>中的<span class="term">“启动拉伸按钮”</span>，等待模具缓慢上升。</p>
+    <p>模具接触到板材后，<span class="term">“实时拉伸位移”</span>和<span class="term">“实时拉伸力”</span>的数值会开始变化。此时可通过<span class="term">“界面”</span>中的实时数据和曲线图观察试验状态。</p>
     <figure>
       <img src="image/实验准备/4.png" alt="开始拉伸">
       <figcaption>图4 开始拉伸</figcaption>
@@ -116,9 +160,10 @@
   <section id="step5">
     <h2>5.查看并保存试验数据</h2>
     <p>试验进行中以及试验停止后，都可以在曲线图上查看力和位移的数据变化曲线。</p>
-    <p>鼠标可以在曲线图上拖动视图，滚轮可用于放大或缩小。右键菜单中的“自动缩放”可还原到合适的显示比例。</p>
-    <p>点击“新窗口打开”可以全屏查看曲线图；点击“保存图片”可以将当前曲线图保存到本地；点击“复制到剪切板”可以将当前曲线图复制到剪切板。</p>
-    <p>右侧弹出按钮可查看试验过程中的所有原始数据。“保存数据”按钮可以将数据打包为 Excel 表格并保存到本地。</p>
+    <p>勾选<span class="term">“自动播放曲线图”</span>后，试验过程中会自动将曲线实时调整到合适的显示比例。</p>
+    <p>鼠标可以在曲线图上拖动视图，滚轮可用于放大或缩小。<span class="term">“右键菜单”</span>中的<span class="term">“自动缩放”</span>可还原到合适的显示比例。点击曲线图右上角的<span class="term">“帮助按钮”</span>，您可以随时查看使用说明。</p>
+    <p>点击<span class="term">“新窗口打开”</span>可以全屏查看曲线图；点击<span class="term">“保存图片”</span>可以将当前曲线图保存到本地；点击<span class="term">“复制到剪切板”</span>可以将当前曲线图复制到剪切板。</p>
+    <p><span class="term">“右侧弹出按钮”</span>可查看试验过程中的所有原始数据。<span class="term">“保存数据按钮”</span>可以将数据打包为 Excel 表格并保存到本地。</p>
     <figure>
       <img src="image/实验准备/5.png" alt="查看并保存试验数据">
       <figcaption>图5 查看并保存试验数据</figcaption>
@@ -127,13 +172,19 @@
 
   <section id="step6">
     <h2>6.试验结束</h2>
-    <p>确认试验结束后，点击图中的“弹料”按钮，将冲压材料从上方弹出。</p>
-    <p>随后依次点击“释放拉伸”和“释放压边”，释放模具和板材。按住“冲程压边”按钮同样可以加速释放夹具的过程。</p>
-    <p>确认试验已经完成，并且数据已保存完毕后，点击“数据重置”清除当前数据，然后即可进行下一次试验。</p>
+    <p>确认试验结束后，点击图中的<span class="term">“弹料按钮”</span>，将冲压材料从上方弹出。</p>
+    <p>随后依次点击<span class="term">“释放拉伸按钮”</span>和<span class="term">“释放压边按钮”</span>，释放模具和板材。按住<span class="term">“冲程压边按钮”</span>同样可以加速释放夹具的过程。</p>
+    <p>确认试验已经完成，并且数据已保存完毕后，点击<span class="term">“数据重置按钮”</span>清除当前数据，然后即可进行下一次试验。</p>
     <figure>
       <img src="image/实验准备/6.png" alt="试验结束">
       <figcaption>图6 试验结束</figcaption>
     </figure>
   </section>
+
+  <button class="back-to-top" type="button" aria-label="回到顶部" title="回到顶部" onclick="window.scrollTo({ top: 0, behavior: 'smooth' });">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4 5 11h4v9h6v-9h4z"></path>
+    </svg>
+  </button>
 </body>
 </html>

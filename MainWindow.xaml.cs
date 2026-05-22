@@ -175,6 +175,41 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void HelpNavigationTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (HelpNavigationTree.SelectedItem is not HelpNavigationItem item ||
+            !string.IsNullOrWhiteSpace(item.Anchor))
+        {
+            return;
+        }
+
+        await ScrollHelpDocumentToTopAsync();
+        e.Handled = true;
+    }
+
+    private async Task ScrollHelpDocumentToTopAsync()
+    {
+        try
+        {
+            if (_helpDocumentUri is null)
+            {
+                return;
+            }
+
+            if (HelpWebView.Source is null || HelpWebView.Source.LocalPath != _helpDocumentUri.LocalPath)
+            {
+                HelpWebView.Source = _helpDocumentUri;
+            }
+
+            await HelpWebView.EnsureCoreWebView2Async();
+            await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
+        }
+        catch
+        {
+            // Keep the help page unchanged if WebView2 is not available.
+        }
+    }
+
     private void HelpZoomOut_Click(object sender, RoutedEventArgs e)
     {
         SetHelpZoom(_helpZoomFactor - HelpZoomStep);
