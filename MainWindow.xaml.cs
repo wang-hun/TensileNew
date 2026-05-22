@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
+    private Uri? _helpDocumentUri;
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
     private int _pendingLoadScrollIndex = -1;
@@ -140,15 +141,37 @@ public partial class MainWindow : Window
     {
         try
         {
-            Uri? documentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
-            if (documentUri is not null)
+            _helpDocumentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
+            if (_helpDocumentUri is not null)
             {
-                HelpWebView.Source = documentUri;
+                HelpWebView.Source = _helpDocumentUri;
+            }
+
+            HelpNavigationTree.ItemsSource = HelpDocumentLoader.LoadNavigation();
+        }
+        catch
+        {
+            _helpDocumentUri = null;
+            HelpWebView.Source = null;
+            HelpNavigationTree.ItemsSource = null;
+        }
+    }
+
+    private void HelpNavigationTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        try
+        {
+            Uri? targetUri = HelpDocumentLoader.TryBuildAnchorUri(
+                _helpDocumentUri,
+                e.NewValue as HelpNavigationItem);
+            if (targetUri is not null)
+            {
+                HelpWebView.Source = targetUri;
             }
         }
         catch
         {
-            HelpWebView.Source = null;
+            // Keep the help page unchanged if navigation fails.
         }
     }
 

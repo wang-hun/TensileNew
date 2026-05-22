@@ -2,6 +2,9 @@
   <Window.Resources>
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
+    <HierarchicalDataTemplate DataType="{x:Type models:HelpNavigationItem}" ItemsSource="{Binding Children}">
+      <TextBlock Text="{Binding Title}" />
+    </HierarchicalDataTemplate>
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
       <Setter Property="Height" Value="55" />
       <Setter Property="MinWidth" Value="90" />
@@ -104,7 +107,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style x:Key="MetricNameStyle" TargetType="TextBlock">
-      <Setter Property="Background" Value="#F2F2F2" />
+      <Setter Property="Background" Value="{DynamicResource AppMetricNameBackgroundBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" />
       <Setter Property="FontSize" Value="16" />
       <Setter Property="Padding" Value="8,0,12,0" />
@@ -125,6 +128,10 @@
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="TextAlignment" Value="Left" />
       <Setter Property="Margin" Value="8,0,4,0" />
+    </Style>
+    <Style x:Key="SevenSegmentMetricValueStyle" TargetType="TextBlock" BasedOn="{StaticResource MetricValueStyle}">
+      <Setter Property="FontFamily" Value="{DynamicResource SevenSegmentFontFamily}" />
+      <Setter Property="FontSize" Value="34" />
     </Style>
     <Style x:Key="MetricUnitStyle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#696969" />
@@ -194,7 +201,7 @@
   <hc:DialogContainer>
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="68" />
+        <RowDefinition Height="78" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <StackPanel Grid.RowSpan="2" hc:Growl.Token="MainGrowl" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,16,16,0" Width="360" Panel.ZIndex="9999" />
@@ -205,7 +212,7 @@
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Image x:Name="LogoImage" Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,0" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
+          <Image x:Name="LogoImage" Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,5" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
           <Grid Grid.Column="1">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="90" />
@@ -330,7 +337,7 @@
                 <RowDefinition Height="60" />
                 <RowDefinition Height="60" />
                 <RowDefinition Height="3*" />
-                <RowDefinition Height="1*" />
+                <RowDefinition Height="112" />
                 <RowDefinition Height="2*" />
               </Grid.RowDefinitions>
               <!-- 当前试验 title -->
@@ -357,8 +364,6 @@
               <!-- real-time readouts -->
               <Grid Grid.Row="3">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
                   <RowDefinition Height="24" />
@@ -395,19 +400,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="有效拉伸位移" />
                 <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
-                </Grid>
-                </Border>
-                <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="有效拉伸位移" />
-                <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -417,8 +411,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="主推力" />
-                <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="主推力" />
+                <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -428,8 +422,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="预设冲程压边力" />
-                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="预设冲程压边力" />
+                <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -439,8 +433,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="7" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时拉伸速度" />
-                <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时拉伸速度" />
+                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -450,19 +444,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="8" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时拉伸力" />
-                <Border Grid.Row="8" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
-                </Grid>
-                </Border>
-                <TextBlock Grid.Row="9" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时压边力" />
-                <Border Grid.Row="9" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <TextBlock Grid.Row="7" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时压边力" />
+                <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -473,8 +456,39 @@
                 </Grid>
                 </Border>
               </Grid>
+              <Grid Grid.Row="4" Margin="0,6,0,18">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="42" />
+                  <RowDefinition Height="42" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸位移" LineHeight="42" Foreground="Black" />
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
+                </Grid>
+                </Border>
+                <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸力" LineHeight="42" Foreground="Black" />
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
+                </Grid>
+                </Border>
+              </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="4" />
               <Grid Grid.Row="5">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
@@ -791,16 +805,7 @@
             <Border Style="{StaticResource SectionTitleStyle}" Height="55">
               <TextBlock Text="帮助" Style="{StaticResource SectionTitleTextStyle}" />
             </Border>
-            <TreeView Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
-              <TreeViewItem Header="试验流程" IsExpanded="True">
-                <TreeViewItem Header="流程1" />
-                <TreeViewItem Header="流程2" />
-                <TreeViewItem Header="流程3" />
-                <TreeViewItem Header="流程4" />
-                <TreeViewItem Header="流程5" />
-                <TreeViewItem Header="流程6" />
-              </TreeViewItem>
-            </TreeView>
+            <TreeView x:Name="HelpNavigationTree" Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" SelectedItemChanged="HelpNavigationTree_SelectedItemChanged" />
           </Grid>
         </Border>
         <Border Grid.Column="1" Background="{DynamicResource AppSurfaceBackgroundBrush}">

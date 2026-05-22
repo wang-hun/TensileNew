@@ -1,0 +1,31 @@
+[
+  {
+    "title": "冲杯试验流程",
+    "children": [
+      {
+        "title": "设置试验参数",
+        "anchor": "step1"
+      },
+      {
+        "title": "校准传感器",
+        "anchor": "step2"
+      },
+      {
+        "title": "开始试验",
+        "anchor": "step3"
+      },
+      {
+        "title": "开始拉伸",
+        "anchor": "step4"
+      },
+      {
+        "title": "查看并保存试验数据",
+        "anchor": "step5"
+      },
+      {
+        "title": "试验结束",
+        "anchor": "step6"
+      }
+    ]
+  }
+]

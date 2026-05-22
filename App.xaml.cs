@@ -24,6 +24,7 @@ public partial class App : Application
         {
             RAM.Init();
             ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
+            Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
 
             bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);
@@ -34,6 +35,7 @@ public partial class App : Application
             waitWindow = new StartupWaitWindow(waitText);
             waitWindow.Show();
 
+            var sevenSegmentFontTask = Task.Run(SevenSegmentFontHelper.GetFontFamilyOrDefault);
             var minimumStartupDelayTask = Task.Delay(TimeSpan.FromSeconds(2));
             var connectTask = TryConnectWithTimeoutAsync();
             bool connected = await connectTask;
@@ -46,6 +48,8 @@ public partial class App : Application
             {
                 await minimumStartupDelayTask;
             }
+
+            Resources["SevenSegmentFontFamily"] = await sevenSegmentFontTask;
 
             var mainWindow = new MainWindow(connected);
             MainWindow = mainWindow;
