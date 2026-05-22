@@ -1,8 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks">
   <!-- 当前默认方案：早苗 -->
   <Color x:Key="AppCaptionColorValue">#5CAB8C</Color>
   <Color x:Key="AppCaptionTextColorValue">#D4D5CF</Color>
+  <iconPacks:PackIconBootstrapIconsKind x:Key="AppStatusActiveIconKind">PatchCheckFill</iconPacks:PackIconBootstrapIconsKind>
 
   <SolidColorBrush x:Key="AppHeaderBackgroundBrush" Color="#5CAB8C" />
   <SolidColorBrush x:Key="AppHeaderBorderBrush" Color="#D8DBE3" />

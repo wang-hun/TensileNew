@@ -140,7 +140,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-          <Setter Property="Kind" Value="PatchCheck" />
+          <Setter Property="Kind" Value="{DynamicResource AppStatusActiveIconKind}" />
           <Setter Property="Foreground" Value="#2FB344" />
         </DataTrigger>
       </Style.Triggers>

@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using MahApps.Metro.IconPacks;
 using TensileNeW.Models;
 using MediaColors = System.Windows.Media.Colors;
 
@@ -19,6 +20,7 @@ public static class ThemeManager
             Name = "早苗",
             CaptionColor = ColorFromRgb(0x5CAB8C),
             CaptionTextColor = ColorFromRgb(0xD4D5CF),
+            StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
             Colors = new Dictionary<string, Color>
             {
                 ["AppHeaderBackgroundBrush"] = ColorFromRgb(0x5CAB8C),
@@ -52,6 +54,7 @@ public static class ThemeManager
             Name = "论纯白",
             CaptionColor = ColorFromRgb(0xFFFFFF),
             CaptionTextColor = ColorFromRgb(0x000000),
+            StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheck,
             Colors = new Dictionary<string, Color>
             {
                 ["AppHeaderBackgroundBrush"] = ColorFromRgb(0xF5F6F8),
@@ -91,6 +94,7 @@ public static class ThemeManager
 
         resources["AppCaptionColorValue"] = scheme.CaptionColor;
         resources["AppCaptionTextColorValue"] = scheme.CaptionTextColor;
+        resources["AppStatusActiveIconKind"] = scheme.StatusActiveIconKind;
 
         foreach ((string key, Color color) in scheme.Colors)
         {
