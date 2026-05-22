@@ -35,6 +35,13 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="HelpNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding CurrentPage}" Value="Help">
+          <Setter Property="Foreground" Value="{DynamicResource AppNavSelectedForegroundBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="ColorSchemesNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
       <Style.Triggers>
         <DataTrigger Binding="{Binding CurrentPage}" Value="ColorSchemes">
@@ -205,6 +212,7 @@
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="90" />
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="128" />
               <ColumnDefinition Width="90" />
@@ -222,26 +230,32 @@
                 <TextBlock Text="设置" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="ColorSchemesButton" Grid.Column="2" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
+            <Button Grid.Column="2" Style="{StaticResource HelpNavButtonStyle}" Click="Help_Click">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <iconPacks:PackIconBootstrapIcons Kind="QuestionCircle" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="帮助" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="ColorSchemesButton" Grid.Column="3" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="配色" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="VariablesButton" Grid.Column="3" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
+            <Button x:Name="VariablesButton" Grid.Column="4" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="变量" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="ReconnectButton" Grid.Column="5" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click">
+            <Button x:Name="ReconnectButton" Grid.Column="6" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="18" Height="18" Margin="0,0,6,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="重新连接" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <TextBlock Grid.Column="6" Text="联机状态" FontSize="16" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
-            <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Grid.Column="7" Text="联机状态" FontSize="16" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
+            <StackPanel Grid.Column="8" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
               <Border Background="{DynamicResource AppConnectionBadgeBackgroundBrush}" CornerRadius="6" Padding="8,4" Margin="6,0,12,0" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                   <Grid Width="22" Height="22" Margin="0,0,6,0">
@@ -751,6 +765,63 @@
           </DataGrid>
           </Grid>
         </Border>
+      </Grid>
+      <!-- ==================== HELP PAGE ==================== -->
+      <Grid Grid.Row="1">
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding CurrentPage}" Value="Help">
+                <Setter Property="Visibility" Value="Visible" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="342" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="55" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Style="{StaticResource SectionTitleStyle}" Height="55">
+              <TextBlock Text="帮助" Style="{StaticResource SectionTitleTextStyle}" />
+            </Border>
+            <TreeView Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <TreeViewItem Header="基础操作" IsExpanded="True">
+                <TreeViewItem Header="启动与连接" />
+                <TreeViewItem Header="主页操作" />
+                <TreeViewItem Header="数据保存" />
+              </TreeViewItem>
+              <TreeViewItem Header="试验流程" IsExpanded="True">
+                <TreeViewItem Header="试验前准备" />
+                <TreeViewItem Header="拉伸控制" />
+                <TreeViewItem Header="压边控制" />
+                <TreeViewItem Header="数据重置" />
+              </TreeViewItem>
+              <TreeViewItem Header="参数设置">
+                <TreeViewItem Header="当前配置" />
+                <TreeViewItem Header="试验参数" />
+                <TreeViewItem Header="传感器归零" />
+              </TreeViewItem>
+              <TreeViewItem Header="曲线图">
+                <TreeViewItem Header="自动播放" />
+                <TreeViewItem Header="缩放与拖拽" />
+                <TreeViewItem Header="弹出窗口" />
+              </TreeViewItem>
+              <TreeViewItem Header="维护">
+                <TreeViewItem Header="变量查看" />
+                <TreeViewItem Header="配色方案" />
+                <TreeViewItem Header="常见问题" />
+              </TreeViewItem>
+            </TreeView>
+          </Grid>
+        </Border>
+        <Border Grid.Column="1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
       </Grid>
       <!-- ==================== SETTINGS PAGE ==================== -->
       <Grid Grid.Row="1">

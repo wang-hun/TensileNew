@@ -318,6 +318,7 @@ public partial class MainWindow : Window
 
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
+    private void Help_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Help";
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
     private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
 
