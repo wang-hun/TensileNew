@@ -735,90 +735,103 @@ public partial class MainWindow : Window
         _variableWindow.Show();
     }
 
-    private void ShutdownRatioBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    private void DecimalBox_LostFocus(object sender, RoutedEventArgs e)
     {
         var tb = (System.Windows.Controls.TextBox)sender;
-        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
-
-        foreach (char ch in e.Text)
+        if (TryNormalizeDecimalInput(tb.Text, out string normalized))
         {
-            if (char.IsControl(ch)) continue;
-            if (!char.IsDigit(ch) && ch.ToString() != dec)
-            {
-                e.Handled = true;
-                return;
-            }
+            ClearInputValidationState(tb);
+            tb.Text = normalized;
+            tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
         }
-
-        string before = tb.Text.Substring(0, tb.SelectionStart);
-        string after = tb.Text.Substring(tb.SelectionStart + tb.SelectionLength);
-        string proposed = before + e.Text + after;
-
-        if (proposed == dec) return;
-        if (proposed.EndsWith(dec)) return;
-
-        if (decimal.TryParse(proposed, System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.CurrentCulture, out decimal val))
+        else
         {
-            if (val < 0m || val > 1m)
-            {
-                e.Handled = true;
-            }
+            tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+            ClearInputValidationState(tb);
         }
     }
 
-    private void DecimalBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    private void DecimalBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
         var tb = (System.Windows.Controls.TextBox)sender;
-        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
-
-        foreach (char ch in e.Text)
-        {
-            if (char.IsControl(ch)) continue;
-            if (!char.IsDigit(ch) && ch.ToString() != dec)
-            {
-                e.Handled = true;
-                return;
-            }
-        }
-
-        string before = tb.Text.Substring(0, tb.SelectionStart);
-        string after = tb.Text.Substring(tb.SelectionStart + tb.SelectionLength);
-        string proposed = before + e.Text + after;
-
-        if (proposed == dec) return;
-        if (proposed.EndsWith(dec)) return;
-
-        if (!decimal.TryParse(proposed, System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.CurrentCulture, out _))
-        {
-            e.Handled = true;
-        }
+        SetInputValidationState(tb, TryNormalizeDecimalInput(tb.Text, out _), "请输入数字。");
     }
 
     private void ShutdownRatioBox_LostFocus(object sender, RoutedEventArgs e)
     {
         var tb = (System.Windows.Controls.TextBox)sender;
-        if (string.IsNullOrWhiteSpace(tb.Text)) return;
-
-        string dec = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
-        if (tb.Text == dec)
+        if (!TryNormalizeDecimalInput(tb.Text, out string normalized))
         {
-            tb.Text = "0" + dec;
+            tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+            ClearInputValidationState(tb);
             return;
         }
 
-        if (decimal.TryParse(tb.Text, System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.CurrentCulture, out decimal val))
+        if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out decimal value))
         {
-            if (val < 0m) val = 0m;
-            if (val > 1m) val = 1m;
-            tb.Text = val.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+            ClearInputValidationState(tb);
+            return;
         }
-        else
+
+        if (value < 0m || value > 1m)
         {
-            tb.Text = "0";
+            tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateTarget();
+            ClearInputValidationState(tb);
+            return;
         }
+
+        ClearInputValidationState(tb);
+        tb.Text = normalized;
+        tb.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+    }
+
+    private void ShutdownRatioBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        var tb = (System.Windows.Controls.TextBox)sender;
+        if (!TryNormalizeDecimalInput(tb.Text, out string normalized))
+        {
+            SetInputValidationState(tb, false, "请输入数字，范围为 0 到 1。");
+            return;
+        }
+
+        if (!decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.CurrentCulture, out decimal value) || value < 0m || value > 1m)
+        {
+            SetInputValidationState(tb, false, "停机比例必须在 0 到 1 之间。");
+            return;
+        }
+
+        ClearInputValidationState(tb);
+    }
+
+    private static void SetInputValidationState(System.Windows.Controls.TextBox tb, bool isValid, string message)
+    {
+        if (isValid)
+        {
+            ClearInputValidationState(tb);
+            return;
+        }
+
+        tb.BorderBrush = System.Windows.Media.Brushes.Red;
+        tb.BorderThickness = new Thickness(1.5);
+        tb.ToolTip = message;
+    }
+
+    private static void ClearInputValidationState(System.Windows.Controls.TextBox tb)
+    {
+        tb.ClearValue(System.Windows.Controls.Control.BorderBrushProperty);
+        tb.ClearValue(System.Windows.Controls.Control.BorderThicknessProperty);
+        tb.ClearValue(FrameworkElement.ToolTipProperty);
+    }
+
+    private static bool TryNormalizeDecimalInput(string text, out string normalized)
+    {
+        string cultureSeparator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        normalized = text.Trim().Replace(".", cultureSeparator);
+        return decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.CurrentCulture, out _);
     }
 
     private static PLCVariable FindVariable(string name)

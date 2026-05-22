@@ -545,6 +545,7 @@
                     <ColumnDefinition Width="48" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="(0-1)" />
                 </Grid>
                 </Border>
                 <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="速度设定" />
@@ -963,15 +964,15 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="冲程压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.StrokeStampingForce, UpdateSourceTrigger=Explicit}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="DecimalBox_TextChanged" LostFocus="DecimalBox_LostFocus" />
                 <TextBlock Grid.Row="0" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="停机比例设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="ShutdownRatioBox_PreviewTextInput" LostFocus="ShutdownRatioBox_LostFocus" />
+                <TextBox Grid.Row="0" Grid.Column="4" x:Name="ShutdownRatioBox" Text="{Binding SelectedRecipe.ShutdownRatio, UpdateSourceTrigger=Explicit}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="ShutdownRatioBox_TextChanged" LostFocus="ShutdownRatioBox_LostFocus" />
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="闭环压边力设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedRecipe.ClosedLoopStampingForce, UpdateSourceTrigger=Explicit}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="DecimalBox_TextChanged" LostFocus="DecimalBox_LostFocus" />
                 <TextBlock Grid.Row="2" Grid.Column="2" Text="KN" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="2" Grid.Column="3" Text="速度设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" PreviewTextInput="DecimalBox_PreviewTextInput" />
+                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding SelectedRecipe.Speed, UpdateSourceTrigger=Explicit}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="DecimalBox_TextChanged" LostFocus="DecimalBox_LostFocus" />
                 <TextBlock Grid.Row="2" Grid.Column="5" Text="mm/s" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />

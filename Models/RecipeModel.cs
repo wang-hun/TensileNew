@@ -13,6 +13,25 @@ namespace TensileNeW.Models
     /// </summary>
     public class RecipeModel : ObservableObject
     { 
+        public const float DefaultStrokeStampingForce = 100f;
+        public const float DefaultClosedLoopStampingForce = 38f;
+        public const ushort DefaultShutdownDelay = 10;
+        public const float DefaultShutdownRatio = 0.8f;
+        public const float DefaultSpeed = 1f;
+
+        public static RecipeModel CreateDefault(string recipeName)
+        {
+            return new RecipeModel
+            {
+                RecipeName = recipeName,
+                StrokeStampingForce = DefaultStrokeStampingForce,
+                ClosedLoopStampingForce = DefaultClosedLoopStampingForce,
+                ShutdownDelay = DefaultShutdownDelay,
+                ShutdownRatio = DefaultShutdownRatio,
+                Speed = DefaultSpeed
+            };
+        }
+
         /// <summary>
         ///   冲程压边力设定
         /// </summary>

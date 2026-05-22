@@ -45,7 +45,7 @@ namespace TensileNeW.Models
 
         private static SettingModel CreateDefaultSetting()
         {
-            var recipe = new RecipeModel { RecipeName = "test1" };
+            var recipe = RecipeModel.CreateDefault("test1");
             var setting = new SettingModel
             {
                 CurRecipeModel = recipe
@@ -61,7 +61,7 @@ namespace TensileNeW.Models
 
             if (SettingModel.RecipeModelS.Count == 0)
             {
-                SettingModel.RecipeModelS.Add(new RecipeModel { RecipeName = "test1" });
+                SettingModel.RecipeModelS.Add(RecipeModel.CreateDefault("test1"));
             }
 
             SettingModel.CurRecipeModel ??= SettingModel.RecipeModelS[0];

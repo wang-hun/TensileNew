@@ -236,7 +236,7 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        var recipe = new RecipeModel { RecipeName = name };
+        var recipe = RecipeModel.CreateDefault(name);
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
         SaveSettings();
