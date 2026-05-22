@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
+    private const bool AutoScrollXAxisEnabled = false;
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
     private int _pendingLoadScrollIndex = -1;
     private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#E1E2DC");
     private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#5CAB8C");
@@ -92,6 +94,11 @@ public partial class MainWindow : Window
             _loadScrollTimer.Stop();
             ScrollMainLoadDataToLatest();
         };
+        _plotAutoscaleTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(100)
+        };
+        _plotAutoscaleTimer.Tick += (_, _) => AutoScalePlotWhileCollecting();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -112,6 +119,7 @@ public partial class MainWindow : Window
         _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
+        _plotAutoscaleTimer.Start();
 
         if (!_connectedAtStartup)
         {
@@ -129,6 +137,7 @@ public partial class MainWindow : Window
         _loadDataWindow?.Close();
         _plotWindow?.Close();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         Logger.Info("关闭程序");
@@ -154,6 +163,17 @@ public partial class MainWindow : Window
         _loadScatter = null;
         _plottedPointCount = 0;
         ApplyPlotLabels();
+        LoadPlot.Refresh();
+    }
+
+    private void AutoScalePlotWhileCollecting()
+    {
+        if (!_autoTrackLatestPoint || !IsDataCollecting() || _loadScatter == null || _plotXs.Count == 0)
+        {
+            return;
+        }
+
+        LoadPlot.Plot.Axes.AutoScale();
         LoadPlot.Refresh();
     }
 
@@ -193,7 +213,7 @@ public partial class MainWindow : Window
         }
 
         ApplyPlotLabels();
-        if (_autoTrackLatestPoint && _plotXs.Count > 0)
+        if (AutoScrollXAxisEnabled && _autoTrackLatestPoint && _plotXs.Count > 0)
         {
             double xSpan = limits.Right - limits.Left;
             if (xSpan <= 0)
@@ -663,5 +683,10 @@ public partial class MainWindow : Window
     {
         DataAqc.EnsureInitialized();
         return DataAqc.PLCVariables.First(t => t.Name == name);
+    }
+
+    private static bool IsDataCollecting()
+    {
+        return bool.TryParse(FindVariable("数据采集标志").CurrentValue, out bool value) && value;
     }
 }

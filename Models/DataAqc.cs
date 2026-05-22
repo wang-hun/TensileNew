@@ -262,6 +262,8 @@ namespace TensileNeW.Models
                                 if (mBoolValue[9] && dataResetFlag == false)
                                 {
                                     dataResetFlag = true;
+                                    ClearQueue();
+                                    IndexCount = 0;
                                     loadModels?.Clear();
                                     ChartCleared?.Invoke();
                                 }
@@ -278,8 +280,7 @@ namespace TensileNeW.Models
                                     temp = 0;
                                     beginScan = true;
                                     beginScanTime = DateTime.Now;
-                                    IndexCount = 0;
-                                    loadModels?.Clear();
+                                    IndexCount = loadModels?.Count ?? 0;
                                 }
 
                                 if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)//&&(DateTime.Now-beginEnqueTime).TotalMilliseconds>20)
@@ -350,6 +351,13 @@ namespace TensileNeW.Models
                 if (tempEnqueueEx != ex)
                     logger.Error(ex.Message);
                 tempEnqueueEx = ex;
+            }
+        }
+
+        private static void ClearQueue()
+        {
+            while (_queue.TryDequeue(out _))
+            {
             }
         }
 

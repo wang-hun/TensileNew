@@ -6,8 +6,10 @@ namespace TensileNeW;
 
 public partial class PlotWindow : Window
 {
+    private const bool AutoScrollXAxisEnabled = false;
     private readonly Func<bool> _autoPlayEnabled;
     private readonly DispatcherTimer _refreshTimer;
+    private readonly DispatcherTimer _autoscaleTimer;
     private readonly List<double> _xs = [];
     private readonly List<double> _ys = [];
     private ScottPlot.Plottables.Scatter? _scatter;
@@ -34,6 +36,8 @@ public partial class PlotWindow : Window
             _refreshTimer.Stop();
             RefreshPlot();
         };
+        _autoscaleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _autoscaleTimer.Tick += (_, _) => AutoScalePlotWhileCollecting();
         Loaded += (_, _) =>
         {
             InitializePlot();
@@ -44,8 +48,10 @@ public partial class PlotWindow : Window
             {
                 DataAqc.LoadDataChanged -= OnLoadDataChanged;
                 DataAqc.ChartCleared -= OnChartCleared;
+                _autoscaleTimer.Stop();
             };
             RefreshPlot();
+            _autoscaleTimer.Start();
         };
     }
 
@@ -114,7 +120,7 @@ public partial class PlotWindow : Window
         }
 
         ApplyPlotLabels();
-        if (_autoPlayEnabled() && _xs.Count > 0)
+        if (AutoScrollXAxisEnabled && _autoPlayEnabled() && _xs.Count > 0)
         {
             double xSpan = limits.Right - limits.Left;
             if (xSpan <= 0)
@@ -163,6 +169,17 @@ public partial class PlotWindow : Window
         PlotHost.Refresh();
     }
 
+    private void AutoScalePlotWhileCollecting()
+    {
+        if (!_autoPlayEnabled() || !IsDataCollecting() || _scatter == null || _xs.Count == 0)
+        {
+            return;
+        }
+
+        PlotHost.Plot.Axes.AutoScale();
+        PlotHost.Refresh();
+    }
+
     private void LocalizePlotContextMenu()
     {
         var menu = PlotHost.Menu;
@@ -196,5 +213,12 @@ public partial class PlotWindow : Window
                     break;
             }
         }
+    }
+
+    private static bool IsDataCollecting()
+    {
+        DataAqc.EnsureInitialized();
+        var variable = DataAqc.PLCVariables.First(t => t.Name == "数据采集标志");
+        return bool.TryParse(variable.CurrentValue, out bool value) && value;
     }
 }
