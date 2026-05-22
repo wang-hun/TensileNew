@@ -139,8 +139,8 @@ public partial class PlotWindow : Window
     {
         ApplyPlotStyle();
         PlotHost.Plot.Title("力位移数据", 30);
-        PlotHost.Plot.XLabel("位移", 30);
-        PlotHost.Plot.YLabel("力", 30);
+        PlotHost.Plot.XLabel("位移（mm）", 30);
+        PlotHost.Plot.YLabel("力（KN）", 30);
         PlotHost.Plot.Axes.Bottom.TickLabelStyle.FontSize = 44;
         PlotHost.Plot.Axes.Left.TickLabelStyle.FontSize = 44;
         PlotHost.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;

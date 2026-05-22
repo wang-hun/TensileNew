@@ -116,8 +116,8 @@
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="TextAlignment" Value="Right" />
-      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="TextAlignment" Value="Left" />
+      <Setter Property="Margin" Value="8,0,4,0" />
     </Style>
     <Style x:Key="MetricUnitStyle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#696969" />
@@ -305,7 +305,7 @@
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="342" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="374" />
+          <ColumnDefinition Width="300" />
         </Grid.ColumnDefinitions>
         <!-- Left side panel: current trial -->
         <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
@@ -510,7 +510,7 @@
                 </Border>
                 <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="停机比例设定" />
                 <Border Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" Margin="0,0,8,0" />
+                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.ShutdownRatioVariable}}" />
                 </Border>
                 <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="速度设定" />
                 <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
@@ -608,7 +608,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartPressCoil}, Path=CurrentValue}" Click="StartPress_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconCodicons Kind="RepoPush" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  <iconPacks:PackIconMingCuteIcons Kind="AlignArrowUpFill" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="压边" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </StackPanel>
               </Button>
@@ -621,7 +621,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleasePressCoil}, Path=CurrentValue}" Click="ReleasePress_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconCodicons Kind="RepoFetch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  <iconPacks:PackIconMingCuteIcons Kind="AlignArrowDownFill" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="释放压边" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </StackPanel>
               </Button>
@@ -634,7 +634,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.StartTensileCoil}, Path=CurrentValue}" Click="StartTensile_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconFontAwesome6 Kind="UpRightAndDownLeftFromCenterSolid" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  <iconPacks:PackIconCodicons Kind="RepoPush" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="启动拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </StackPanel>
               </Button>
@@ -647,7 +647,7 @@
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" />
               <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" Click="ReleaseTensile_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconBoxIcons Kind="RegularChevronsRightLeft" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  <iconPacks:PackIconCodicons Kind="RepoFetch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   <TextBlock Text="释放拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 </StackPanel>
               </Button>
@@ -746,7 +746,7 @@
               <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="2*" />
               <DataGridTextColumn Header="力(kN)" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="2*" />
               <DataGridTextColumn Header="压边(kN)" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="2*" />
-              <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="2.5*" />
+              <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="2.5*" Visibility="Collapsed" />
             </DataGrid.Columns>
           </DataGrid>
           </Grid>
