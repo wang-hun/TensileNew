@@ -17,6 +17,9 @@ public partial class MainWindow : Window
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
     private const bool AutoScrollXAxisEnabled = false;
+    private const double HelpZoomStep = 0.1;
+    private const double HelpMinZoom = 0.5;
+    private const double HelpMaxZoom = 2.0;
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -45,6 +48,7 @@ public partial class MainWindow : Window
     private bool _plotInitialized;
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
+    private double _helpZoomFactor = 1.0;
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
     private int _pendingLoadScrollIndex = -1;
@@ -120,6 +124,7 @@ public partial class MainWindow : Window
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
         _plotAutoscaleTimer.Start();
+        LoadHelpDocument();
 
         if (!_connectedAtStartup)
         {
@@ -129,6 +134,84 @@ public partial class MainWindow : Window
                 Dialog.Show(new ConnectionErrorDialog());
             });
         }
+    }
+
+    private void LoadHelpDocument()
+    {
+        try
+        {
+            Uri? documentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
+            if (documentUri is not null)
+            {
+                HelpWebView.Source = documentUri;
+            }
+        }
+        catch
+        {
+            HelpWebView.Source = null;
+        }
+    }
+
+    private void HelpZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        SetHelpZoom(_helpZoomFactor - HelpZoomStep);
+    }
+
+    private void HelpZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        SetHelpZoom(_helpZoomFactor + HelpZoomStep);
+    }
+
+    private void HelpZoomReset_Click(object sender, RoutedEventArgs e)
+    {
+        SetHelpZoom(1.0);
+    }
+
+    private void HelpZoomBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        ApplyHelpZoomBoxValue();
+    }
+
+    private void HelpZoomBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ApplyHelpZoomBoxValue();
+            HelpZoomBox.SelectAll();
+            e.Handled = true;
+        }
+    }
+
+    private void ApplyHelpZoomBoxValue()
+    {
+        string zoomText = HelpZoomBox.Text.Trim().TrimEnd('%');
+        if (double.TryParse(zoomText, out double zoomPercent))
+        {
+            SetHelpZoom(zoomPercent / 100.0);
+            return;
+        }
+
+        UpdateHelpZoomText();
+    }
+
+    private void SetHelpZoom(double zoomFactor)
+    {
+        _helpZoomFactor = Math.Clamp(zoomFactor, HelpMinZoom, HelpMaxZoom);
+        UpdateHelpZoomText();
+
+        try
+        {
+            HelpWebView.ZoomFactor = _helpZoomFactor;
+        }
+        catch
+        {
+            // WebView2 may not be initialized or available. Keep the help page blank/unchanged.
+        }
+    }
+
+    private void UpdateHelpZoomText()
+    {
+        HelpZoomBox.Text = $"{_helpZoomFactor:P0}";
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)

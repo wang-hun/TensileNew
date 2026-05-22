@@ -1,4 +1,4 @@
-<Window x:Class="TensileNeW.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks" xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF" xmlns:local="clr-namespace:TensileNeW" xmlns:models="clr-namespace:TensileNeW.Models" Title="ECS" Width="1800" Height="1000" WindowState="Maximized" Background="#F5F6F8" FontFamily="Microsoft YaHei" Closing="Window_Closing" Loaded="Window_Loaded">
+<Window x:Class="TensileNeW.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks" xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF" xmlns:local="clr-namespace:TensileNeW" xmlns:models="clr-namespace:TensileNeW.Models" xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf" Title="ECS" Width="1800" Height="1000" WindowState="Maximized" Background="#F5F6F8" FontFamily="Microsoft YaHei" Closing="Window_Closing" Loaded="Window_Loaded">
   <Window.Resources>
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
@@ -792,36 +792,40 @@
               <TextBlock Text="帮助" Style="{StaticResource SectionTitleTextStyle}" />
             </Border>
             <TreeView Grid.Row="1" Margin="8" Padding="4" FontSize="16" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
-              <TreeViewItem Header="基础操作" IsExpanded="True">
-                <TreeViewItem Header="启动与连接" />
-                <TreeViewItem Header="主页操作" />
-                <TreeViewItem Header="数据保存" />
-              </TreeViewItem>
               <TreeViewItem Header="试验流程" IsExpanded="True">
-                <TreeViewItem Header="试验前准备" />
-                <TreeViewItem Header="拉伸控制" />
-                <TreeViewItem Header="压边控制" />
-                <TreeViewItem Header="数据重置" />
-              </TreeViewItem>
-              <TreeViewItem Header="参数设置">
-                <TreeViewItem Header="当前配置" />
-                <TreeViewItem Header="试验参数" />
-                <TreeViewItem Header="传感器归零" />
-              </TreeViewItem>
-              <TreeViewItem Header="曲线图">
-                <TreeViewItem Header="自动播放" />
-                <TreeViewItem Header="缩放与拖拽" />
-                <TreeViewItem Header="弹出窗口" />
-              </TreeViewItem>
-              <TreeViewItem Header="维护">
-                <TreeViewItem Header="变量查看" />
-                <TreeViewItem Header="配色方案" />
-                <TreeViewItem Header="常见问题" />
+                <TreeViewItem Header="流程1" />
+                <TreeViewItem Header="流程2" />
+                <TreeViewItem Header="流程3" />
+                <TreeViewItem Header="流程4" />
+                <TreeViewItem Header="流程5" />
+                <TreeViewItem Header="流程6" />
               </TreeViewItem>
             </TreeView>
           </Grid>
         </Border>
-        <Border Grid.Column="1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+        <Border Grid.Column="1" Background="{DynamicResource AppSurfaceBackgroundBrush}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="38" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,0,1">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Button Width="30" Height="26" Padding="0" Click="HelpZoomIn_Click">
+                  <iconPacks:PackIconCoolicons Kind="MagnifyingGlassPlus" Width="18" Height="18" />
+                </Button>
+                <TextBox x:Name="HelpZoomBox" Width="64" Height="26" Text="100%" FontSize="14" TextAlignment="Center" VerticalContentAlignment="Center" Margin="6,0" LostFocus="HelpZoomBox_LostFocus" KeyDown="HelpZoomBox_KeyDown" />
+                <Button Width="30" Height="26" Padding="0" Click="HelpZoomOut_Click">
+                  <iconPacks:PackIconCoolicons Kind="MagnifyingGlassMinus" Width="18" Height="18" />
+                </Button>
+                <Button Width="30" Height="26" Padding="0" Margin="6,0,0,0" Click="HelpZoomReset_Click">
+                  <iconPacks:PackIconMaterial Kind="ImageFilterCenterFocusStrong" Width="18" Height="18" />
+                </Button>
+              </StackPanel>
+            </Border>
+            <wv2:WebView2 x:Name="HelpWebView" Grid.Row="1" />
+          </Grid>
+        </Border>
       </Grid>
       <!-- ==================== SETTINGS PAGE ==================== -->
       <Grid Grid.Row="1">
