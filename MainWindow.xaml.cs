@@ -1,12 +1,17 @@
 using HandyControl.Data;
+using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using TensileNeW.Models;
+using Xceed.Document.NET;
+using Xceed.Words.NET;
 using Dialog = HandyControl.Controls.Dialog;
 using Growl = HandyControl.Controls.Growl;
 using MessageBox = HandyControl.Controls.MessageBox;
@@ -664,7 +669,11 @@ public partial class MainWindow : Window
     private async void StartTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸");
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸释放");
     private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
-    private async void Reset_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("数据重置");
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("数据重置");
+        _viewModel.AdvanceTrialSerialNumber();
+    }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
     {
@@ -691,6 +700,126 @@ public partial class MainWindow : Window
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
     private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
+
+    private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
+    {
+        string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Word (*.docx)|*.docx",
+            InitialDirectory = RAM.SettingModel.ExcelFolderPath,
+            FileName = $"{recipeName}_{SNModel.GetSn()}_{DateTime.Now:yyyyMMddHHmmss}"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        string? tempImagePath = null;
+        try
+        {
+            InvokePlotMenuItem("自动缩放", "Autoscale");
+            InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
+            tempImagePath = SaveClipboardImageToTempFile();
+
+            SaveTestReportDocx(dialog.FileName, tempImagePath, recipeName, SNModel.GetSn(), DateTime.Now);
+
+            ShowSuccess("试验报告保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("试验报告保存失败");
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
+            {
+                File.Delete(tempImagePath);
+            }
+        }
+    }
+
+    private void InvokePlotMenuItem(params string[] labels)
+    {
+        var menu = LoadPlot.Menu;
+        if (menu == null)
+        {
+            throw new InvalidOperationException("曲线图菜单不可用");
+        }
+
+        var item = menu.ContextMenuItems.FirstOrDefault(x => labels.Contains(x.Label));
+        if (item.OnInvoke == null)
+        {
+            throw new InvalidOperationException($"曲线图菜单项不可用：{string.Join("/", labels)}");
+        }
+
+        item.OnInvoke.Invoke(LoadPlot.Plot);
+    }
+
+    private static void SaveTestReportDocx(string fileName, string imagePath, string recipeName, string trialSerialNumber, DateTime generatedAt)
+    {
+        using var document = DocX.Create(fileName);
+        document.Sections[0].PageLayout.Orientation = Orientation.Portrait;
+
+        var title = document.InsertParagraph("试验报告");
+        title.Alignment = Alignment.center;
+        title.FontSize(18).Bold();
+
+        var info = document.InsertParagraph(
+            $"试验名称：{recipeName}    试验序列号：{trialSerialNumber}    生成时间：{generatedAt:yyyy-MM-dd HH:mm:ss}");
+        info.Alignment = Alignment.center;
+        info.FontSize(11);
+
+        var picture = document.AddImage(imagePath).CreatePicture();
+        FitPictureToPortraitPage(picture, imagePath);
+        var pictureParagraph = document.InsertParagraph();
+        pictureParagraph.Alignment = Alignment.center;
+        pictureParagraph.AppendPicture(picture);
+
+        var maxForce = document.InsertParagraph($"最大拉伸力：{MaxForceVariable.CurrentValue}");
+        maxForce.FontSize(12);
+        var validDistance = document.InsertParagraph($"有效拉伸位移：{ValidDistanceVariable.CurrentValue}");
+        validDistance.FontSize(12);
+        document.Save();
+    }
+
+    private static void FitPictureToPortraitPage(Picture picture, string imagePath)
+    {
+        const int maxWidth = 500;
+        const int maxHeight = 330;
+
+        using var stream = File.OpenRead(imagePath);
+        var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        int sourceWidth = decoder.Frames[0].PixelWidth;
+        int sourceHeight = decoder.Frames[0].PixelHeight;
+        if (sourceWidth <= 0 || sourceHeight <= 0)
+        {
+            return;
+        }
+
+        double scale = Math.Min((double)maxWidth / sourceWidth, (double)maxHeight / sourceHeight);
+        scale = Math.Min(scale, 1.0);
+        picture.Width = Math.Max(1, (int)Math.Round(sourceWidth * scale));
+        picture.Height = Math.Max(1, (int)Math.Round(sourceHeight * scale));
+    }
+
+    private static string SaveClipboardImageToTempFile()
+    {
+        BitmapSource? clipboardImage = Clipboard.GetImage();
+        if (clipboardImage == null)
+        {
+            throw new InvalidOperationException("无法从剪贴板获取曲线图图片");
+        }
+
+        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensileReport_{Guid.NewGuid():N}.png");
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(clipboardImage));
+        using var stream = File.Create(tempImagePath);
+        encoder.Save(stream);
+        return tempImagePath;
+    }
 
     private void OpenLoadDataWindow_Click(object sender, RoutedEventArgs e)
     {

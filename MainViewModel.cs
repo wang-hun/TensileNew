@@ -324,7 +324,10 @@ public sealed class MainViewModel : ObservableObject
             .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
             .AddData(DataAqc.loadModels, o => new object[] { o.Index, o.RealPress, o.RealDistance, o.RealForce, o.Time })
             .SaveToFile(dialog.FileName);
+    }
 
+    public void AdvanceTrialSerialNumber()
+    {
         SNModel.WriteSN();
         OnPropertyChanged(nameof(CurrentSn));
         TrialSerialNumber = SNModel.GetSn();
