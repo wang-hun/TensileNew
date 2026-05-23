@@ -2,6 +2,7 @@ using HandyControl.Data;
 using NLog;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -157,34 +158,80 @@ public partial class MainWindow : Window
         }
     }
 
-    private void HelpNavigationTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    private async void HelpNavigationTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        await NavigateHelpItemAsync(e.NewValue as HelpNavigationItem);
+    }
+
+    private async void HelpNavigationTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (HelpNavigationTree.SelectedItem is not HelpNavigationItem item)
+        {
+            return;
+        }
+
+        await NavigateHelpItemAsync(item);
+        e.Handled = true;
+    }
+
+    private async Task NavigateHelpItemAsync(HelpNavigationItem? item)
     {
         try
         {
-            Uri? targetUri = HelpDocumentLoader.TryBuildAnchorUri(
-                _helpDocumentUri,
-                e.NewValue as HelpNavigationItem);
-            if (targetUri is not null)
+            Uri? targetUri = HelpDocumentLoader.TryBuildNavigationUri(item);
+            if (targetUri is null)
             {
-                HelpWebView.Source = targetUri;
+                return;
             }
+
+            UriBuilder documentBuilder = new(targetUri)
+            {
+                Fragment = string.Empty
+            };
+            Uri documentUri = documentBuilder.Uri;
+            bool shouldLoadDocument = HelpWebView.Source is null ||
+                !string.Equals(HelpWebView.Source.LocalPath, documentUri.LocalPath, StringComparison.OrdinalIgnoreCase);
+
+            if (shouldLoadDocument)
+            {
+                TaskCompletionSource navigationCompleted = new();
+
+                void Handler(object? _, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs __)
+                {
+                    HelpWebView.NavigationCompleted -= Handler;
+                    navigationCompleted.TrySetResult();
+                }
+
+                HelpWebView.NavigationCompleted += Handler;
+                HelpWebView.Source = documentUri;
+                await navigationCompleted.Task;
+            }
+
+            await HelpWebView.EnsureCoreWebView2Async();
+            if (string.IsNullOrWhiteSpace(item?.Anchor))
+            {
+                await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
+                return;
+            }
+
+            string anchor = JsonSerializer.Serialize(item.Anchor);
+            await HelpWebView.ExecuteScriptAsync($$"""
+                (() => {
+                    const anchor = {{anchor}};
+                    const target = document.getElementById(anchor) || document.getElementsByName(anchor)[0];
+                    if (!target) {
+                        return false;
+                    }
+
+                    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                    return true;
+                })();
+                """);
         }
         catch
         {
             // Keep the help page unchanged if navigation fails.
         }
-    }
-
-    private async void HelpNavigationTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (HelpNavigationTree.SelectedItem is not HelpNavigationItem item ||
-            !string.IsNullOrWhiteSpace(item.Anchor))
-        {
-            return;
-        }
-
-        await ScrollHelpDocumentToTopAsync();
-        e.Handled = true;
     }
 
     private async Task ScrollHelpDocumentToTopAsync()

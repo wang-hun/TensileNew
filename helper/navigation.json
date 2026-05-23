@@ -1,31 +1,194 @@
 [
-  {
-    "title": "冲杯试验流程",
-    "children": [
-      {
-        "title": "设置试验参数",
-        "anchor": "step1"
-      },
-      {
-        "title": "校准传感器",
-        "anchor": "step2"
-      },
-      {
-        "title": "开始试验",
-        "anchor": "step3"
-      },
-      {
-        "title": "开始拉伸",
-        "anchor": "step4"
-      },
-      {
-        "title": "查看并保存试验数据",
-        "anchor": "step5"
-      },
-      {
-        "title": "试验结束",
-        "anchor": "step6"
-      }
-    ]
-  }
+    {
+        "title":  "冲杯试验流程",
+        "document":  "cup-test-guide/index.html",
+        "children":  [
+                         {
+                             "title":  "设置试验参数",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step1"
+                         },
+                         {
+                             "title":  "校准传感器",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step2"
+                         },
+                         {
+                             "title":  "开始试验",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step3"
+                         },
+                         {
+                             "title":  "开始拉伸",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step4"
+                         },
+                         {
+                             "title":  "查看并保存试验数据",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step5"
+                         },
+                         {
+                             "title":  "试验结束",
+                             "document":  "cup-test-guide/index.html",
+                             "anchor":  "step6"
+                         }
+                     ]
+    },
+    {
+        "title":  "EC系列操作说明书",
+        "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+        "children":  [
+                         {
+                             "title":  "基本参数",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942468"
+                         },
+                         {
+                             "title":  "可配置试验",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942469"
+                         },
+                         {
+                             "title":  "准备工作",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942470"
+                         },
+                         {
+                             "title":  "开机",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942471"
+                         },
+                         {
+                             "title":  "界面简介",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942472",
+                             "children":  [
+                                              {
+                                                  "title":  "主界面",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "_Toc524942473"
+                                              }
+                                          ]
+                         },
+                         {
+                             "title":  "试验过程",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942474",
+                             "children":  [
+                                              {
+                                                  "title":  "模具更换过程",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "_Toc524942475"
+                                              },
+                                              {
+                                                  "title":  "杯凸测试过程",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "_Toc524942476"
+                                              },
+                                              {
+                                                  "title":  "冲杯凸耳试验过程",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "_Toc524942477"
+                                              },
+                                              {
+                                                  "title":  "扩孔试验过程",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "ec-section-6-4"
+                                              },
+                                              {
+                                                  "title":  "软件使用过程",
+                                                  "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                                                  "anchor":  "ec-section-6-5"
+                                              }
+                                          ]
+                         },
+                         {
+                             "title":  "平台维护",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "ec-section-7"
+                         },
+                         {
+                             "title":  "电气原理图",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942478"
+                         },
+                         {
+                             "title":  "FLC（成形极限）模具原理图",
+                             "document":  "ec-series-manual/EC系列操作说明书-20240219.htm",
+                             "anchor":  "_Toc524942480"
+                         }
+                     ]
+    },
+    {
+        "title":  "板材成形试验机PPT介绍",
+        "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+        "children":  [
+                         {
+                             "title":  "第1页 EC系列多功能板材成形试验机",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_0"
+                         },
+                         {
+                             "title":  "第2页 板材成形试验机用途",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_1"
+                         },
+                         {
+                             "title":  "第3页 EC系列产品特点及技术优势",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_2"
+                         },
+                         {
+                             "title":  "第4页 材料成形极限试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_3"
+                         },
+                         {
+                             "title":  "第5页 700C热成形极限试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_4"
+                         },
+                         {
+                             "title":  "第6页 深拉冲杯试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_5"
+                         },
+                         {
+                             "title":  "第7页 拉深与拉伸载荷试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_6"
+                         },
+                         {
+                             "title":  "第8页 扩孔试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_7"
+                         },
+                         {
+                             "title":  "第9页 液压胀形试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_8"
+                         },
+                         {
+                             "title":  "第10页 其它试验",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_9"
+                         },
+                         {
+                             "title":  "第11页 技术问答 1-4",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_10"
+                         },
+                         {
+                             "title":  "第12页 技术问答 5-10",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_11"
+                         },
+                         {
+                             "title":  "第13页 技术问答 11-16",
+                             "document":  "ec-series-ppt/板材成形试验机PPT介绍_20260523104255.html",
+                             "anchor":  "page_12"
+                         }
+                     ]
+    }
 ]

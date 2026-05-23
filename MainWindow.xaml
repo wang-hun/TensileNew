@@ -3,7 +3,18 @@
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
     <HierarchicalDataTemplate DataType="{x:Type models:HelpNavigationItem}" ItemsSource="{Binding Children}">
-      <TextBlock Text="{Binding Title}" />
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <iconPacks:PackIconJamIcons x:Name="HelpRootBookIcon" Kind="Book" Width="20" Height="20" Margin="0,0,7,0" Foreground="#1D4ED8" Visibility="Collapsed" />
+        <TextBlock x:Name="HelpNavigationTitle" Text="{Binding Title}" />
+      </StackPanel>
+      <HierarchicalDataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsRoot}" Value="True">
+          <Setter TargetName="HelpRootBookIcon" Property="Visibility" Value="Visible" />
+          <Setter TargetName="HelpNavigationTitle" Property="Foreground" Value="#1D4ED8" />
+          <Setter TargetName="HelpNavigationTitle" Property="FontSize" Value="19" />
+          <Setter TargetName="HelpNavigationTitle" Property="FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </HierarchicalDataTemplate.Triggers>
     </HierarchicalDataTemplate>
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
       <Setter Property="Height" Value="55" />

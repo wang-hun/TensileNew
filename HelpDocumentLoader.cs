@@ -8,7 +8,7 @@ namespace TensileNeW;
 public static class HelpDocumentLoader
 {
     private const string HelperDirectoryName = "helper";
-    private const string DefaultDocumentName = "index.html";
+    private const string DefaultDocumentName = "cup-test-guide/index.html";
     private const string NavigationDocumentName = "navigation.json";
 
     public static Uri? TryGetDefaultDocumentUri()
@@ -52,10 +52,16 @@ public static class HelpDocumentLoader
             }
 
             string json = File.ReadAllText(navigationPath);
-            return JsonSerializer.Deserialize<List<HelpNavigationItem>>(json, new JsonSerializerOptions
+            List<HelpNavigationItem> navigation = JsonSerializer.Deserialize<List<HelpNavigationItem>>(json, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             }) ?? [];
+            foreach (HelpNavigationItem item in navigation)
+            {
+                item.IsRoot = true;
+            }
+
+            return navigation;
         }
         catch
         {
@@ -63,18 +69,30 @@ public static class HelpDocumentLoader
         }
     }
 
-    public static Uri? TryBuildAnchorUri(Uri? documentUri, HelpNavigationItem? item)
+    public static Uri? TryBuildNavigationUri(HelpNavigationItem? item)
     {
         try
         {
-            if (documentUri is null || string.IsNullOrWhiteSpace(item?.Anchor))
+            string? helperDirectory = TryGetHelperDirectory();
+            if (string.IsNullOrWhiteSpace(helperDirectory))
             {
                 return null;
             }
 
-            UriBuilder builder = new(documentUri)
+            string documentName = string.IsNullOrWhiteSpace(item?.Document)
+                ? DefaultDocumentName
+                : item.Document;
+            string documentPath = Path.Combine(
+                helperDirectory,
+                documentName.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(documentPath))
             {
-                Fragment = item.Anchor
+                return null;
+            }
+
+            UriBuilder builder = new(new Uri(documentPath))
+            {
+                Fragment = string.IsNullOrWhiteSpace(item?.Anchor) ? string.Empty : item.Anchor
             };
             return builder.Uri;
         }
