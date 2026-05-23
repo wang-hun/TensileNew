@@ -32,7 +32,7 @@ public sealed class MainViewModel : ObservableObject
         RAM.EnsureValidSettings();
 
         _variables = DataAqc.PLCVariables.ToDictionary(x => x.Name);
-        Recipes = RAM.SettingModel.RecipeModelS;
+        Recipes = RAM.GetRuntimeRecipes();
         LoadItems = DataAqc.loadModels;
         PlcVariables = DataAqc.PLCVariables;
         _startupLanguage = RAM.SettingModel.Language;
@@ -71,6 +71,9 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public bool IsSelectedRecipeEditable => SelectedRecipe is { IsBuiltInRecipe: false };
+    public bool IsSelectedRecipeReadOnly => SelectedRecipe is { IsBuiltInRecipe: true } || SelectedRecipe == null;
+
     public string CurrentPage
     {
         get => _currentPage;
@@ -108,11 +111,15 @@ public sealed class MainViewModel : ObservableObject
 
             if (value == null)
             {
+                OnPropertyChanged(nameof(IsSelectedRecipeEditable));
+                OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
                 return;
             }
 
             RAM.SettingModel.CurRecipeModel = value;
             OnPropertyChanged(nameof(Setting));
+            OnPropertyChanged(nameof(IsSelectedRecipeEditable));
+            OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
             RAM.ChangedIndex(Recipes.IndexOf(value));
         }
     }
@@ -237,6 +244,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var recipe = RecipeModel.CreateDefault(name);
+        recipe.IsBuiltInRecipe = false;
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
         SaveSettings();
@@ -244,7 +252,7 @@ public sealed class MainViewModel : ObservableObject
     }
     public void DeleteRecipe()
     {
-        if (SelectedRecipe == null)
+        if (SelectedRecipe == null || SelectedRecipe.IsBuiltInRecipe)
         {
             return;
         }
@@ -275,7 +283,8 @@ public sealed class MainViewModel : ObservableObject
     }
     public void SaveSettings()
     {
-        File.WriteAllText("Setting.json", JsonConvert.SerializeObject(RAM.SettingModel, Formatting.Indented));
+        RAM.SettingModel.RecipeModelS = new BindingList<RecipeModel>(Recipes.Where(recipe => !recipe.IsBuiltInRecipe).Select(recipe => recipe.CloneForUser()).ToList());
+        RAM.SaveSettingModel();
     }
 
     public void SaveSettingsAndApplyLanguage()
@@ -351,6 +360,8 @@ public sealed class MainViewModel : ObservableObject
     private void Recipes_ListChanged(object? sender, ListChangedEventArgs e)
     {
         AttachRecipeHandlers();
+        OnPropertyChanged(nameof(IsSelectedRecipeEditable));
+        OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
         SaveSettings();
     }
 

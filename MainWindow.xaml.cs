@@ -732,6 +732,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!_viewModel.IsSelectedRecipeEditable)
+        {
+            ShowWarning("默认试验不允许删除");
+            return;
+        }
+
         var dialog = new RecipeConfirmDialog();
         dialog.Confirmed += (_, _) =>
         {

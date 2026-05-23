@@ -57,6 +57,9 @@
     <None Update="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Content Include="DefaultRecipe.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="helper\**\*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

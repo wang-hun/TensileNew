@@ -2,6 +2,7 @@
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,8 @@ namespace TensileNeW.Models
     /// </summary>
     public static class RAM
     {
+        public const string SettingFileName = "Setting.json";
+        public const string DefaultRecipeFileName = "DefaultRecipe.json";
         public static int SaveIndex=1;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
@@ -21,19 +24,22 @@ namespace TensileNeW.Models
         /// 参数设置
         /// </summary>
         public static SettingModel SettingModel { get; set; }
+        public static BindingList<RecipeModel> BuiltInRecipes { get; private set; } = new();
 
         public static void Init()
         {
+            BuiltInRecipes = LoadBuiltInRecipes();
+
             //读取json文件 如果不存在则创建  创建1个新的1条默认配方的json
-            if (File.Exists("Setting.json"))
+            if (File.Exists(SettingFileName))
             {
-                SettingModel = JsonConvert.DeserializeObject<SettingModel>(File.ReadAllText("Setting.json")) ?? CreateDefaultSetting();
+                SettingModel = JsonConvert.DeserializeObject<SettingModel>(File.ReadAllText(SettingFileName)) ?? CreateDefaultSetting();
 
             }
             else
             {
                 SettingModel = CreateDefaultSetting();
-                File.WriteAllText("Setting.json", JsonConvert.SerializeObject(SettingModel, Formatting.Indented));
+                File.WriteAllText(SettingFileName, JsonConvert.SerializeObject(SettingModel, Formatting.Indented));
 
             }
 
@@ -45,33 +51,39 @@ namespace TensileNeW.Models
 
         private static SettingModel CreateDefaultSetting()
         {
-            var recipe = RecipeModel.CreateDefault("test1");
+            var recipe = BuiltInRecipes.FirstOrDefault()?.CloneForUser() ?? RecipeModel.CreateDefault("test1");
             var setting = new SettingModel
             {
                 CurRecipeModel = recipe
             };
-            setting.RecipeModelS.Add(recipe);
             return setting;
         }
 
         public static void EnsureValidSettings()
         {
-            SettingModel ??= CreateDefaultSetting();
-            SettingModel.RecipeModelS ??= new System.ComponentModel.BindingList<RecipeModel>();
-
-            if (SettingModel.RecipeModelS.Count == 0)
+            if (BuiltInRecipes.Count == 0)
             {
-                SettingModel.RecipeModelS.Add(RecipeModel.CreateDefault("test1"));
+                BuiltInRecipes = LoadBuiltInRecipes();
             }
 
-            SettingModel.CurRecipeModel ??= SettingModel.RecipeModelS[0];
+            SettingModel ??= CreateDefaultSetting();
+            SettingModel.RecipeModelS ??= new System.ComponentModel.BindingList<RecipeModel>();
+            NormalizeUserRecipes();
+
+            SettingModel.CurRecipeModel ??= BuiltInRecipes.FirstOrDefault()?.CloneForUser() ?? RecipeModel.CreateDefault("test1");
 
             bool currentRecipeExists = SettingModel.RecipeModelS.Any(recipe =>
                 string.Equals(recipe.RecipeName, SettingModel.CurRecipeModel.RecipeName, StringComparison.Ordinal));
 
             if (!currentRecipeExists)
             {
-                SettingModel.CurRecipeModel = SettingModel.RecipeModelS[0];
+                currentRecipeExists = BuiltInRecipes.Any(recipe =>
+                    string.Equals(recipe.RecipeName, SettingModel.CurRecipeModel.RecipeName, StringComparison.Ordinal));
+            }
+
+            if (!currentRecipeExists)
+            {
+                SettingModel.CurRecipeModel = GetRuntimeRecipes().FirstOrDefault() ?? RecipeModel.CreateDefault("test1");
             }
 
             if (string.IsNullOrWhiteSpace(SettingModel.ColorSchemeName) ||
@@ -79,6 +91,80 @@ namespace TensileNeW.Models
             {
                 SettingModel.ColorSchemeName = ThemeManager.DefaultSchemeName;
             }
+        }
+
+        public static BindingList<RecipeModel> GetRuntimeRecipes()
+        {
+            var recipes = new BindingList<RecipeModel>();
+            foreach (var recipe in BuiltInRecipes)
+            {
+                recipes.Add(recipe);
+            }
+
+            foreach (var recipe in SettingModel?.RecipeModelS ?? new BindingList<RecipeModel>())
+            {
+                recipes.Add(recipe);
+            }
+
+            return recipes;
+        }
+
+        public static void SaveSettingModel()
+        {
+            if (SettingModel == null)
+            {
+                return;
+            }
+
+            NormalizeUserRecipes();
+            File.WriteAllText(SettingFileName, JsonConvert.SerializeObject(SettingModel, Formatting.Indented));
+        }
+
+        private static void NormalizeUserRecipes()
+        {
+            if (SettingModel?.RecipeModelS == null)
+            {
+                return;
+            }
+
+            var userRecipes = SettingModel.RecipeModelS.Where(recipe => !recipe.IsBuiltInRecipe).ToList();
+            if (userRecipes.Count == SettingModel.RecipeModelS.Count)
+            {
+                return;
+            }
+
+            SettingModel.RecipeModelS = new BindingList<RecipeModel>(userRecipes);
+        }
+
+        private static BindingList<RecipeModel> LoadBuiltInRecipes()
+        {
+            try
+            {
+                if (File.Exists(DefaultRecipeFileName))
+                {
+                    var recipes = JsonConvert.DeserializeObject<List<RecipeModel>>(File.ReadAllText(DefaultRecipeFileName));
+                    if (recipes is { Count: > 0 })
+                    {
+                        foreach (var recipe in recipes)
+                        {
+                            recipe.IsBuiltInRecipe = true;
+                        }
+
+                        return new BindingList<RecipeModel>(recipes);
+                    }
+                }
+            }
+            catch
+            {
+                // Fall back to code defaults.
+            }
+
+            return new BindingList<RecipeModel>(new List<RecipeModel>
+            {
+                RecipeModel.CreateBuiltIn("FLC", 380, 200, 5, 0.8f, 1),
+                RecipeModel.CreateBuiltIn("深拉试验", 108, 50, 10, 0f, 1),
+                RecipeModel.CreateBuiltIn("铝合金冲杯", 50, 100, 10, 0.95f, 1)
+            });
         }
 
         public static void ChangedIndex(int i)

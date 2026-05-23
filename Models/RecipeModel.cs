@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -31,6 +32,45 @@ namespace TensileNeW.Models
                 Speed = DefaultSpeed
             };
         }
+
+        public static RecipeModel CreateBuiltIn(
+            string recipeName,
+            float strokeStampingForce,
+            float closedLoopStampingForce,
+            ushort shutdownDelay,
+            float shutdownRatio,
+            float speed)
+        {
+            return new RecipeModel
+            {
+                RecipeName = recipeName,
+                StrokeStampingForce = strokeStampingForce,
+                ClosedLoopStampingForce = closedLoopStampingForce,
+                ShutdownDelay = shutdownDelay,
+                ShutdownRatio = shutdownRatio,
+                Speed = speed,
+                IsBuiltInRecipe = true
+            };
+        }
+
+        public RecipeModel CloneForUser()
+        {
+            return new RecipeModel
+            {
+                RecipeName = RecipeName,
+                StrokeStampingForce = StrokeStampingForce,
+                ClosedLoopStampingForce = ClosedLoopStampingForce,
+                ShutdownDelay = ShutdownDelay,
+                ShutdownRatio = ShutdownRatio,
+                Speed = Speed
+            };
+        }
+
+        /// <summary>
+        /// 内置默认配方只参与运行时列表展示，不写入用户 Setting.json。
+        /// </summary>
+        [JsonIgnore]
+        public bool IsBuiltInRecipe { get; set; }
 
         /// <summary>
         ///   冲程压边力设定
