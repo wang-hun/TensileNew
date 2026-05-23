@@ -73,6 +73,11 @@ public sealed class MainViewModel : ObservableObject
 
     public bool IsSelectedRecipeEditable => SelectedRecipe is { IsBuiltInRecipe: false };
     public bool IsSelectedRecipeReadOnly => SelectedRecipe is { IsBuiltInRecipe: true } || SelectedRecipe == null;
+    public string SelectedRecipeEditHint => SelectedRecipe switch
+    {
+        { IsBuiltInRecipe: true } => "默认配置 不允许修改及删除。",
+        _ => string.Empty
+    };
 
     public string CurrentPage
     {
@@ -113,6 +118,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsSelectedRecipeEditable));
                 OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
+                OnPropertyChanged(nameof(SelectedRecipeEditHint));
                 return;
             }
 
@@ -120,6 +126,7 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(Setting));
             OnPropertyChanged(nameof(IsSelectedRecipeEditable));
             OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
+            OnPropertyChanged(nameof(SelectedRecipeEditHint));
             RAM.ChangedIndex(Recipes.IndexOf(value));
         }
     }
@@ -362,6 +369,7 @@ public sealed class MainViewModel : ObservableObject
         AttachRecipeHandlers();
         OnPropertyChanged(nameof(IsSelectedRecipeEditable));
         OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
+        OnPropertyChanged(nameof(SelectedRecipeEditHint));
         SaveSettings();
     }
 

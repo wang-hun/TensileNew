@@ -899,12 +899,22 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Border x:Name="RecipeNameBorder" Background="Transparent" Padding="8,4">
-                    <TextBlock x:Name="RecipeNameText" Text="{Binding RecipeName}" FontWeight="SemiBold" Foreground="#303030" />
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock x:Name="RecipeNameText" Text="{Binding RecipeName}" FontWeight="SemiBold" Foreground="#303030" VerticalAlignment="Center" />
+                      <Border x:Name="RecipeSourceBadge" Grid.Column="1" Background="#F0F2F5" BorderBrush="#CDD2DA" BorderThickness="1" Padding="6,1" Margin="10,0,0,0" Visibility="Collapsed">
+                        <TextBlock Text="默认" Foreground="#0F5FA8" FontSize="12" FontWeight="Bold" />
+                      </Border>
+                    </Grid>
                   </Border>
                   <DataTemplate.Triggers>
                     <DataTrigger Binding="{Binding IsBuiltInRecipe}" Value="True">
                       <Setter TargetName="RecipeNameBorder" Property="Background" Value="#E8F2FF" />
                       <Setter TargetName="RecipeNameText" Property="Foreground" Value="#0F5FA8" />
+                      <Setter TargetName="RecipeSourceBadge" Property="Visibility" Value="Visible" />
                     </DataTrigger>
                   </DataTemplate.Triggers>
                 </DataTemplate>
@@ -1005,12 +1015,26 @@
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSelectedRecipeReadOnly}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="4" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
-                <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,24,0,4" HorizontalAlignment="Center" VerticalAlignment="Top" Click="WriteRecipe_Click">
-                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <iconPacks:PackIconBootstrapIcons Kind="Calendar2PlusFill" Width="20" Height="20" Margin="0,0,8,0" />
-                    <TextBlock Text="写入配置参数" VerticalAlignment="Center" />
-                  </StackPanel>
-                </Button>
+                <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,4">
+                  <TextBlock Text="默认配置 不允许修改及删除。" FontSize="14" Foreground="#0F5FA8" Margin="0,0,0,6" HorizontalAlignment="Center" TextAlignment="Center">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Hidden" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding SelectedRecipe.IsBuiltInRecipe}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                  <Button Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Click="WriteRecipe_Click" IsEnabled="{Binding IsSelectedRecipeEditable}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <iconPacks:PackIconBootstrapIcons Kind="Calendar2PlusFill" Width="20" Height="20" Margin="0,0,8,0" />
+                      <TextBlock Text="写入配置参数" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
               </Grid>
             </Grid>
           </Border>

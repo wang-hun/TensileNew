@@ -668,10 +668,17 @@ public partial class MainWindow : Window
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
     {
+        if (!_viewModel.IsSelectedRecipeEditable)
+        {
+            ShowWarning("默认配置 不允许修改及删除。");
+            return;
+        }
+
         bool ok = await _viewModel.WriteRecipeAsync();
         if (ok)
         {
-            ShowSuccess("写入配置参数完成");
+            string name = _viewModel.SelectedRecipe?.RecipeName ?? string.Empty;
+            ShowSuccess($"已写入配置参数：{name}");
         }
         else
         {
@@ -734,7 +741,7 @@ public partial class MainWindow : Window
 
         if (!_viewModel.IsSelectedRecipeEditable)
         {
-            ShowWarning("默认试验不允许删除");
+            ShowWarning("默认配置 不允许修改及删除。");
             return;
         }
 
