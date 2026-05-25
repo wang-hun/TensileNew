@@ -294,8 +294,9 @@ public static class ManualDocumentService
         }
 
         return result ?? ConversionResult.Fail("说明书转换失败。");
+       
     }
-
+    
     private static ConversionResult ConvertWordToXps(string sourcePath, string xpsPath)
     {
         return TryProviders(

@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
+    private string _lastHelpWebSearchKeyword = string.Empty;
     private Uri? _helpDocumentUri;
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
@@ -77,6 +78,12 @@ public partial class MainWindow : Window
     public static PLCVariable TanliaoVariable => FindVariable("弹料");
     public static PLCVariable CalibrationStateVariable => FindVariable("传感器标零状态");
 
+    private static readonly HelpSearchModeOption[] HelpSearchModes =
+    [
+        new("当前页", false),
+        new("全部页", true)
+    ];
+
     public MainWindow(bool connectedAtStartup)
     {
         _connectedAtStartup = connectedAtStartup;
@@ -99,6 +106,9 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(100)
         };
         _plotAutoscaleTimer.Tick += (_, _) => _loadPlotController.AutoScaleWhileCollecting();
+        HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
+        HelpSearchModeComboBox.SelectedIndex = 1;
+        UpdateHelpZoomText();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -194,6 +204,8 @@ public partial class MainWindow : Window
                 return;
             }
 
+            HelpSearchTextBox.Clear();
+
             UriBuilder documentBuilder = new(targetUri)
             {
                 Fragment = string.Empty
@@ -263,6 +275,7 @@ public partial class MainWindow : Window
             CloseManualXpsDocument();
             ShowHelpWebView();
             HelpWebView.Source = new Uri(item.FilePath);
+            HelpSearchTextBox.Clear();
             return;
         }
 
@@ -273,7 +286,7 @@ public partial class MainWindow : Window
         }
 
         HelpWebView.Visibility = Visibility.Collapsed;
-        HelpDocumentViewer.Visibility = Visibility.Visible;
+            HelpDocumentViewer.Visibility = Visibility.Visible;
 
         ManualDocumentConvertResult result = !string.IsNullOrWhiteSpace(item.CachedPath) && File.Exists(item.CachedPath)
             ? ManualDocumentConvertResult.Ok(item.CachedPath)
@@ -291,8 +304,8 @@ public partial class MainWindow : Window
             CloseManualXpsDocument();
             _manualXpsDocument = new XpsDocument(result.XpsPath, FileAccess.Read);
             HelpDocumentViewer.Visibility = Visibility.Visible;
-            HelpDocumentViewer.Document = _manualXpsDocument.GetFixedDocumentSequence();
-            ApplyDocumentViewerZoom();
+            HelpDocumentViewer.SetDocument(_manualXpsDocument);
+            HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
         }
         catch (Exception ex)
         {
@@ -310,9 +323,99 @@ public partial class MainWindow : Window
 
     private void CloseManualXpsDocument()
     {
-        HelpDocumentViewer.Document = null;
+        HelpDocumentViewer.ClearDocument();
         _manualXpsDocument?.Close();
         _manualXpsDocument = null;
+    }
+
+    private async void HelpSearchTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        await ExecuteHelpSearchAsync(true, false);
+        e.Handled = true;
+    }
+
+    private async void HelpSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteHelpSearchAsync(true, false);
+    }
+
+    private async void HelpSearchPrevious_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteHelpSearchAsync(false, true);
+    }
+
+    private async void HelpSearchNext_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteHelpSearchAsync(true, true);
+    }
+
+    private async Task ExecuteHelpSearchAsync(bool forward, bool repeatLastSearch)
+    {
+        string keyword = repeatLastSearch ? _lastHelpWebSearchKeyword : HelpSearchTextBox.Text.Trim();
+        if (!repeatLastSearch && string.IsNullOrWhiteSpace(keyword))
+        {
+            return;
+        }
+
+        bool searchWholeDocument = (HelpSearchModeComboBox.SelectedItem as HelpSearchModeOption)?.SearchWholeDocument == true;
+        if (HelpDocumentViewer.Visibility == Visibility.Visible)
+        {
+            bool found = repeatLastSearch
+                ? HelpDocumentViewer.RepeatLastSearch(forward, out string? message)
+                : HelpDocumentViewer.Search(keyword, searchWholeDocument, forward, out message);
+            if (!found && !string.IsNullOrWhiteSpace(message))
+            {
+                ShowInfo(message);
+            }
+
+            return;
+        }
+
+        if (HelpWebView.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        try
+        {
+            await HelpWebView.EnsureCoreWebView2Async();
+            string effectiveKeyword = keyword;
+            if (string.IsNullOrWhiteSpace(effectiveKeyword))
+            {
+                return;
+            }
+
+            _lastHelpWebSearchKeyword = effectiveKeyword;
+
+            string serializedKeyword = JsonSerializer.Serialize(effectiveKeyword);
+            string serializedForward = forward ? "true" : "false";
+            string script = $$"""
+                (() => {
+                    const keyword = {{serializedKeyword}};
+                    if (!window.find) {
+                        return "unsupported";
+                    }
+
+                    const forward = {{serializedForward}};
+                    const found = window.find(keyword, false, false, true, false, !forward, false);
+                    return found ? "found" : "not-found";
+                })();
+                """;
+            string result = await HelpWebView.ExecuteScriptAsync(script);
+            if (string.Equals(result, "\"not-found\"", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowInfo("未找到对应内容。");
+            }
+        }
+        catch
+        {
+            ShowWarning("网页内容查找失败。");
+        }
     }
 
     private async Task ScrollHelpDocumentToTopAsync()
@@ -385,28 +488,15 @@ public partial class MainWindow : Window
         _helpZoomFactor = Math.Clamp(zoomFactor, HelpMinZoom, HelpMaxZoom);
         UpdateHelpZoomText();
 
+        if (HelpDocumentViewer.Visibility == Visibility.Visible)
+        {
+            HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
+            return;
+        }
+
         try
         {
             HelpWebView.ZoomFactor = _helpZoomFactor;
-        }
-        catch
-        {
-            // WebView2 may not be initialized or available. Keep the help page blank/unchanged.
-        }
-
-        ApplyDocumentViewerZoom();
-    }
-
-    private void ApplyDocumentViewerZoom()
-    {
-        try
-        {
-            if (HelpDocumentViewer.Visibility != Visibility.Visible)
-            {
-                return;
-            }
-
-            HelpDocumentViewer.Zoom = _helpZoomFactor * 100.0;
         }
         catch
         {
@@ -924,4 +1014,6 @@ public partial class MainWindow : Window
     {
         return bool.TryParse(FindVariable("数据采集标志").CurrentValue, out bool value) && value;
     }
+
+    private sealed record HelpSearchModeOption(string Title, bool SearchWholeDocument);
 }
