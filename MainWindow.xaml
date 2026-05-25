@@ -14,6 +14,10 @@
           <Setter TargetName="HelpNavigationTitle" Property="FontSize" Value="19" />
           <Setter TargetName="HelpNavigationTitle" Property="FontWeight" Value="SemiBold" />
         </DataTrigger>
+        <DataTrigger Binding="{Binding IsUnavailable}" Value="True">
+          <Setter TargetName="HelpRootBookIcon" Property="Foreground" Value="#D03050" />
+          <Setter TargetName="HelpNavigationTitle" Property="Foreground" Value="#D03050" />
+        </DataTrigger>
       </HierarchicalDataTemplate.Triggers>
     </HierarchicalDataTemplate>
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
@@ -875,6 +879,7 @@
               </StackPanel>
             </Border>
             <wv2:WebView2 x:Name="HelpWebView" Grid.Row="1" />
+            <DocumentViewer x:Name="HelpDocumentViewer" Grid.Row="1" Visibility="Collapsed" />
           </Grid>
         </Border>
       </Grid>

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
@@ -7,6 +7,9 @@ namespace Builder;
 
 internal static class Program
 {
+    private const string ManualsSourceDirectory = @"E:\ECS说明书";
+    private const string ManualsOutputDirectoryName = "manuals";
+
     private static int Main(string[] args)
     {
         try
@@ -86,11 +89,7 @@ internal static class Program
             DeleteDirectoryIfExists(Path.Combine(outputRoot, projectName));
         }
 
-        if (Directory.Exists(packageDirectory))
-        {
-            Directory.Delete(packageDirectory, recursive: true);
-        }
-
+        DeleteDirectoryIfExists(packageDirectory);
         Directory.CreateDirectory(packageDirectory);
 
         Console.WriteLine($"Publishing {projectPath}");
@@ -99,10 +98,56 @@ internal static class Program
             $"publish --no-restore --nologo {Quote(projectPath)} -c {Quote(configuration)} -o {Quote(packageDirectory)}");
 
         MoveDependencyDllsToLib(packageDirectory, assemblyName);
+        CopyManualsDirectory(packageDirectory);
         RewriteDepsJson(packageDirectory, assemblyName);
         WriteStartupScript(packageDirectory, assemblyName);
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
+    }
+
+    private static void CopyManualsDirectory(string packageDirectory)
+    {
+        string sourceDirectory = Path.GetFullPath(ManualsSourceDirectory);
+        string targetDirectory = Path.Combine(packageDirectory, ManualsOutputDirectoryName);
+        EnsureTargetIsNotSource(sourceDirectory, targetDirectory);
+
+        DeleteDirectoryIfExists(targetDirectory);
+        if (!Directory.Exists(sourceDirectory))
+        {
+            Directory.CreateDirectory(targetDirectory);
+            return;
+        }
+
+        CopyDirectory(sourceDirectory, targetDirectory);
+    }
+
+    private static void EnsureTargetIsNotSource(string sourceDirectory, string targetDirectory)
+    {
+        string source = Path.GetFullPath(sourceDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string target = Path.GetFullPath(targetDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Manuals target directory must not be the source directory.");
+        }
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string targetDirectory)
+    {
+        Directory.CreateDirectory(targetDirectory);
+
+        foreach (string directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(sourceDirectory, directory);
+            Directory.CreateDirectory(Path.Combine(targetDirectory, relativePath));
+        }
+
+        foreach (string file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            string relativePath = Path.GetRelativePath(sourceDirectory, file);
+            string targetFile = Path.Combine(targetDirectory, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+            File.Copy(file, targetFile, overwrite: true);
+        }
     }
 
     private static void CleanStaleRootOutput(string builderOutputDirectory, string assemblyName)
@@ -126,8 +171,24 @@ internal static class Program
     {
         if (Directory.Exists(path))
         {
+            ResetAttributes(path);
             Directory.Delete(path, recursive: true);
         }
+    }
+
+    private static void ResetAttributes(string path)
+    {
+        foreach (string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        foreach (string directory in Directory.EnumerateDirectories(path, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(directory, FileAttributes.Directory);
+        }
+
+        File.SetAttributes(path, FileAttributes.Directory);
     }
 
     private static string GetAssemblyName(string projectPath)

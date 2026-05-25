@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Xps.Packaging;
 using TensileNeW.Models;
 using TensileNeW.Services;
 using Dialog = HandyControl.Controls.Dialog;
@@ -49,6 +50,8 @@ public partial class MainWindow : Window
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
     private Uri? _helpDocumentUri;
+    private XpsDocument? _manualXpsDocument;
+    public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
     private int _pendingLoadScrollIndex = -1;
@@ -127,6 +130,15 @@ public partial class MainWindow : Window
                 Dialog.Show(new ConnectionErrorDialog());
             });
         }
+
+        if (HasMissingManualOffice)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                ShowWarning(ManualDocumentService.MissingOfficeMessage);
+                Dialog.Show(new ManualDocumentUnavailableDialog());
+            });
+        }
     }
 
     private void LoadHelpDocument()
@@ -169,6 +181,13 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (item?.IsManualFile == true)
+            {
+                await OpenManualDocumentAsync(item);
+                return;
+            }
+
+            ShowHelpWebView();
             Uri? targetUri = HelpDocumentLoader.TryBuildNavigationUri(item);
             if (targetUri is null)
             {
@@ -223,6 +242,77 @@ public partial class MainWindow : Window
         {
             // Keep the help page unchanged if navigation fails.
         }
+    }
+
+    private async Task OpenManualDocumentAsync(HelpNavigationItem item)
+    {
+        if (item.IsUnavailable)
+        {
+            ShowWarning(item.UnavailableMessage ?? ManualDocumentService.MissingOfficeMessage);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(item.FilePath) || !File.Exists(item.FilePath))
+        {
+            ShowWarning("说明书文件不存在。");
+            return;
+        }
+
+        if (ManualDocumentService.CanOpenInWebView(item.FilePath))
+        {
+            CloseManualXpsDocument();
+            ShowHelpWebView();
+            HelpWebView.Source = new Uri(item.FilePath);
+            return;
+        }
+
+        if (!ManualDocumentService.CanConvertToXps(item.FilePath))
+        {
+            ShowWarning("当前说明书格式不支持预览。");
+            return;
+        }
+
+        HelpWebView.Visibility = Visibility.Collapsed;
+        HelpDocumentViewer.Visibility = Visibility.Visible;
+
+        ManualDocumentConvertResult result = !string.IsNullOrWhiteSpace(item.CachedPath) && File.Exists(item.CachedPath)
+            ? ManualDocumentConvertResult.Ok(item.CachedPath)
+            : await Task.Run(() => ManualDocumentService.ConvertToXpsFile(item.FilePath));
+        if (!result.Success || string.IsNullOrWhiteSpace(result.XpsPath))
+        {
+            ShowHelpWebView();
+            ShowWarning(result.Message ?? "说明书打开失败。");
+            return;
+        }
+
+        try
+        {
+            item.CachedPath = result.XpsPath;
+            CloseManualXpsDocument();
+            _manualXpsDocument = new XpsDocument(result.XpsPath, FileAccess.Read);
+            HelpDocumentViewer.Visibility = Visibility.Visible;
+            HelpDocumentViewer.Document = _manualXpsDocument.GetFixedDocumentSequence();
+            ApplyDocumentViewerZoom();
+        }
+        catch (Exception ex)
+        {
+            ShowHelpWebView();
+            ShowWarning($"说明书预览失败：{ex.Message}");
+        }
+    }
+
+    private void ShowHelpWebView()
+    {
+        CloseManualXpsDocument();
+        HelpDocumentViewer.Visibility = Visibility.Collapsed;
+        HelpWebView.Visibility = Visibility.Visible;
+    }
+
+    private void CloseManualXpsDocument()
+    {
+        HelpDocumentViewer.Document = null;
+        _manualXpsDocument?.Close();
+        _manualXpsDocument = null;
     }
 
     private async Task ScrollHelpDocumentToTopAsync()
@@ -303,6 +393,24 @@ public partial class MainWindow : Window
         {
             // WebView2 may not be initialized or available. Keep the help page blank/unchanged.
         }
+
+        ApplyDocumentViewerZoom();
+    }
+
+    private void ApplyDocumentViewerZoom()
+    {
+        try
+        {
+            if (HelpDocumentViewer.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            HelpDocumentViewer.Zoom = _helpZoomFactor * 100.0;
+        }
+        catch
+        {
+        }
     }
 
     private void UpdateHelpZoomText()
@@ -315,6 +423,7 @@ public partial class MainWindow : Window
         _variableWindow?.Close();
         _loadDataWindow?.Close();
         _plotWindow?.Close();
+        CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
@@ -560,7 +669,15 @@ public partial class MainWindow : Window
             InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
             tempImagePath = TestReportService.SaveClipboardImageToTempFile();
 
-            TestReportService.Save(dialog.FileName, tempImagePath, recipeName, SNModel.GetSn(), DateTime.Now, MaxForceVariable.CurrentValue, ValidDistanceVariable.CurrentValue);
+            TestReportService.Save(
+                dialog.FileName,
+                tempImagePath,
+                recipeName,
+                SNModel.GetSn(),
+                DateTime.Now,
+                MaxForceVariable.CurrentValue,
+                ValidDistanceVariable.CurrentValue,
+                _viewModel.SelectedRecipe);
 
             ShowSuccess("试验报告保存成功");
         }

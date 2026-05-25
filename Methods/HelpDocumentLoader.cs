@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using TensileNeW.Models;
+using TensileNeW.Services;
 
 namespace TensileNeW;
 
@@ -22,12 +23,7 @@ public static class HelpDocumentLoader
             }
 
             string htmlPath = Path.Combine(helperDirectory, DefaultDocumentName);
-            if (!File.Exists(htmlPath))
-            {
-                return null;
-            }
-
-            return new Uri(htmlPath);
+            return File.Exists(htmlPath) ? new Uri(htmlPath) : null;
         }
         catch
         {
@@ -37,36 +33,35 @@ public static class HelpDocumentLoader
 
     public static IReadOnlyList<HelpNavigationItem> LoadNavigation()
     {
+        List<HelpNavigationItem> navigation = [];
         try
         {
             string? helperDirectory = TryGetHelperDirectory();
-            if (!Directory.Exists(helperDirectory))
+            if (Directory.Exists(helperDirectory))
             {
-                return [];
-            }
+                string navigationPath = Path.Combine(helperDirectory, NavigationDocumentName);
+                if (File.Exists(navigationPath))
+                {
+                    string json = File.ReadAllText(navigationPath);
+                    navigation = JsonSerializer.Deserialize<List<HelpNavigationItem>>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    }) ?? [];
 
-            string navigationPath = Path.Combine(helperDirectory, NavigationDocumentName);
-            if (!File.Exists(navigationPath))
-            {
-                return [];
+                    foreach (HelpNavigationItem item in navigation)
+                    {
+                        item.IsRoot = true;
+                    }
+                }
             }
-
-            string json = File.ReadAllText(navigationPath);
-            List<HelpNavigationItem> navigation = JsonSerializer.Deserialize<List<HelpNavigationItem>>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            }) ?? [];
-            foreach (HelpNavigationItem item in navigation)
-            {
-                item.IsRoot = true;
-            }
-
-            return navigation;
         }
         catch
         {
-            return [];
+            navigation = [];
         }
+
+        navigation.AddRange(ManualDocumentService.LoadManualNavigation());
+        return navigation;
     }
 
     public static Uri? TryBuildNavigationUri(HelpNavigationItem? item)
@@ -104,6 +99,14 @@ public static class HelpDocumentLoader
 
     private static string? TryGetHelperDirectory()
     {
+        string? baseDirectory = TryGetBaseDirectory();
+        return string.IsNullOrWhiteSpace(baseDirectory)
+            ? null
+            : Path.Combine(baseDirectory, HelperDirectoryName);
+    }
+
+    private static string? TryGetBaseDirectory()
+    {
         string? exePath = Environment.ProcessPath;
         string? baseDirectory = Path.GetDirectoryName(exePath);
         if (string.IsNullOrWhiteSpace(baseDirectory))
@@ -111,8 +114,6 @@ public static class HelpDocumentLoader
             baseDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         }
 
-        return string.IsNullOrWhiteSpace(baseDirectory)
-            ? null
-            : Path.Combine(baseDirectory, HelperDirectoryName);
+        return baseDirectory;
     }
 }

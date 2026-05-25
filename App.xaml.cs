@@ -3,7 +3,9 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using TensileNeW.Models;
+using TensileNeW.Services;
 using HandyMessageBox = HandyControl.Controls.MessageBox;
 
 namespace TensileNeW;
@@ -27,17 +29,20 @@ public partial class App : Application
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
 
-            bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);
-            string waitText = isEn
-                ? "Connecting to device host, please wait..."
-                : "正在连接 设备主机，请稍后...";
-
-            waitWindow = new StartupWaitWindow(waitText);
+            bool needsToGenerateCache = ManualDocumentService.NeedsToGenerateCache();
+            waitWindow = new StartupWaitWindow(
+                needsToGenerateCache
+                    ? "正在安装试验说明书，请稍后...."
+                    : "正在加载安装试验说明书，请稍后....");
             waitWindow.Show();
 
-            var sevenSegmentFontTask = Task.Run(SevenSegmentFontHelper.GetFontFamilyOrDefault);
-            var minimumStartupDelayTask = Task.Delay(TimeSpan.FromSeconds(2));
-            var connectTask = TryConnectWithTimeoutAsync();
+            ManualDocumentStartupResult manualStartupResult = await Task.Run(ManualDocumentService.PrepareManualCache);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+
+            waitWindow.SetWaitText("正在连接控制器，请稍后....");
+            Task<FontFamily> sevenSegmentFontTask = Task.Run(SevenSegmentFontHelper.GetFontFamilyOrDefault);
+            Task minimumStartupDelayTask = Task.Delay(TimeSpan.FromSeconds(2));
+            Task<bool> connectTask = TryConnectWithTimeoutAsync();
             bool connected = await connectTask;
             if (connected)
             {
@@ -51,7 +56,10 @@ public partial class App : Application
 
             Resources["SevenSegmentFontFamily"] = await sevenSegmentFontTask;
 
-            var mainWindow = new MainWindow(connected);
+            MainWindow mainWindow = new(connected)
+            {
+                HasMissingManualOffice = manualStartupResult.HasMissingOffice
+            };
             MainWindow = mainWindow;
 
             waitWindow.Close();
@@ -72,8 +80,8 @@ public partial class App : Application
     {
         try
         {
-            var connectTask = Task.Run(() => DataAqc.TryConnect());
-            var completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            Task<bool> connectTask = Task.Run(() => DataAqc.TryConnect());
+            Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
             if (completedTask == connectTask)
             {
