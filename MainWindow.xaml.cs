@@ -1,4 +1,4 @@
-using HandyControl.Data;
+﻿using HandyControl.Data;
 using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
@@ -8,10 +8,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 using TensileNeW.Models;
-using Xceed.Document.NET;
-using Xceed.Words.NET;
+using TensileNeW.Services;
 using Dialog = HandyControl.Controls.Dialog;
 using Growl = HandyControl.Controls.Growl;
 using MessageBox = HandyControl.Controls.MessageBox;
@@ -22,7 +20,6 @@ public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
-    private const bool AutoScrollXAxisEnabled = false;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
     private const double HelpMaxZoom = 2.0;
@@ -47,11 +44,7 @@ public partial class MainWindow : Window
     private VariableWindow? _variableWindow;
     private LoadDataWindow? _loadDataWindow;
     private PlotWindow? _plotWindow;
-    private readonly List<double> _plotXs = [];
-    private readonly List<double> _plotYs = [];
-    private ScottPlot.Plottables.Scatter? _loadScatter;
-    private int _plottedPointCount;
-    private bool _plotInitialized;
+    private readonly LoadPlotController _loadPlotController;
     private int _logoClickCount;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
@@ -59,12 +52,6 @@ public partial class MainWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
     private int _pendingLoadScrollIndex = -1;
-    private static readonly ScottPlot.Color SanaePlotBackgroundColor = ScottPlot.Color.FromHex("#E1E2DC");
-    private static readonly ScottPlot.Color SanaePlotLineColor = ScottPlot.Color.FromHex("#101010");
-    private static readonly ScottPlot.Color SanaePlotGridLineColor = ScottPlot.Color.FromHex("#000000");
-    private ScottPlot.Color _defaultPlotBackgroundColor;
-    private ScottPlot.Color _defaultPlotMajorGridLineColor;
-    private ScottPlot.Color? _defaultLoadScatterColor;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -94,8 +81,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        _defaultPlotBackgroundColor = LoadPlot.Plot.DataBackground.Color;
-        _defaultPlotMajorGridLineColor = LoadPlot.Plot.Grid.MajorLineColor;
+        _loadPlotController = new LoadPlotController(LoadPlot, () => _autoTrackLatestPoint, 22);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -109,7 +95,7 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(100)
         };
-        _plotAutoscaleTimer.Tick += (_, _) => AutoScalePlotWhileCollecting();
+        _plotAutoscaleTimer.Tick += (_, _) => _loadPlotController.AutoScaleWhileCollecting();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -338,160 +324,12 @@ public partial class MainWindow : Window
 
     private void InitializePlot()
     {
-        if (_plotInitialized)
-        {
-            return;
-        }
-        ApplyPlotLabels();
-        LocalizePlotContextMenu();
-        LoadPlot.Refresh();
-        _plotInitialized = true;
+        _loadPlotController.Initialize(() => _loadPlotController.LocalizeContextMenu(OpenPlotWindow));
     }
 
-    private void ResetPlot()
-    {
-        LoadPlot.Plot.Clear();
-        _plotXs.Clear();
-        _plotYs.Clear();
-        _loadScatter = null;
-        _plottedPointCount = 0;
-        ApplyPlotLabels();
-        LoadPlot.Refresh();
-    }
+    private void ResetPlot() => _loadPlotController.Reset();
 
-    private void AutoScalePlotWhileCollecting()
-    {
-        if (!_autoTrackLatestPoint || !IsDataCollecting() || _loadScatter == null || _plotXs.Count == 0)
-        {
-            return;
-        }
-
-        LoadPlot.Plot.Axes.AutoScale();
-        LoadPlot.Refresh();
-    }
-
-    private void RefreshPlot()
-    {
-        if (!_plotInitialized)
-        {
-            InitializePlot();
-        }
-
-        var items = DataAqc.loadModels;
-        if (items == null)
-        {
-            return;
-        }
-
-        var limits = LoadPlot.Plot.Axes.GetLimits();
-        if (items.Count < _plottedPointCount)
-        {
-            ResetPlot();
-            limits = LoadPlot.Plot.Axes.GetLimits();
-        }
-
-        while (_plottedPointCount < items.Count)
-        {
-            var item = items[_plottedPointCount];
-            _plotXs.Add(item.RealDistance);
-            _plotYs.Add(item.RealForce);
-            _plottedPointCount++;
-        }
-
-        if (_loadScatter == null && _plotXs.Count > 0)
-        {
-            _loadScatter = LoadPlot.Plot.Add.Scatter(_plotXs, _plotYs);
-            _loadScatter.Smooth = true;
-            _defaultLoadScatterColor = _loadScatter.Color;
-        }
-
-        ApplyPlotLabels();
-        if (AutoScrollXAxisEnabled && _autoTrackLatestPoint && _plotXs.Count > 0)
-        {
-            double xSpan = limits.Right - limits.Left;
-            if (xSpan <= 0)
-            {
-                xSpan = Math.Max(1, _plotXs.Max() - _plotXs.Min());
-            }
-
-            double latestX = _plotXs[^1];
-            LoadPlot.Plot.Axes.SetLimits(latestX - xSpan, latestX, limits.Bottom, limits.Top);
-        }
-        LoadPlot.Refresh();
-    }
-
-    private void ApplyPlotLabels()
-    {
-        ApplyPlotStyle();
-        LoadPlot.Plot.Title("力位移数据", 30);
-        LoadPlot.Plot.XLabel("位移（mm）", 30);
-        LoadPlot.Plot.YLabel("力（KN）", 30);
-        LoadPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 22;
-        LoadPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 22;
-        LoadPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
-        LoadPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
-        LoadPlot.Plot.Font.Automatic();
-    }
-
-    private void ApplyPlotStyle()
-    {
-        bool useSanae = string.Equals(ThemeManager.CurrentScheme.Name, ThemeManager.DefaultSchemeName, StringComparison.Ordinal);
-
-        LoadPlot.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
-        LoadPlot.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
-        LoadPlot.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
-        if (_loadScatter != null)
-        {
-            _loadScatter.Color = useSanae
-                ? SanaePlotLineColor
-                : _defaultLoadScatterColor ?? _loadScatter.Color;
-        }
-    }
-
-    private void LocalizePlotContextMenu()
-    {
-        var menu = LoadPlot.Menu;
-        if (menu == null) return;
-
-        bool isEn = string.Equals(RAM.SettingModel.Language, "EN", StringComparison.OrdinalIgnoreCase);
-        var items = menu.ContextMenuItems;
-        for (int i = 0; i < items.Count; i++)
-        {
-            var item = items[i];
-            switch (item.Label)
-            {
-                case "Save Image":
-                    if (!isEn)
-                    {
-                        item.Label = "保存图片";
-                    }
-                    items[i] = item;
-                    break;
-                case "Copy to Clipboard":
-                    if (!isEn)
-                    {
-                        item.Label = "复制到剪贴板";
-                    }
-                    items[i] = item;
-                    break;
-                case "Autoscale":
-                    if (!isEn)
-                    {
-                        item.Label = "自动缩放";
-                    }
-                    items[i] = item;
-                    break;
-                case "Open in New Window":
-                    if (!isEn)
-                    {
-                        item.Label = "新窗口打开";
-                    }
-                    item.OnInvoke = _ => OpenPlotWindow();
-                    items[i] = item;
-                    break;
-            }
-        }
-    }
+    private void RefreshPlot() => _loadPlotController.Refresh();
 
     private void OpenPlotWindow()
     {
@@ -658,8 +496,7 @@ public partial class MainWindow : Window
         _viewModel.Setting.ColorSchemeName = scheme.Name;
         _viewModel.SaveSettings();
         NativeTitleBarHelper.ApplyTheme(this);
-        ApplyPlotLabels();
-        LoadPlot.Refresh();
+        _loadPlotController.ApplyCurrentTheme();
         _plotWindow?.ApplyCurrentTheme();
         ShowSuccess($"已应用配色方案：{scheme.Name}");
     }
@@ -721,9 +558,9 @@ public partial class MainWindow : Window
         {
             InvokePlotMenuItem("自动缩放", "Autoscale");
             InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
-            tempImagePath = SaveClipboardImageToTempFile();
+            tempImagePath = TestReportService.SaveClipboardImageToTempFile();
 
-            SaveTestReportDocx(dialog.FileName, tempImagePath, recipeName, SNModel.GetSn(), DateTime.Now);
+            TestReportService.Save(dialog.FileName, tempImagePath, recipeName, SNModel.GetSn(), DateTime.Now, MaxForceVariable.CurrentValue, ValidDistanceVariable.CurrentValue);
 
             ShowSuccess("试验报告保存成功");
         }
@@ -756,69 +593,6 @@ public partial class MainWindow : Window
         }
 
         item.OnInvoke.Invoke(LoadPlot.Plot);
-    }
-
-    private static void SaveTestReportDocx(string fileName, string imagePath, string recipeName, string trialSerialNumber, DateTime generatedAt)
-    {
-        using var document = DocX.Create(fileName);
-        document.Sections[0].PageLayout.Orientation = Orientation.Portrait;
-
-        var title = document.InsertParagraph("试验报告");
-        title.Alignment = Alignment.center;
-        title.FontSize(18).Bold();
-
-        var info = document.InsertParagraph(
-            $"试验名称：{recipeName}    试验序列号：{trialSerialNumber}    生成时间：{generatedAt:yyyy-MM-dd HH:mm:ss}");
-        info.Alignment = Alignment.center;
-        info.FontSize(11);
-
-        var picture = document.AddImage(imagePath).CreatePicture();
-        FitPictureToPortraitPage(picture, imagePath);
-        var pictureParagraph = document.InsertParagraph();
-        pictureParagraph.Alignment = Alignment.center;
-        pictureParagraph.AppendPicture(picture);
-
-        var maxForce = document.InsertParagraph($"最大拉伸力：{MaxForceVariable.CurrentValue}");
-        maxForce.FontSize(12);
-        var validDistance = document.InsertParagraph($"有效拉伸位移：{ValidDistanceVariable.CurrentValue}");
-        validDistance.FontSize(12);
-        document.Save();
-    }
-
-    private static void FitPictureToPortraitPage(Picture picture, string imagePath)
-    {
-        const int maxWidth = 500;
-        const int maxHeight = 330;
-
-        using var stream = File.OpenRead(imagePath);
-        var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-        int sourceWidth = decoder.Frames[0].PixelWidth;
-        int sourceHeight = decoder.Frames[0].PixelHeight;
-        if (sourceWidth <= 0 || sourceHeight <= 0)
-        {
-            return;
-        }
-
-        double scale = Math.Min((double)maxWidth / sourceWidth, (double)maxHeight / sourceHeight);
-        scale = Math.Min(scale, 1.0);
-        picture.Width = Math.Max(1, (int)Math.Round(sourceWidth * scale));
-        picture.Height = Math.Max(1, (int)Math.Round(sourceHeight * scale));
-    }
-
-    private static string SaveClipboardImageToTempFile()
-    {
-        BitmapSource? clipboardImage = Clipboard.GetImage();
-        if (clipboardImage == null)
-        {
-            throw new InvalidOperationException("无法从剪贴板获取曲线图图片");
-        }
-
-        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensileReport_{Guid.NewGuid():N}.png");
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(clipboardImage));
-        using var stream = File.Create(tempImagePath);
-        encoder.Save(stream);
-        return tempImagePath;
     }
 
     private void OpenLoadDataWindow_Click(object sender, RoutedEventArgs e)

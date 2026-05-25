@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -53,8 +53,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="GB-LOGO.png" />
-    <Resource Include="logo.ico" />
+    <Resource Include="Assets\GB-LOGO.png" />
+    <Resource Include="Assets\logo.ico" />
     <None Update="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -64,7 +64,7 @@
     <Content Include="helper\**\*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Seven Segment.ttf">
+    <Content Include="Assets\Seven Segment.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

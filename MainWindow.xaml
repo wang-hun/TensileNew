@@ -227,7 +227,7 @@
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Image x:Name="LogoImage" Source="pack://application:,,,/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,5" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
+          <Image x:Name="LogoImage" Source="pack://application:,,,/Assets/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,5" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
           <Grid Grid.Column="1">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="90" />

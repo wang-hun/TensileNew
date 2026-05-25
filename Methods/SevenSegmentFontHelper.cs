@@ -10,6 +10,7 @@ namespace TensileNeW;
 public static class SevenSegmentFontHelper
 {
     private const string FontFileName = "Seven Segment.ttf";
+    private const string AssetsFolderName = "Assets";
     private const string FontFamilyName = "Seven Segment";
     private const string FontRegistryName = "Seven Segment (TrueType)";
     private const int HwndBroadcast = 0xffff;
@@ -34,7 +35,7 @@ public static class SevenSegmentFontHelper
                 return DefaultFontFamily;
             }
 
-            string fontPath = Path.Combine(baseDirectory, FontFileName);
+            string fontPath = Path.Combine(baseDirectory, AssetsFolderName, FontFileName);
             if (!File.Exists(fontPath))
             {
                 return DefaultFontFamily;
