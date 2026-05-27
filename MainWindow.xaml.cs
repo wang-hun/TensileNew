@@ -737,6 +737,64 @@ public partial class MainWindow : Window
 
     private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
 
+    private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
+    {
+        string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
+        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+        string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
+        string folderPath = RAM.SettingModel.ExcelFolderPath;
+        var waitWindow = new StartupWaitWindow("正在保存数据及试验报告，请稍后。");
+        string? tempImagePath = null;
+
+        try
+        {
+            IsEnabled = false;
+            waitWindow.Show();
+            await Task.Yield();
+
+            Directory.CreateDirectory(folderPath);
+            string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
+            string trialSerialNumber = SNModel.GetSn();
+            DateTime generatedAt = DateTime.Now;
+            string maxForce = MaxForceVariable.CurrentValue;
+            string validDistance = ValidDistanceVariable.CurrentValue;
+            RecipeModel? recipe = _viewModel.SelectedRecipe;
+            tempImagePath = CaptureReportImageToTempFile();
+
+            await Task.Run(() =>
+            {
+                _viewModel.SaveDataToFile(excelPath);
+                SaveTestReportDocumentToFile(
+                    reportPath,
+                    tempImagePath,
+                    recipeName,
+                    trialSerialNumber,
+                    generatedAt,
+                    maxForce,
+                    validDistance,
+                    recipe);
+            });
+
+            ShowSuccess("数据和试验报告保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("数据和试验报告保存失败");
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
+            {
+                File.Delete(tempImagePath);
+            }
+
+            waitWindow.Close();
+            IsEnabled = true;
+        }
+    }
+
     private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
     {
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
@@ -752,15 +810,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        try
+        {
+            SaveTestReportToFile(dialog.FileName, recipeName);
+            ShowSuccess("试验报告保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("试验报告保存失败");
+        }
+    }
+
+    private void SaveTestReportToFile(string fileName, string recipeName)
+    {
         string? tempImagePath = null;
         try
         {
-            InvokePlotMenuItem("自动缩放", "Autoscale");
-            InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
-            tempImagePath = TestReportService.SaveClipboardImageToTempFile();
-
-            TestReportService.Save(
-                dialog.FileName,
+            tempImagePath = CaptureReportImageToTempFile();
+            SaveTestReportDocumentToFile(
+                fileName,
                 tempImagePath,
                 recipeName,
                 SNModel.GetSn(),
@@ -768,13 +837,6 @@ public partial class MainWindow : Window
                 MaxForceVariable.CurrentValue,
                 ValidDistanceVariable.CurrentValue,
                 _viewModel.SelectedRecipe);
-
-            ShowSuccess("试验报告保存成功");
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex);
-            ShowError("试验报告保存失败");
         }
         finally
         {
@@ -783,6 +845,34 @@ public partial class MainWindow : Window
                 File.Delete(tempImagePath);
             }
         }
+    }
+
+    private string CaptureReportImageToTempFile()
+    {
+        InvokePlotMenuItem("自动缩放", "Autoscale");
+        InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
+        return TestReportService.SaveClipboardImageToTempFile();
+    }
+
+    private static void SaveTestReportDocumentToFile(
+        string fileName,
+        string imagePath,
+        string recipeName,
+        string trialSerialNumber,
+        DateTime generatedAt,
+        string maxForce,
+        string validDistance,
+        RecipeModel? recipe)
+    {
+        TestReportService.Save(
+            fileName,
+            imagePath,
+            recipeName,
+            trialSerialNumber,
+            generatedAt,
+            maxForce,
+            validDistance,
+            recipe);
     }
 
     private void InvokePlotMenuItem(params string[] labels)

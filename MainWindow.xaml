@@ -719,7 +719,7 @@
                     <TextBlock Text="冲程压边" VerticalAlignment="Center" Foreground="White" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="松开待速" Margin="0,3,0,0" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
+                <TextBlock Text="松开怠速" Margin="0,3,0,0" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
               </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="1" Margin="6,3,6,5" VerticalAlignment="Top">
@@ -765,7 +765,7 @@
         <Border Grid.Column="2" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1,0,0,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid.RowDefinitions>
-            <RowDefinition Height="150" />
+            <RowDefinition Height="86" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
           <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
@@ -775,16 +775,11 @@
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Button Style="{StaticResource ActionButtonStyle}" Width="220" FontSize="22" Click="SaveData_Click">
+              <Button Style="{StaticResource ActionButtonStyle}" Width="240" FontSize="22" Click="SaveDataAndReport_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="24" Height="24" Margin="0,0,8,0" />
-                  <TextBlock Text="保存原始数据" VerticalAlignment="Center" />
-                </StackPanel>
-              </Button>
-              <Button Style="{StaticResource ActionButtonStyle}" Width="220" FontSize="22" Margin="0,12,0,0" Click="GenerateTestReport_Click">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="24" Height="24" Margin="0,0,6,0" />
                   <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="24" Height="24" Margin="0,0,8,0" />
-                  <TextBlock Text="输出试验报告" VerticalAlignment="Center" />
+                  <TextBlock Text="保存数据和报告" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
             </StackPanel>

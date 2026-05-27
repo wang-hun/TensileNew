@@ -319,11 +319,16 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        SaveDataToFile(dialog.FileName);
+    }
+
+    public void SaveDataToFile(string fileName)
+    {
         using var exporter = new ExcelExporter_EPPlus();
         exporter.CreateSheet("Orders")
             .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
             .AddData(DataAqc.loadModels, o => new object[] { o.Index, o.RealPress, o.RealDistance, o.RealForce, o.Time })
-            .SaveToFile(dialog.FileName);
+            .SaveToFile(fileName);
     }
 
     public void AdvanceTrialSerialNumber()
