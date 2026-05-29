@@ -1,0 +1,44 @@
+<UserControl x:Class="TensileNeW.SettingsPinDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:hc="https://handyorg.github.io/handycontrol"
+             Width="420"
+             Background="White"
+             FontFamily="Microsoft YaHei">
+    <Border Padding="24" Background="White" CornerRadius="4">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Button Content="X"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Click="Close_Click" />
+
+            <TextBlock Grid.Row="1"
+                       Text="请输入管理员密码。"
+                       FontSize="18"
+                       FontWeight="Bold"
+                       Foreground="#263238"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,12" />
+
+            <hc:TransitioningContentControl Grid.Row="2" Margin="0,12,0,0">
+                <hc:UniformSpacingPanel Spacing="16"
+                                        Orientation="Vertical"
+                                        VerticalAlignment="Center"
+                                        hc:PinBox.Completed="PinBox_OnCompleted">
+                    <hc:PinBox x:Name="PinBox"
+                               Length="5"
+                               IsSafeEnabled="False" />
+                </hc:UniformSpacingPanel>
+            </hc:TransitioningContentControl>
+        </Grid>
+    </Border>
+</UserControl>

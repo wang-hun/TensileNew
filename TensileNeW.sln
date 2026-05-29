@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37111.16
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TensileNeW", "TensileNeW.csproj", "{AF89CEFB-962A-8C61-E92C-C450A040E68C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Builder", "builder\Builder\Builder.csproj", "{5C5F31C4-9667-4246-BCC7-9C8448F51189}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AF89CEFB-962A-8C61-E92C-C450A040E68C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF89CEFB-962A-8C61-E92C-C450A040E68C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF89CEFB-962A-8C61-E92C-C450A040E68C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF89CEFB-962A-8C61-E92C-C450A040E68C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C5F31C4-9667-4246-BCC7-9C8448F51189}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C5F31C4-9667-4246-BCC7-9C8448F51189}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C5F31C4-9667-4246-BCC7-9C8448F51189}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C5F31C4-9667-4246-BCC7-9C8448F51189}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E046F225-8BCC-4603-90A1-9CBF6A1D7B67}
+	EndGlobalSection
+EndGlobal

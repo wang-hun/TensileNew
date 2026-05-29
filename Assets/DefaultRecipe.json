@@ -1,0 +1,26 @@
+[
+  {
+    "RecipeName": "FLC",
+    "StrokeStampingForce": 380.0,
+    "ClosedLoopStampingForce": 200.0,
+    "ShutdownDelay": 5,
+    "ShutdownRatio": 0.8,
+    "Speed": 1.0
+  },
+  {
+    "RecipeName": "深拉试验",
+    "StrokeStampingForce": 108.0,
+    "ClosedLoopStampingForce": 50.0,
+    "ShutdownDelay": 10,
+    "ShutdownRatio": 0.0,
+    "Speed": 1.0
+  },
+  {
+    "RecipeName": "铝合金冲杯",
+    "StrokeStampingForce": 50.0,
+    "ClosedLoopStampingForce": 100.0,
+    "ShutdownDelay": 10,
+    "ShutdownRatio": 0.95,
+    "Speed": 1.0
+  }
+]

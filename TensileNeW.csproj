@@ -1,0 +1,77 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ECS</AssemblyName>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <Version>1.0.0.2605</Version>
+    <AssemblyVersion>1.0.0.2605</AssemblyVersion>
+    <FileVersion>1.0.0.2605</FileVersion>
+    <InformationalVersion>V1.0.0.2605</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="builder\**" />
+    <Compile Remove="bin\**" />
+    <Compile Remove="codex_obj\**" />
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="builder\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <EmbeddedResource Remove="codex_obj\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="builder\**" />
+    <None Remove="bin\**" />
+    <None Remove="codex_obj\**" />
+    <None Remove="obj\**" />
+    <Page Remove="builder\**" />
+    <Page Remove="bin\**" />
+    <Page Remove="codex_obj\**" />
+    <Page Remove="obj\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tools\DeltaPlcController .cs" />
+    <Compile Remove="Tools\Converter\BindingHelper.cs" />
+    <Compile Remove="Tools\Converter\IValueConverter.cs" />
+    <Compile Remove="Tools\Converter\IntegerToUnitStringConverter.cs" />
+    <Compile Remove="Tools\Converter\StringToStateConverter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="DocX" Version="5.0.0" />
+    <PackageReference Include="EPPlus" Version="7.7.0" />
+    <PackageReference Include="HandyControl" Version="3.5.1" />
+    <PackageReference Include="Haukcode.HighResolutionTimer" Version="1.2.0" />
+    <PackageReference Include="MahApps.Metro.IconPacks" Version="6.2.1" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="NLog" Version="4.7.15" />
+    <PackageReference Include="NModbus" Version="3.0.81" />
+    <PackageReference Include="NPOI" Version="2.7.3" />
+    <PackageReference Include="ScottPlot.WPF" Version="5.1.58" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\GB-LOGO.png" />
+    <Resource Include="Assets\logo.ico" />
+    <None Update="NLog.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Content Include="Assets\DefaultRecipe.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="helper\**\*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Seven Segment.ttf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

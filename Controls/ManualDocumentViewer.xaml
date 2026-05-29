@@ -1,0 +1,27 @@
+<UserControl x:Class="TensileNeW.Controls.ManualDocumentViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="EmbeddedDocumentViewerStyle" TargetType="DocumentViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DocumentViewer">
+                        <Grid Background="{TemplateBinding Background}">
+                            <ContentControl x:Name="PART_FindToolBarHost" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          CanContentScroll="true"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto"
+                                          Focusable="false" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <DocumentViewer x:Name="InnerDocumentViewer"
+                        Style="{StaticResource EmbeddedDocumentViewerStyle}"
+                        Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+    </Grid>
+</UserControl>
