@@ -71,8 +71,9 @@ internal static class Program
             throw new FileNotFoundException("External project was not found.", projectPath);
         }
 
-        string assemblyName = GetAssemblyName(projectPath);
-        string packageDirectory = Path.Combine(outputRoot, assemblyName);
+        ProjectMetadata projectMetadata = GetProjectMetadata(projectPath);
+        string assemblyName = projectMetadata.AssemblyName;
+        string packageDirectory = Path.Combine(outputRoot, GetPackageDirectoryName(projectMetadata));
         string projectName = Path.GetFileNameWithoutExtension(projectPath);
         string? builderOutputDirectory = Directory.GetParent(outputRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))?.FullName;
 
@@ -191,7 +192,7 @@ internal static class Program
         File.SetAttributes(path, FileAttributes.Directory);
     }
 
-    private static string GetAssemblyName(string projectPath)
+    private static ProjectMetadata GetProjectMetadata(string projectPath)
     {
         XDocument project = XDocument.Load(projectPath);
         string? assemblyName = project
@@ -199,9 +200,21 @@ internal static class Program
             .Select(element => element.Value.Trim())
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-        return string.IsNullOrWhiteSpace(assemblyName)
-            ? Path.GetFileNameWithoutExtension(projectPath)
-            : assemblyName;
+        string? version = project
+            .Descendants("InformationalVersion")
+            .Select(element => element.Value.Trim())
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        return new ProjectMetadata(
+            string.IsNullOrWhiteSpace(assemblyName) ? Path.GetFileNameWithoutExtension(projectPath) : assemblyName,
+            version);
+    }
+
+    private static string GetPackageDirectoryName(ProjectMetadata projectMetadata)
+    {
+        return string.IsNullOrWhiteSpace(projectMetadata.InformationalVersion)
+            ? projectMetadata.AssemblyName
+            : $"{projectMetadata.AssemblyName} {projectMetadata.InformationalVersion}";
     }
 
     private static void MoveDependencyDllsToLib(string packageDirectory, string assemblyName)
@@ -347,4 +360,6 @@ exit /b %EXITCODE%
     {
         return "\"" + value.Replace("\"", "\\\"") + "\"";
     }
+
+    private sealed record ProjectMetadata(string AssemblyName, string? InformationalVersion);
 }
