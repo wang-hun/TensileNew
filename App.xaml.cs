@@ -29,11 +29,13 @@ public partial class App : Application
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
 
+            bool isFirstRun = !SNModel.HasSnFile();
             bool needsToGenerateCache = ManualDocumentService.NeedsToGenerateCache();
             waitWindow = new StartupWaitWindow(
                 needsToGenerateCache
                     ? "正在安装试验说明书，请稍后...."
                     : "正在加载安装试验说明书，请稍后....");
+            waitWindow.SetHintVisibility(isFirstRun);
             waitWindow.Show();
 
             ManualDocumentStartupResult manualStartupResult = await Task.Run(ManualDocumentService.PrepareManualCache);

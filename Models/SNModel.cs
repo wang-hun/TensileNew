@@ -17,6 +17,11 @@ namespace TensileNeW.Models
             return SN.ToString("D5");
         }
 
+        public static bool HasSnFile()
+        {
+            return File.Exists(GetSnFilePath());
+        }
+
         public static void WriteSN()
         {
             SN += 1;
@@ -26,7 +31,7 @@ namespace TensileNeW.Models
         private static void WriteSN(int i)
         {
 
-            string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"SN.txt");
+            string filePath = GetSnFilePath();
             // 删除文件（如果存在）
             if (!File.Exists(filePath))
             {
@@ -40,7 +45,7 @@ namespace TensileNeW.Models
 
         public static void LoadSN()
         {
-            string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"SN.txt");
+            string filePath = GetSnFilePath();
 
             if (!File.Exists(filePath))
             {
@@ -55,6 +60,11 @@ namespace TensileNeW.Models
 
             }
 
+        }
+
+        private static string GetSnFilePath()
+        {
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SN.txt");
         }
 
     }

@@ -98,10 +98,13 @@ internal static class Program
             "dotnet",
             $"publish --no-restore --nologo {Quote(projectPath)} -c {Quote(configuration)} -o {Quote(packageDirectory)}");
 
-        MoveDependencyDllsToLib(packageDirectory, assemblyName);
+        DeleteNonWindowsRuntimes(packageDirectory);
+        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
         CopyManualsDirectory(packageDirectory);
         RewriteDepsJson(packageDirectory, assemblyName);
+        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
         WriteStartupScript(packageDirectory, assemblyName);
+        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
     }
@@ -217,20 +220,36 @@ internal static class Program
             : $"{projectMetadata.AssemblyName} {projectMetadata.InformationalVersion}";
     }
 
-    private static void MoveDependencyDllsToLib(string packageDirectory, string assemblyName)
+    private static void NormalizeDependencyDllsToLib(string packageDirectory, string assemblyName)
+    {
+        const int maxPasses = 20;
+        for (int pass = 0; pass < maxPasses; pass++)
+        {
+            int remainingDependencyCount = MoveDependencyDllsToLib(packageDirectory, assemblyName);
+            if (remainingDependencyCount == 0)
+            {
+                return;
+            }
+
+            Thread.Sleep(100);
+        }
+
+        int remaining = GetRootDependencyDlls(packageDirectory, assemblyName).Count;
+        if (remaining > 0)
+        {
+            throw new InvalidOperationException($"Failed to move {remaining} dependency DLL(s) to lib.");
+        }
+    }
+
+    private static int MoveDependencyDllsToLib(string packageDirectory, string assemblyName)
     {
         string libDirectory = Path.Combine(packageDirectory, "lib");
         Directory.CreateDirectory(libDirectory);
 
         string mainDllName = assemblyName + ".dll";
-        foreach (string dllFile in Directory.EnumerateFiles(packageDirectory, "*.dll", SearchOption.TopDirectoryOnly))
+        foreach (string dllFile in GetRootDependencyDlls(packageDirectory, assemblyName))
         {
             string fileName = Path.GetFileName(dllFile);
-            if (fileName.Equals(mainDllName, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             string targetFile = Path.Combine(libDirectory, fileName);
             if (File.Exists(targetFile))
             {
@@ -238,6 +257,37 @@ internal static class Program
             }
 
             File.Move(dllFile, targetFile);
+        }
+
+        return GetRootDependencyDlls(packageDirectory, assemblyName).Count;
+    }
+
+    private static List<string> GetRootDependencyDlls(string packageDirectory, string assemblyName)
+    {
+        string mainDllName = assemblyName + ".dll";
+        return Directory
+            .EnumerateFiles(packageDirectory, "*.dll", SearchOption.TopDirectoryOnly)
+            .Where(dllFile => !Path.GetFileName(dllFile).Equals(mainDllName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private static void DeleteNonWindowsRuntimes(string packageDirectory)
+    {
+        string runtimesDirectory = Path.Combine(packageDirectory, "runtimes");
+        if (!Directory.Exists(runtimesDirectory))
+        {
+            return;
+        }
+
+        foreach (string runtimeDirectory in Directory.EnumerateDirectories(runtimesDirectory, "*", SearchOption.TopDirectoryOnly))
+        {
+            string runtimeName = Path.GetFileName(runtimeDirectory);
+            if (runtimeName.StartsWith("win", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            DeleteDirectoryIfExists(runtimeDirectory);
         }
     }
 
@@ -280,7 +330,7 @@ internal static class Program
 
         foreach ((string key, JsonNode? value) in entries)
         {
-            string fileName = Path.GetFileName(key);
+            string fileName = GetDepsPathFileName(key);
             string targetKey = fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
                 && !fileName.Equals(mainDllName, StringComparison.OrdinalIgnoreCase)
                     ? "lib/" + fileName
@@ -288,6 +338,14 @@ internal static class Program
 
             runtime[targetKey] = value;
         }
+    }
+
+    private static string GetDepsPathFileName(string path)
+    {
+        int separatorIndex = path.LastIndexOf('/');
+        return separatorIndex >= 0
+            ? path[(separatorIndex + 1)..]
+            : Path.GetFileName(path);
     }
 
     private static void WriteStartupScript(string packageDirectory, string assemblyName)
