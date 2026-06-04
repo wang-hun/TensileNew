@@ -88,7 +88,9 @@ public sealed class LoadPlotController
         {
             _scatter = _plotHost.Plot.Add.Scatter(_xs, _ys);
             _scatter.Smooth = true;
+            _scatter.LegendText = SNModel.GetSn();
             _defaultScatterColor = _scatter.Color;
+            _plotHost.Plot.ShowLegend();
         }
 
         ApplyLabels();

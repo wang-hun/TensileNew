@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using TensileNeW.Services;
 using TensileNeW.Tools;
 
 namespace TensileNeW.Models
@@ -344,6 +345,15 @@ namespace TensileNeW.Models
         {
             try
             {
+                try
+                {
+                    TrialDataStore.EnqueuePoint(SNModel.GetSn(), loadmodel);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex.Message);
+                }
+
                 _queue.Enqueue(loadmodel);
             }
             catch (Exception ex)
