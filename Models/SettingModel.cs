@@ -58,6 +58,27 @@ namespace TensileNeW.Models
             set => SetProperty(ref _HideChartHintOnStartup, value);
         }
 
+        private bool _AutoTrackLatestPoint = true;
+        public bool AutoTrackLatestPoint
+        {
+            get => _AutoTrackLatestPoint;
+            set => SetProperty(ref _AutoTrackLatestPoint, value);
+        }
+
+        private bool _ShowPlotLegend = true;
+        public bool ShowPlotLegend
+        {
+            get => _ShowPlotLegend;
+            set => SetProperty(ref _ShowPlotLegend, value);
+        }
+
+        private bool _KeepPlotOnReset = true;
+        public bool KeepPlotOnReset
+        {
+            get => _KeepPlotOnReset;
+            set => SetProperty(ref _KeepPlotOnReset, value);
+        }
+
         private string _ColorSchemeName = "黑金";
         public string ColorSchemeName
         {

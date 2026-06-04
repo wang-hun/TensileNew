@@ -338,6 +338,13 @@ public sealed class MainViewModel : ObservableObject
         TrialSerialNumber = SNModel.GetSn();
     }
 
+    public void ResetTrialSerialNumber()
+    {
+        SNModel.ResetSN();
+        OnPropertyChanged(nameof(CurrentSn));
+        TrialSerialNumber = SNModel.GetSn();
+    }
+
     public static void StopConsumers()
     {
         DataAqc._cts.Cancel();

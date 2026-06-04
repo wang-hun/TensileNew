@@ -17,6 +17,7 @@ public static class TrialDataStore
     private static Task? _writerTask;
     private static bool _started;
     private static bool _disabled;
+    private static string? _activeTrialSerialNumber;
 
     public static void EnqueuePoint(string trialSerialNumber, Loadmodel source)
     {
@@ -29,8 +30,10 @@ public static class TrialDataStore
 
             EnsureStarted();
 
+            string effectiveTrialSerialNumber = GetEffectiveTrialSerialNumber(trialSerialNumber, source);
+
             PendingPoints.Add(new TrialPoint(
-                trialSerialNumber,
+                effectiveTrialSerialNumber,
                 source.Index,
                 source.RealPress,
                 source.RealDistance,
@@ -42,6 +45,37 @@ public static class TrialDataStore
         {
             _disabled = true;
             Logger.Error(ex, "试验数据 SQLite 持久化已禁用。");
+        }
+    }
+
+    private static string GetEffectiveTrialSerialNumber(string requestedTrialSerialNumber, Loadmodel source)
+    {
+        if (source.Index <= 1 || string.IsNullOrWhiteSpace(_activeTrialSerialNumber))
+        {
+            _activeTrialSerialNumber = requestedTrialSerialNumber;
+        }
+
+        return _activeTrialSerialNumber;
+    }
+
+    public static void TryDeleteDatabaseFile()
+    {
+        try
+        {
+            if (_started && !PendingPoints.IsAddingCompleted)
+            {
+                PendingPoints.CompleteAdding();
+                _writerTask?.Wait(TimeSpan.FromSeconds(1));
+            }
+
+            string databasePath = GetDatabasePath(createDirectory: false);
+            if (File.Exists(databasePath))
+            {
+                File.Delete(databasePath);
+            }
+        }
+        catch
+        {
         }
     }
 
@@ -92,10 +126,14 @@ public static class TrialDataStore
         }
     }
 
-    private static string GetDatabasePath()
+    private static string GetDatabasePath(bool createDirectory = true)
     {
         string dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DataDirectoryName);
-        Directory.CreateDirectory(dataDirectory);
+        if (createDirectory)
+        {
+            Directory.CreateDirectory(dataDirectory);
+        }
+
         return Path.Combine(dataDirectory, DatabaseFileName);
     }
 

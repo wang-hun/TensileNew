@@ -11,10 +11,10 @@ public partial class PlotWindow : Window
     private readonly DispatcherTimer _autoscaleTimer;
     private readonly LoadPlotController _plotController;
 
-    public PlotWindow(Func<bool> autoPlayEnabled)
+    public PlotWindow(Func<bool> autoPlayEnabled, Func<bool> showLegend, Func<bool> keepPlotOnReset)
     {
         InitializeComponent();
-        _plotController = new LoadPlotController(PlotHost, autoPlayEnabled, 44);
+        _plotController = new LoadPlotController(PlotHost, autoPlayEnabled, showLegend, keepPlotOnReset, 44);
         Owner = Application.Current?.MainWindow;
         Topmost = true;
 
@@ -45,6 +45,12 @@ public partial class PlotWindow : Window
     }
 
     public void ApplyCurrentTheme() => _plotController.ApplyCurrentTheme();
+
+    public void HideNonCurrentCurves() => _plotController.HideNonCurrentCurves();
+
+    public void RestoreHiddenCurves() => _plotController.RestoreHiddenCurves();
+
+    public void AutoScale() => _plotController.AutoScale();
 
     private void OnLoadDataChanged(Loadmodel _) => Dispatcher.Invoke(RequestRefresh);
 

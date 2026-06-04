@@ -8,25 +8,42 @@ public sealed class LoadPlotController
 {
     private const bool AutoScrollXAxisEnabled = false;
     private static readonly Color SanaePlotBackgroundColor = Color.FromHex("#E1E2DC");
-    private static readonly Color SanaePlotLineColor = Color.FromHex("#101010");
     private static readonly Color SanaePlotGridLineColor = Color.FromHex("#000000");
+    private static readonly Color[] PlotLineColors =
+    [
+        Color.FromHex("#1677FF"),
+        Color.FromHex("#52C41A"),
+        Color.FromHex("#FA8C16"),
+        Color.FromHex("#EB2F96"),
+        Color.FromHex("#722ED1"),
+        Color.FromHex("#13C2C2"),
+        Color.FromHex("#F5222D"),
+        Color.FromHex("#A0D911"),
+        Color.FromHex("#2F54EB"),
+        Color.FromHex("#FAAD14")
+    ];
 
     private readonly WpfPlot _plotHost;
     private readonly Func<bool> _autoTrackLatestPoint;
+    private readonly Func<bool> _showLegend;
+    private readonly Func<bool> _keepPlotOnReset;
     private readonly int _tickLabelFontSize;
-    private readonly List<double> _xs = [];
-    private readonly List<double> _ys = [];
+    private readonly Queue<CurveSeries> _seriesQueue = new();
+    private readonly Queue<string> _visibleTrialSerialNumbers = new();
+    private readonly List<CurveSeries> _temporarilyHiddenSeries = [];
     private readonly Color _defaultPlotBackgroundColor;
     private readonly Color _defaultPlotMajorGridLineColor;
-    private ScottPlot.Plottables.Scatter? _scatter;
-    private Color? _defaultScatterColor;
+    private CurveSeries? _currentSeries;
     private int _pointCount;
+    private int _nextColorIndex;
     private bool _initialized;
 
-    public LoadPlotController(WpfPlot plotHost, Func<bool> autoTrackLatestPoint, int tickLabelFontSize)
+    public LoadPlotController(WpfPlot plotHost, Func<bool> autoTrackLatestPoint, Func<bool> showLegend, Func<bool> keepPlotOnReset, int tickLabelFontSize)
     {
         _plotHost = plotHost;
         _autoTrackLatestPoint = autoTrackLatestPoint;
+        _showLegend = showLegend;
+        _keepPlotOnReset = keepPlotOnReset;
         _tickLabelFontSize = tickLabelFontSize;
         _defaultPlotBackgroundColor = _plotHost.Plot.DataBackground.Color;
         _defaultPlotMajorGridLineColor = _plotHost.Plot.Grid.MajorLineColor;
@@ -47,11 +64,22 @@ public sealed class LoadPlotController
 
     public void Reset()
     {
+        if (_keepPlotOnReset())
+        {
+            _pointCount = 0;
+            _currentSeries = null;
+            ApplyLabels();
+            _plotHost.Refresh();
+            return;
+        }
+
         _plotHost.Plot.Clear();
-        _xs.Clear();
-        _ys.Clear();
-        _scatter = null;
+        _seriesQueue.Clear();
+        _visibleTrialSerialNumbers.Clear();
+        _temporarilyHiddenSeries.Clear();
+        _currentSeries = null;
         _pointCount = 0;
+        _nextColorIndex = 0;
         ApplyLabels();
         _plotHost.Refresh();
     }
@@ -78,31 +106,31 @@ public sealed class LoadPlotController
 
         while (_pointCount < items.Count)
         {
+            CurveSeries series = _currentSeries ?? CreateSeries(SNModel.GetSn());
             var item = items[_pointCount];
-            _xs.Add(item.RealDistance);
-            _ys.Add(item.RealForce);
+            series.Xs.Add(item.RealDistance);
+            series.Ys.Add(item.RealForce);
+            if (series.Scatter == null)
+            {
+                series.Scatter = _plotHost.Plot.Add.Scatter(series.Xs, series.Ys);
+                series.Scatter.Smooth = true;
+                series.Scatter.LegendText = series.TrialSerialNumber;
+                series.Scatter.Color = series.LineColor;
+            }
+
             _pointCount++;
         }
 
-        if (_scatter == null && _xs.Count > 0)
-        {
-            _scatter = _plotHost.Plot.Add.Scatter(_xs, _ys);
-            _scatter.Smooth = true;
-            _scatter.LegendText = SNModel.GetSn();
-            _defaultScatterColor = _scatter.Color;
-            _plotHost.Plot.ShowLegend();
-        }
-
         ApplyLabels();
-        if (AutoScrollXAxisEnabled && _autoTrackLatestPoint() && _xs.Count > 0)
+        if (AutoScrollXAxisEnabled && _autoTrackLatestPoint() && _currentSeries is { Xs.Count: > 0 } current)
         {
             double xSpan = limits.Right - limits.Left;
             if (xSpan <= 0)
             {
-                xSpan = Math.Max(1, _xs.Max() - _xs.Min());
+                xSpan = Math.Max(1, current.Xs.Max() - current.Xs.Min());
             }
 
-            double latestX = _xs[^1];
+            double latestX = current.Xs[^1];
             _plotHost.Plot.Axes.SetLimits(latestX - xSpan, latestX, limits.Bottom, limits.Top);
         }
 
@@ -117,12 +145,48 @@ public sealed class LoadPlotController
 
     public void AutoScaleWhileCollecting()
     {
-        if (!_autoTrackLatestPoint() || !IsDataCollecting() || _scatter == null || _xs.Count == 0)
+        if (!_autoTrackLatestPoint() || !IsDataCollecting() || _currentSeries?.Scatter == null || _currentSeries.Xs.Count == 0)
         {
             return;
         }
 
+        AutoScale();
+    }
+
+    public void AutoScale()
+    {
         _plotHost.Plot.Axes.AutoScale();
+        _plotHost.Refresh();
+    }
+
+    public void HideNonCurrentCurves()
+    {
+        _temporarilyHiddenSeries.Clear();
+        foreach (CurveSeries series in _seriesQueue)
+        {
+            if (series == _currentSeries || series.Scatter == null || !series.Scatter.IsVisible)
+            {
+                continue;
+            }
+
+            series.Scatter.IsVisible = false;
+            _temporarilyHiddenSeries.Add(series);
+        }
+
+        _plotHost.Refresh();
+    }
+
+    public void RestoreHiddenCurves()
+    {
+        foreach (CurveSeries series in _temporarilyHiddenSeries)
+        {
+            if (series.Scatter != null)
+            {
+                series.Scatter.IsVisible = true;
+            }
+        }
+
+        _temporarilyHiddenSeries.Clear();
         _plotHost.Refresh();
     }
 
@@ -181,6 +245,18 @@ public sealed class LoadPlotController
         _plotHost.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
         _plotHost.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
         _plotHost.Plot.Font.Automatic();
+        ApplyLegendVisibility();
+    }
+
+    private void ApplyLegendVisibility()
+    {
+        if (_showLegend())
+        {
+            _plotHost.Plot.ShowLegend();
+            return;
+        }
+
+        _plotHost.Plot.Legend.IsVisible = false;
     }
 
     private void ApplyStyle()
@@ -190,12 +266,36 @@ public sealed class LoadPlotController
         _plotHost.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
         _plotHost.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
         _plotHost.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
-        if (_scatter != null)
+        foreach (CurveSeries series in _seriesQueue)
         {
-            _scatter.Color = useSanae
-                ? SanaePlotLineColor
-                : _defaultScatterColor ?? _scatter.Color;
+            if (series.Scatter != null)
+            {
+                series.Scatter.Color = series.LineColor;
+            }
         }
+    }
+
+    private CurveSeries CreateSeries(string trialSerialNumber)
+    {
+        var series = new CurveSeries(
+            trialSerialNumber,
+            PlotLineColors[_nextColorIndex % PlotLineColors.Length]);
+        _nextColorIndex++;
+        _seriesQueue.Enqueue(series);
+        _visibleTrialSerialNumbers.Enqueue(trialSerialNumber);
+        _currentSeries = series;
+
+        while (_seriesQueue.Count > 10)
+        {
+            CurveSeries removed = _seriesQueue.Dequeue();
+            _visibleTrialSerialNumbers.Dequeue();
+            if (removed.Scatter != null)
+            {
+                _plotHost.Plot.Remove(removed.Scatter);
+            }
+        }
+
+        return series;
     }
 
     private static bool IsDataCollecting()
@@ -203,5 +303,14 @@ public sealed class LoadPlotController
         DataAqc.EnsureInitialized();
         var variable = DataAqc.PLCVariables.First(t => t.Name == "数据采集标志");
         return bool.TryParse(variable.CurrentValue, out bool value) && value;
+    }
+
+    private sealed class CurveSeries(string trialSerialNumber, Color lineColor)
+    {
+        public string TrialSerialNumber { get; } = trialSerialNumber;
+        public Color LineColor { get; } = lineColor;
+        public List<double> Xs { get; } = [];
+        public List<double> Ys { get; } = [];
+        public ScottPlot.Plottables.Scatter? Scatter { get; set; }
     }
 }

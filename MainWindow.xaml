@@ -590,17 +590,9 @@
           <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="1">
             <Grid>
               <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
-              <CheckBox x:Name="AutoTrackLatestPointCheckBox"
-                        Content="自动播放曲线图"
-                        IsChecked="True"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top"
-                        Margin="48,12,0,0"
-                        Panel.ZIndex="20"
-                        FontSize="14"
-                        Foreground="#404040"
-                        Checked="AutoTrackLatestPointCheckBox_Changed"
-                        Unchecked="AutoTrackLatestPointCheckBox_Changed" />
+              <Button x:Name="ChartSettingsButton" Width="31.5" Height="31.5" Margin="0,2.75,45,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="曲线图设置" Click="ChartSettingsButton_Click">
+                <iconPacks:PackIconForkAwesome Kind="Cogs" Width="22" Height="22" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+              </Button>
               <Button x:Name="ChartHintButton" Width="31.5" Height="31.5" Margin="0,2.75,8,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="显示/隐藏曲线图操作提示" Click="ChartHintButton_Click">
                 <Grid>
                   <iconPacks:PackIconBootstrapIcons x:Name="ChartHintInfoIcon" Kind="InfoCircle" Width="24" Height="24" Foreground="#1677FF">

@@ -88,10 +88,16 @@ public partial class MainWindow : Window
     {
         _connectedAtStartup = connectedAtStartup;
         _viewModel = new MainViewModel();
+        _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        _loadPlotController = new LoadPlotController(LoadPlot, () => _autoTrackLatestPoint, 22);
+        _loadPlotController = new LoadPlotController(
+            LoadPlot,
+            () => _autoTrackLatestPoint,
+            () => _viewModel.Setting.ShowPlotLegend,
+            () => _viewModel.Setting.KeepPlotOnReset,
+            22);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -518,6 +524,7 @@ public partial class MainWindow : Window
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
+        TrialDataStore.TryDeleteDatabaseFile();
         Logger.Info("关闭程序");
     }
 
@@ -538,7 +545,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        _plotWindow = new PlotWindow(() => _autoTrackLatestPoint)
+        _plotWindow = new PlotWindow(
+            () => _autoTrackLatestPoint,
+            () => _viewModel.Setting.ShowPlotLegend,
+            () => _viewModel.Setting.KeepPlotOnReset)
         {
             Owner = this
         };
@@ -620,9 +630,33 @@ public partial class MainWindow : Window
         _viewModel.SaveSettings();
     }
 
-    private void AutoTrackLatestPointCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void ChartSettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        _autoTrackLatestPoint = AutoTrackLatestPointCheckBox.IsChecked == true;
+        var dialog = new ChartSettingsWindow(_viewModel.Setting, _viewModel.SaveSettings)
+        {
+            Owner = this
+        };
+
+        dialog.SettingsChanged += (_, _) =>
+        {
+            _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
+            _loadPlotController.ApplyCurrentTheme();
+            _plotWindow?.ApplyCurrentTheme();
+        };
+        dialog.Confirmed += (_, _) => ShowSuccess("设置成功");
+        dialog.ResetSerialRequested += (_, _) => ShowResetSerialConfirmDialog();
+        dialog.ShowDialog();
+    }
+
+    private void ShowResetSerialConfirmDialog()
+    {
+        var confirm = new ResetSerialConfirmDialog();
+        confirm.Confirmed += (_, _) =>
+        {
+            _viewModel.ResetTrialSerialNumber();
+            ShowSuccess("序列号已重置");
+        };
+        Dialog.Show(confirm);
     }
 
     private void LoadItems_ListChanged(object? sender, ListChangedEventArgs e)
@@ -735,7 +769,11 @@ public partial class MainWindow : Window
     private async void Tanliao_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", true);
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
-    private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
+    private void SaveData_Click(object sender, RoutedEventArgs e)
+    {
+        using var _ = BeginCurrentTrialPlotScope();
+        _viewModel.SaveDataAs();
+    }
 
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
@@ -760,21 +798,25 @@ public partial class MainWindow : Window
             string maxForce = MaxForceVariable.CurrentValue;
             string validDistance = ValidDistanceVariable.CurrentValue;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
-            tempImagePath = CaptureReportImageToTempFile();
 
-            await Task.Run(() =>
+            using (BeginCurrentTrialPlotScope())
             {
-                _viewModel.SaveDataToFile(excelPath);
-                SaveTestReportDocumentToFile(
-                    reportPath,
-                    tempImagePath,
-                    recipeName,
-                    trialSerialNumber,
-                    generatedAt,
-                    maxForce,
-                    validDistance,
-                    recipe);
-            });
+                tempImagePath = CaptureReportImageToTempFile();
+
+                await Task.Run(() =>
+                {
+                    _viewModel.SaveDataToFile(excelPath);
+                    SaveTestReportDocumentToFile(
+                        reportPath,
+                        tempImagePath,
+                        recipeName,
+                        trialSerialNumber,
+                        generatedAt,
+                        maxForce,
+                        validDistance,
+                        recipe);
+                });
+            }
 
             ShowSuccess("数据和试验报告保存成功");
         }
@@ -812,7 +854,10 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveTestReportToFile(dialog.FileName, recipeName);
+            using (BeginCurrentTrialPlotScope())
+            {
+                SaveTestReportToFile(dialog.FileName, recipeName);
+            }
             ShowSuccess("试验报告保存成功");
         }
         catch (Exception ex)
@@ -852,6 +897,23 @@ public partial class MainWindow : Window
         InvokePlotMenuItem("自动缩放", "Autoscale");
         InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
         return TestReportService.SaveClipboardImageToTempFile();
+    }
+
+    private IDisposable BeginCurrentTrialPlotScope()
+    {
+        _loadPlotController.HideNonCurrentCurves();
+        _plotWindow?.HideNonCurrentCurves();
+        _loadPlotController.AutoScale();
+        _plotWindow?.AutoScale();
+        return new CurrentTrialPlotScope(this);
+    }
+
+    private void EndCurrentTrialPlotScope()
+    {
+        _loadPlotController.RestoreHiddenCurves();
+        _plotWindow?.RestoreHiddenCurves();
+        _loadPlotController.AutoScale();
+        _plotWindow?.AutoScale();
     }
 
     private static void SaveTestReportDocumentToFile(
@@ -1106,4 +1168,20 @@ public partial class MainWindow : Window
     }
 
     private sealed record HelpSearchModeOption(string Title, bool SearchWholeDocument);
+
+    private sealed class CurrentTrialPlotScope(MainWindow owner) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            owner.EndCurrentTrialPlotScope();
+        }
+    }
 }

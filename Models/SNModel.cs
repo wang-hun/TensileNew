@@ -28,6 +28,12 @@ namespace TensileNeW.Models
             WriteSN(SN); 
 
         }
+
+        public static void ResetSN()
+        {
+            SN = 1;
+            WriteSN(SN);
+        }
         private static void WriteSN(int i)
         {
 
