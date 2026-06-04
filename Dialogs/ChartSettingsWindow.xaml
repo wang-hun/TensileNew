@@ -82,30 +82,94 @@
                             Margin="0,18,0,0"
                             HorizontalAlignment="Center"
                             TextElement.Foreground="{DynamicResource AppMetricNameForegroundBrush}">
-                    <CheckBox Content="自动播放曲线图"
-                              IsChecked="{Binding AutoTrackLatestPoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              FontSize="16"
-                              Margin="0,0,0,16"
-                              Checked="SettingCheckBox_Changed"
-                              Unchecked="SettingCheckBox_Changed" />
-                    <CheckBox Content="是否显示图例"
-                              IsChecked="{Binding ShowPlotLegend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              FontSize="16"
-                              Margin="0,0,0,16"
-                              Checked="SettingCheckBox_Changed"
-                              Unchecked="SettingCheckBox_Changed" />
-                    <CheckBox Content="重置数据不清空曲线图"
-                              IsChecked="{Binding KeepPlotOnReset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              FontSize="16"
-                              Margin="0,0,0,16"
-                              Checked="SettingCheckBox_Changed"
-                              Unchecked="SettingCheckBox_Changed" />
-                    <Button Style="{StaticResource TextLinkButtonStyle}"
-                            Margin="22,0,0,0"
-                            HorizontalAlignment="Left"
-                            FontSize="16"
-                            Click="ResetSerial_Click"
-                            Content="重置序列号" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,16">
+                        <CheckBox Content="自动播放曲线图"
+                                  IsChecked="{Binding AutoTrackLatestPoint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  FontSize="16"
+                                  Checked="SettingCheckBox_Changed"
+                                  Unchecked="SettingCheckBox_Changed" />
+                        <Border Width="48"
+                                Height="16"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                ToolTip="勾选后，采集过程中曲线图会自动缩放到当前数据。">
+                            <iconPacks:PackIconPhosphorIcons Kind="QuestionBold"
+                                                             Width="16"
+                                                             Height="16"
+                                                             HorizontalAlignment="Center"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,16">
+                        <CheckBox Content="是否显示图例"
+                                  IsChecked="{Binding ShowPlotLegend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  FontSize="16"
+                                  Checked="SettingCheckBox_Changed"
+                                  Unchecked="SettingCheckBox_Changed" />
+                        <Border Width="48"
+                                Height="16"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                ToolTip="勾选后，曲线图会显示各条曲线对应的序列号。">
+                            <iconPacks:PackIconPhosphorIcons Kind="QuestionBold"
+                                                             Width="16"
+                                                             Height="16"
+                                                             HorizontalAlignment="Center"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,16">
+                        <CheckBox Content="重置数据不清空曲线图"
+                                  IsChecked="{Binding KeepPlotOnReset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  FontSize="16"
+                                  Checked="SettingCheckBox_Changed"
+                                  Unchecked="SettingCheckBox_Changed" />
+                        <Border Width="48"
+                                Height="16"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                ToolTip="勾选后，点击数据重置不会清空曲线图，下一次试验会使用新颜色绘制新曲线。">
+                            <iconPacks:PackIconPhosphorIcons Kind="QuestionBold"
+                                                             Width="16"
+                                                             Height="16"
+                                                             HorizontalAlignment="Center"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left">
+                        <Button Style="{StaticResource TextLinkButtonStyle}"
+                                Margin="22,0,0,0"
+                                HorizontalAlignment="Left"
+                                FontSize="16"
+                                Click="ResetSerial_Click"
+                                Content="重置序列号" />
+                        <Border Width="48"
+                                Height="16"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                ToolTip="确认后将序列号重置为 00001，只影响下一次开始的试验。">
+                            <iconPacks:PackIconPhosphorIcons Kind="QuestionBold"
+                                                             Width="16"
+                                                             Height="16"
+                                                             HorizontalAlignment="Center"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
 
                 <Button Grid.Row="3"
@@ -166,7 +230,7 @@
                 <hc:AnimationPath Data="{StaticResource RightTopLongBaseAnimationGeometry}"
                                   Width="420"
                                   Height="380"
-                                  Duration="00:00:04"
+                                  Duration="00:00:02"
                                   PathLength="30"
                                   Stretch="None"
                                   StrokeThickness="1"
@@ -176,7 +240,7 @@
                 <hc:AnimationPath Data="{StaticResource LeftBottomLongBaseAnimationGeometry}"
                                   Width="420"
                                   Height="380"
-                                  Duration="00:00:04"
+                                  Duration="00:00:02"
                                   PathLength="30"
                                   Stretch="None"
                                   StrokeThickness="1"
