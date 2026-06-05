@@ -627,7 +627,21 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
-                  <TextBlock Margin="18,14,46,8" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap" Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。&#xA;鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。&#xA;在曲线图上点击鼠标右键查看更多功能。" />
+                  <TextBlock Margin="18,14,46,8" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap">
+                    <Run Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。" />
+                    <LineBreak />
+                    <Run Text="鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。" />
+                    <LineBreak />
+                    <Run Text="在曲线图上点击鼠标右键查看更多功能。" />
+                    <LineBreak />
+                    <Run Text="点击“" />
+                    <InlineUIContainer BaselineAlignment="Center">
+                      <iconPacks:PackIconForkAwesome Kind="Cogs" Width="18" Height="18" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                    </InlineUIContainer>
+                    <Run Text="”，可以打开曲线设置界面。" />
+                    <LineBreak />
+                    <Run Text="勾选“重置数据不清空曲线图”后，点击数据重置不会清空已有曲线，下一次试验会使用新颜色继续绘制。" />
+                  </TextBlock>
                   <CheckBox Grid.Row="1" Content="下次启动后不再自动显示。" IsChecked="{Binding Setting.HideChartHintOnStartup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Right" Margin="18,0,16,12" FontSize="14" Checked="ChartHintStartupCheckBox_Changed" Unchecked="ChartHintStartupCheckBox_Changed" />
                   <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort" Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="#1677FF" />
                 </Grid>
