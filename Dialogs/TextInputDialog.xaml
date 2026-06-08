@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="420" Height="200" WindowStartupLocation="CenterOwner"
         WindowStyle="SingleBorderWindow" ResizeMode="NoResize"
-        Background="White" FontFamily="Microsoft YaHei"
+        Background="{DynamicResource AppSurfaceBackgroundBrush}" FontFamily="Microsoft YaHei"
         Title="请输入" ShowInTaskbar="False">
-    <Grid Margin="20">
+    <Grid Margin="20" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextElement.Foreground="{DynamicResource AppMetricNameForegroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

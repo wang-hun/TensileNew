@@ -82,39 +82,39 @@ namespace TensileNeW.Models
                 //M9  停止  布尔
 
                 PLCVariables = new BindingList<PLCVariable>();
-                PLCVariables.Add(new PLCVariable { Name = "冲程压边力设定", Address = "D400", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "闭环压边力设定", Address = "D402", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "速度设定", Address = "D404", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "停机延时设定", Address = "D410", DataType = "Word" });
-                PLCVariables.Add(new PLCVariable { Name = "停机比例设定", Address = "D416", DataType = "Float" });
+                PLCVariables.Add(new PLCVariable { Name = "冲程压边力设定", Address = "D400", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "闭环压边力设定", Address = "D402", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "速度设定", Address = "D404", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "停机延时设定", Address = "D410", DataType = "Word", CurrentValue = "0", WriteValue = "0" });
+                PLCVariables.Add(new PLCVariable { Name = "停机比例设定", Address = "D416", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
 
-                PLCVariables.Add(new PLCVariable { Name = "实时拉伸力", Address = "D46", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸时间", Address = "D48", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "实时压边力", Address = "D54", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "主推力", Address = "D66", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "实时拉伸速度", Address = "D249", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "实时拉伸位移", Address = "D260", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "最大拉伸力", Address = "D362", DataType = "Float" });
-                PLCVariables.Add(new PLCVariable { Name = "有效拉伸位移", Address = "D364", DataType = "Float" });
-
-
-                PLCVariables.Add(new PLCVariable { Name = "压边释放", Address = "M1", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸", Address = "M50", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸释放", Address = "M3", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "停止", Address = "M9", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "数据重置", Address = "M10", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "冲程压边", Address = "M30", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "数据采集标志", Address = "M37", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "传感器标零", Address = "M60", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "传感器标零状态", Address = "M61", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "弹料", Address = "M70", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "压边", Address = "M80", DataType = "Boolean" });
+                PLCVariables.Add(new PLCVariable { Name = "实时拉伸力", Address = "D46", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸时间", Address = "D48", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "实时压边力", Address = "D54", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "主推力", Address = "D66", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "实时拉伸速度", Address = "D249", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "实时拉伸位移", Address = "D260", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "最大拉伸力", Address = "D362", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "有效拉伸位移", Address = "D364", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
 
 
-                PLCVariables.Add(new PLCVariable { Name = "压边线圈", Address = "Y6", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "压边释放线圈", Address = "Y7", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸线圈", Address = "Y4", DataType = "Boolean" });
-                PLCVariables.Add(new PLCVariable { Name = "拉伸释放线圈", Address = "Y5", DataType = "Boolean" });
+                PLCVariables.Add(new PLCVariable { Name = "压边释放", Address = "M1", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸", Address = "M50", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸释放", Address = "M3", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "停止", Address = "M9", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "数据重置", Address = "M10", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "冲程压边", Address = "M30", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "数据采集标志", Address = "M37", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "传感器标零", Address = "M60", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "传感器标零状态", Address = "M61", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "弹料", Address = "M70", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "压边", Address = "M80", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+
+
+                PLCVariables.Add(new PLCVariable { Name = "压边线圈", Address = "Y6", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "压边释放线圈", Address = "Y7", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸线圈", Address = "Y4", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸释放线圈", Address = "Y5", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
 
 
 

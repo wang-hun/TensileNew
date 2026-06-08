@@ -31,6 +31,7 @@ public sealed class LoadPlotController
     private readonly Queue<CurveSeries> _seriesQueue = new();
     private readonly Queue<string> _visibleTrialSerialNumbers = new();
     private readonly List<CurveSeries> _temporarilyHiddenSeries = [];
+    private readonly Color _defaultFigureBackgroundColor;
     private readonly Color _defaultPlotBackgroundColor;
     private readonly Color _defaultPlotMajorGridLineColor;
     private CurveSeries? _currentSeries;
@@ -45,6 +46,7 @@ public sealed class LoadPlotController
         _showLegend = showLegend;
         _keepPlotOnReset = keepPlotOnReset;
         _tickLabelFontSize = tickLabelFontSize;
+        _defaultFigureBackgroundColor = _plotHost.Plot.FigureBackground.Color;
         _defaultPlotBackgroundColor = _plotHost.Plot.DataBackground.Color;
         _defaultPlotMajorGridLineColor = _plotHost.Plot.Grid.MajorLineColor;
     }
@@ -263,6 +265,7 @@ public sealed class LoadPlotController
     {
         bool useSanae = string.Equals(ThemeManager.CurrentScheme.Name, ThemeManager.DefaultSchemeName, StringComparison.Ordinal);
 
+        _plotHost.Plot.FigureBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultFigureBackgroundColor;
         _plotHost.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
         _plotHost.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
         _plotHost.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;

@@ -7,13 +7,13 @@
         Height="800"
         MinWidth="800"
         MinHeight="500"
-        Background="#F5F6F8"
+        Background="{DynamicResource AppHomeCenterBackgroundBrush}"
         FontFamily="Microsoft YaHei"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Topmost="True">
     <Grid>
-        <sp:WpfPlot x:Name="PlotHost" Margin="8" />
+        <sp:WpfPlot x:Name="PlotHost" Margin="8" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
     </Grid>
 </Window>

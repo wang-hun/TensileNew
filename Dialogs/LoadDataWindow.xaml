@@ -20,11 +20,11 @@
                 <RowDefinition Height="55" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+            <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,0,1">
                 <Grid>
-                    <CheckBox x:Name="LoadDataAutoScrollCheckBox" Content="自动滚动到最新行" IsChecked="True" FontSize="14" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <CheckBox x:Name="LoadDataAutoScrollCheckBox" Content="自动滚动到最新行" IsChecked="True" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <TextBlock Text="数据表格"
-                               Foreground="#404040"
+                               Foreground="{DynamicResource AppMetricNameForegroundBrush}"
                                FontSize="18"
                                FontWeight="Bold"
                                HorizontalAlignment="Center"

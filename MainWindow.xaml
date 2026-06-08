@@ -125,10 +125,10 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style x:Key="MetricNameStyle" TargetType="TextBlock">
-      <Setter Property="Background" Value="{DynamicResource AppMetricNameBackgroundBrush}" />
+      <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" />
       <Setter Property="FontSize" Value="16" />
-      <Setter Property="Padding" Value="8,0,12,0" />
+      <Setter Property="Padding" Value="8,0,10,0" />
       <Setter Property="VerticalAlignment" Value="Stretch" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="TextAlignment" Value="Right" />
@@ -136,7 +136,7 @@
       <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
     </Style>
     <Style x:Key="CompactMetricNameStyle" TargetType="TextBlock" BasedOn="{StaticResource MetricNameStyle}">
-      <Setter Property="LineHeight" Value="24" />
+      <Setter Property="LineHeight" Value="30" />
     </Style>
     <Style x:Key="MetricValueStyle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource AppMetricValueForegroundBrush}" />
@@ -160,9 +160,65 @@
       <Setter Property="Margin" Value="0" />
     </Style>
     <Style x:Key="MetricValueCellStyle" TargetType="Border">
-      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource AppLayoutBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1,0,0,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="OuterShadowBorderStyle" TargetType="Border">
+      <Setter Property="Effect">
+        <Setter.Value>
+          <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.20" />
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="LargeMetricGroupBorderStyle" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Effect">
+        <Setter.Value>
+          <DropShadowEffect Color="#000000" BlurRadius="9" ShadowDepth="2" Direction="270" Opacity="0.18" />
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="LargeMetricValuePanelStyle" TargetType="Border">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Margin" Value="0,4,8,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="LargeMetricValueStyle" TargetType="TextBlock" BasedOn="{StaticResource SevenSegmentMetricValueStyle}">
+      <Setter Property="Foreground" Value="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style x:Key="LargeMetricUnitStyle" TargetType="TextBlock" BasedOn="{StaticResource MetricUnitStyle}">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Width" Value="48" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="TextAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="LargeMetricNameStyle" TargetType="TextBlock">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="8,0,10,0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style x:Key="HomeSidebarSubTitleStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,8,0,6" />
     </Style>
     <Style x:Key="StatusIconStyle" TargetType="iconPacks:PackIconBootstrapIcons">
       <Setter Property="Kind" Value="PatchMinusFill" />
@@ -349,54 +405,44 @@
         </Grid.ColumnDefinitions>
         <!-- Left side panel: current trial -->
         <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
-          <ScrollViewer VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
-            <Grid MinHeight="415">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="55" />
-                <RowDefinition Height="60" />
-                <RowDefinition Height="60" />
-                <RowDefinition Height="3*" />
-                <RowDefinition Height="112" />
-                <RowDefinition Height="2*" />
-              </Grid.RowDefinitions>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+            <StackPanel Margin="12,10,12,10">
               <!-- 当前试验 title -->
-              <Border Style="{StaticResource SectionTitleStyle}" Grid.Row="0" Height="55">
-                <TextBlock Text="当前试验" Style="{StaticResource SectionTitleTextStyle}" />
-              </Border>
+              <TextBlock Text="当前试验" Style="{StaticResource HomeSidebarSubTitleStyle}" />
               <!-- Recipe + SN row -->
-              <Grid Grid.Row="1" Margin="8,4" HorizontalAlignment="Center">
+              <Grid Height="42" Margin="0,10,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
-                  <ColumnDefinition Width="175" />
+                  <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Height="34" FontSize="16" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
-              <Grid Grid.Row="2" Margin="8,4" HorizontalAlignment="Center">
+              <Grid Height="42" Margin="0,4,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
-                  <ColumnDefinition Width="175" />
+                  <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Width="175" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
               <!-- real-time readouts -->
-              <Grid Grid.Row="3">
+              <Grid Height="242" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
+                  <RowDefinition Height="32" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" Style="{StaticResource HomeSidebarSubTitleStyle}" />
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸时间" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
@@ -475,53 +521,43 @@
                 </Grid>
                 </Border>
               </Grid>
-              <Grid Grid.Row="4" Margin="0,6,0,18">
+              <Grid Height="110" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="42" />
-                  <RowDefinition Height="42" />
+                  <RowDefinition Height="55" />
+                  <RowDefinition Height="55" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="48" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸位移" LineHeight="42" Foreground="Black" />
-                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
-                </Grid>
+                <Border Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="3" Style="{StaticResource LargeMetricGroupBorderStyle}" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource LargeMetricNameStyle}" Text="实时拉伸位移" />
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource LargeMetricValuePanelStyle}">
+                  <TextBlock Style="{StaticResource LargeMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
                 </Border>
-                <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸力" LineHeight="42" Foreground="Black" />
-                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
-                </Grid>
+                <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource LargeMetricUnitStyle}" Text="mm" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource LargeMetricNameStyle}" Text="实时拉伸力" />
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource LargeMetricValuePanelStyle}">
+                  <TextBlock Style="{StaticResource LargeMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
                 </Border>
+                <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource LargeMetricUnitStyle}" Text="KN" />
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="5">
+              <Grid Height="182" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
+                  <RowDefinition Height="32" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" Style="{StaticResource HomeSidebarSubTitleStyle}" />
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="冲程压边力设定" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
@@ -578,7 +614,7 @@
                 </Grid>
                 </Border>
               </Grid>
-            </Grid>
+            </StackPanel>
           </ScrollViewer>
         </Border>
         <!-- Middle: chart + action buttons -->
@@ -587,9 +623,9 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="260" />
           </Grid.RowDefinitions>
-          <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="1">
+          <Border Style="{StaticResource OuterShadowBorderStyle}" BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="8">
             <Grid>
-              <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
+              <sp:WpfPlot x:Name="LoadPlot" Margin="8" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               <Button x:Name="ChartSettingsButton" Width="31.5" Height="31.5" Margin="0,2.75,45,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="曲线图设置" Click="ChartSettingsButton_Click">
                 <iconPacks:PackIconForkAwesome Kind="Cogs" Width="22" Height="22" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
               </Button>
