@@ -427,6 +427,7 @@ TT TT 00 00 00 0B 01 10 11 90 00 02 04 HH LL HH LL
 | 冲程压边力设定 | `D400` | Float | `WriteFloat` |
 | 闭环压边力设定 | `D402` | Float | `WriteFloat` |
 | 速度设定 | `D404` | Float | `WriteFloat` |
+| 拉伸位移上限 | `D412` | Float | `WriteFloat` |
 | 停机比例设定 | `D416` | Float | `WriteFloat` |
 | 停机延时设定 | `D410` | Word | `WriteUShort` |
 

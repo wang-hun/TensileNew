@@ -70,6 +70,7 @@ public partial class MainWindow : Window
     public static PLCVariable ShutdownDelayVariable => FindVariable("停机延时设定");
     public static PLCVariable ShutdownRatioVariable => FindVariable("停机比例设定");
     public static PLCVariable SpeedVariable => FindVariable("速度设定");
+    public static PLCVariable TensileDistanceLimitVariable => FindVariable("拉伸位移上限");
 
     public static PLCVariable StartPressCoil => FindVariable("压边线圈");
     public static PLCVariable ReleasePressCoil => FindVariable("压边释放线圈");

@@ -215,10 +215,11 @@
       <Setter Property="FontSize" Value="16" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="Height" Value="24" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="TextAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="Margin" Value="0,8,0,6" />
+      <Setter Property="Margin" Value="0" />
     </Style>
     <Style x:Key="StatusIconStyle" TargetType="iconPacks:PackIconBootstrapIcons">
       <Setter Property="Kind" Value="PatchMinusFill" />
@@ -406,11 +407,11 @@
         <!-- Left side panel: current trial -->
         <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
-            <StackPanel Margin="12,10,12,10">
+            <StackPanel Margin="12,8,12,8">
               <!-- 当前试验 title -->
               <TextBlock Text="当前试验" Style="{StaticResource HomeSidebarSubTitleStyle}" />
               <!-- Recipe + SN row -->
-              <Grid Height="42" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+              <Grid Height="42" Margin="0,6,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
                   <ColumnDefinition Width="*" />
@@ -427,9 +428,9 @@
                 <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
               <!-- real-time readouts -->
-              <Grid Height="242" Margin="0,12,0,0">
+              <Grid Height="234" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="32" />
+                  <RowDefinition Height="24" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
@@ -521,7 +522,7 @@
                 </Grid>
                 </Border>
               </Grid>
-              <Grid Height="110" Margin="0,12,0,0">
+              <Grid Height="110" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="55" />
                   <RowDefinition Height="55" />
@@ -544,9 +545,10 @@
                 <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource LargeMetricUnitStyle}" Text="KN" />
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Height="182" Margin="0,12,0,0">
+              <Grid Height="204" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="32" />
+                  <RowDefinition Height="24" />
+                  <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
@@ -611,6 +613,17 @@
                   </Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.SpeedVariable}}" />
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
+                </Grid>
+                </Border>
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限" />
+                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.TensileDistanceLimitVariable}}" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
                 </Grid>
                 </Border>
               </Grid>
@@ -1112,6 +1125,9 @@
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSelectedRecipeReadOnly}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="4" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                <TextBlock Grid.Row="4" Grid.Column="3" Text="拉伸位移上限" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="4" Grid.Column="4" Text="{Binding SelectedRecipe.TensileDistanceLimit, UpdateSourceTrigger=Explicit}" IsReadOnly="{Binding IsSelectedRecipeReadOnly}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="DecimalBox_TextChanged" LostFocus="DecimalBox_LostFocus" />
+                <TextBlock Grid.Row="4" Grid.Column="5" Text="mm" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,4">
                   <TextBlock Text="默认配置 不允许修改及删除。" FontSize="14" Foreground="#0F5FA8" Margin="0,0,0,6" HorizontalAlignment="Center" TextAlignment="Center">
                     <TextBlock.Style>

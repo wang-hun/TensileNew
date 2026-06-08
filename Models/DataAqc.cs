@@ -60,6 +60,7 @@ namespace TensileNeW.Models
             {
                 //D400 冲程压边力设定 Float
                 //D402 闭环压边力设定 Float
+                //D412 拉伸位移上限 Float
                 //D410 停机延时设定 Word
                 //D416 停机比例设定 Float
                 //D430 速度设定 Float
@@ -86,6 +87,7 @@ namespace TensileNeW.Models
                 PLCVariables.Add(new PLCVariable { Name = "闭环压边力设定", Address = "D402", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "速度设定", Address = "D404", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "停机延时设定", Address = "D410", DataType = "Word", CurrentValue = "0", WriteValue = "0" });
+                PLCVariables.Add(new PLCVariable { Name = "拉伸位移上限", Address = "D412", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "停机比例设定", Address = "D416", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
 
                 PLCVariables.Add(new PLCVariable { Name = "实时拉伸力", Address = "D46", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
@@ -224,6 +226,7 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = $"{d400FValue[0].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = $"{d400FValue[1].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "速度设定").CurrentValue = $"{d400FValue[2].ToString("F3")}";
+                                PLCVariables.First(t => t.Name == "拉伸位移上限").CurrentValue = $"{d400FValue[6].ToString("F3")}";
                                 PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = $"{d400FValue[8].ToString("F3")}";
 
                                 PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = $"{d410WValue}";

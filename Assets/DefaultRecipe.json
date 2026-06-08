@@ -5,7 +5,8 @@
     "ClosedLoopStampingForce": 200.0,
     "ShutdownDelay": 5,
     "ShutdownRatio": 0.8,
-    "Speed": 1.0
+    "Speed": 1.0,
+    "TensileDistanceLimit": 100.0
   },
   {
     "RecipeName": "深拉试验",
@@ -13,7 +14,8 @@
     "ClosedLoopStampingForce": 50.0,
     "ShutdownDelay": 10,
     "ShutdownRatio": 0.0,
-    "Speed": 1.0
+    "Speed": 1.0,
+    "TensileDistanceLimit": 100.0
   },
   {
     "RecipeName": "铝合金冲杯",
@@ -21,6 +23,7 @@
     "ClosedLoopStampingForce": 100.0,
     "ShutdownDelay": 10,
     "ShutdownRatio": 0.95,
-    "Speed": 1.0
+    "Speed": 1.0,
+    "TensileDistanceLimit": 100.0
   }
 ]
