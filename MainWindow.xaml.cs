@@ -706,7 +706,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dialog = new SettingsPinDialog();
+        var dialog = new SettingsPinWindow
+        {
+            Owner = this
+        };
         dialog.Unlocked += (_, _) =>
         {
             VariablesButton.Visibility = Visibility.Visible;
@@ -716,7 +719,7 @@ public partial class MainWindow : Window
             ColorSchemesButton.Visibility = Visibility.Visible;
             _viewModel.CurrentPage = "ColorSchemes";
         };
-        Dialog.Show(dialog);
+        dialog.ShowDialog();
     }
 
     private void ApplyColorScheme_Click(object sender, RoutedEventArgs e)

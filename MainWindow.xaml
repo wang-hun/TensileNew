@@ -171,6 +171,18 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <Style x:Key="CurrentTrialContentBorderStyle" TargetType="Border" BasedOn="{StaticResource OuterShadowBorderStyle}">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style x:Key="HomeInnerShadowPanelStyle" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
     <Style x:Key="LargeMetricGroupBorderStyle" TargetType="Border">
       <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
@@ -411,22 +423,26 @@
               <!-- 当前试验 title -->
               <TextBlock Text="当前试验" Style="{StaticResource HomeSidebarSubTitleStyle}" />
               <!-- Recipe + SN row -->
-              <Grid Height="42" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+              <Border Style="{StaticResource CurrentTrialContentBorderStyle}">
+                <StackPanel>
+              <Grid Height="42" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Height="34" FontSize="16" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Height="34" FontSize="16" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
               <Grid Height="42" Margin="0,4,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
+                </StackPanel>
+              </Border>
               <!-- real-time readouts -->
               <Grid Height="234" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
@@ -444,6 +460,34 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+                <Grid Grid.Row="1" Grid.RowSpan="7" Grid.ColumnSpan="2" IsHitTestVisible="False">
+                  <Border Style="{StaticResource HomeInnerShadowPanelStyle}" />
+                  <Border Height="12" VerticalAlignment="Top">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1C000000" Offset="0" />
+                        <GradientStop Color="#08000000" Offset="0.45" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Height="8" VerticalAlignment="Bottom">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                        <GradientStop Color="#08000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Width="8" HorizontalAlignment="Right">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                        <GradientStop Color="#07000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                </Grid>
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸时间" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
@@ -560,6 +604,34 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+                <Grid Grid.Row="1" Grid.RowSpan="6" Grid.ColumnSpan="2" IsHitTestVisible="False">
+                  <Border Style="{StaticResource HomeInnerShadowPanelStyle}" />
+                  <Border Height="12" VerticalAlignment="Top">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1C000000" Offset="0" />
+                        <GradientStop Color="#08000000" Offset="0.45" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Height="8" VerticalAlignment="Bottom">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                        <GradientStop Color="#08000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Width="8" HorizontalAlignment="Right">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                        <GradientStop Color="#07000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                </Grid>
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="冲程压边力设定" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
