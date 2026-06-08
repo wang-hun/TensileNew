@@ -238,7 +238,7 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
     }
-    public bool AddRecipe(string name)
+    public bool AddRecipe(string name, RecipeModel? templateRecipe = null)
     {
         name = name.Trim();
         if (string.IsNullOrEmpty(name))
@@ -251,7 +251,8 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        var recipe = RecipeModel.CreateDefault(name);
+        var recipe = templateRecipe?.CloneForUser() ?? RecipeModel.CreateDefault(name);
+        recipe.RecipeName = name;
         recipe.IsBuiltInRecipe = false;
         Recipes.Add(recipe);
         SelectedRecipe = recipe;

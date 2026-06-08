@@ -975,15 +975,16 @@ public partial class MainWindow : Window
     private void AddRecipe_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new RecipeNameDialog();
-        dialog.Confirmed += (_, name) =>
+        dialog.Confirmed += (_, args) =>
         {
+            string name = args.Name;
             if (string.IsNullOrWhiteSpace(name))
             {
                 ShowWarning("配方名称不能为空");
                 return;
             }
 
-            if (!_viewModel.AddRecipe(name))
+            if (!_viewModel.AddRecipe(name, args.TemplateRecipe))
             {
                 ShowWarning("配方名称已经存在，请修改");
                 return;
