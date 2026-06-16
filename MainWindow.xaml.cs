@@ -636,6 +636,10 @@ public partial class MainWindow : Window
         _networkProbeRunning = true;
         ReconnectButton.IsEnabled = false;
         IsEnabled = false;
+        string? successMessage = null;
+        string? warningMessage = null;
+        string? errorMessage = null;
+        bool showFailureDialog = false;
 
         var waitWindow = new StartupWaitWindow("正在探测有线网络并尝试连接设备，请稍后...");
         try
@@ -644,31 +648,56 @@ public partial class MainWindow : Window
             NetworkProbeResult probeResult = await NetworkAdapterProbeService.RunElevatedProbeAsync(RAM.SettingModel.PLC_IP);
             if (!probeResult.Success)
             {
-                ShowWarning(probeResult.Message ?? "网络探测失败。");
-                return;
-            }
-
-            waitWindow.SetWaitText("已找到设备，正在重新连接...");
-            bool connected = await TryReconnectWithTimeoutAsync();
-            if (connected)
-            {
-                string adapterName = string.IsNullOrWhiteSpace(probeResult.AdapterName)
-                    ? "有线网卡"
-                    : probeResult.AdapterName;
-                ShowSuccess($"已通过 {adapterName} 连接设备。");
+                warningMessage = probeResult.Message ?? "网络探测失败。";
             }
             else
             {
-                ShowError("已找到设备网络，但重新连接失败。");
-                ShowConnectionErrorDialog();
+                waitWindow.SetWaitText("已找到设备，正在重新连接...");
+                bool connected = await TryReconnectWithTimeoutAsync();
+                if (connected)
+                {
+                    string adapterName = string.IsNullOrWhiteSpace(probeResult.AdapterName)
+                        ? "有线网卡"
+                        : probeResult.AdapterName;
+                    successMessage = $"网络检查成功，已通过 {adapterName} 连接设备。";
+                }
+                else
+                {
+                    errorMessage = "网络检查成功，但重新连接设备失败。";
+                    showFailureDialog = true;
+                }
             }
         }
         finally
         {
-            waitWindow.Close();
+            if (waitWindow.IsVisible)
+            {
+                waitWindow.Close();
+            }
+
             IsEnabled = true;
             ReconnectButton.IsEnabled = true;
             _networkProbeRunning = false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            ShowSuccess(successMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(warningMessage))
+        {
+            ShowWarning(warningMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            ShowError(errorMessage);
+        }
+
+        if (showFailureDialog)
+        {
+            _ = Dispatcher.BeginInvoke(ShowConnectionErrorDialog);
         }
     }
 

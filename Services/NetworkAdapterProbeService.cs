@@ -37,7 +37,7 @@ public static class NetworkAdapterProbeService
         {
             string plcIp = args[1];
             string resultPath = args[2];
-            NetworkProbeResult result = ProbeAllWiredAdaptersAsync(plcIp).GetAwaiter().GetResult();
+            NetworkProbeResult result = Task.Run(() => ProbeAllWiredAdaptersAsync(plcIp)).GetAwaiter().GetResult();
             Directory.CreateDirectory(Path.GetDirectoryName(resultPath)!);
             File.WriteAllText(resultPath, JsonSerializer.Serialize(result));
             return result.Success ? 0 : 2;
@@ -79,7 +79,17 @@ public static class NetworkAdapterProbeService
         try
         {
             using Process process = StartElevatedProbeProcess(processPath, plcIp, resultPath);
-            await process.WaitForExitAsync();
+            Task exitTask = process.WaitForExitAsync();
+            Task completedTask = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(45)));
+            if (completedTask != exitTask)
+            {
+                TryKillProcess(process);
+                return new NetworkProbeResult
+                {
+                    Success = false,
+                    Message = "网络探测超时，请检查设备线路后重试。"
+                };
+            }
 
             if (!File.Exists(resultPath))
             {
@@ -188,7 +198,7 @@ public static class NetworkAdapterProbeService
                     existingAddresses.Add(localIp);
                     await Task.Delay(700);
 
-                    if (await CanConnectFromLocalIpAsync(localIp, targetIp))
+                    if (await CanDetectDeviceAsync(localIp, targetIp))
                     {
                         keepAddress = true;
                         return new NetworkProbeResult
@@ -257,11 +267,51 @@ public static class NetworkAdapterProbeService
         }
     }
 
+    private static async Task<bool> CanDetectDeviceAsync(IPAddress localIp, IPAddress targetIp)
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            if (attempt > 0)
+            {
+                await Task.Delay(500);
+            }
+
+            if (await CanConnectFromLocalIpAsync(localIp, targetIp) ||
+                await CanConnectAsync(targetIp))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static async Task<bool> CanConnectFromLocalIpAsync(IPAddress localIp, IPAddress targetIp)
     {
         try
         {
             using TcpClient client = new(new IPEndPoint(localIp, 0));
+            Task connectTask = client.ConnectAsync(targetIp, ModbusTcpPort);
+            Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
+            if (completedTask != connectTask)
+            {
+                return false;
+            }
+
+            await connectTask;
+            return client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> CanConnectAsync(IPAddress targetIp)
+    {
+        try
+        {
+            using TcpClient client = new();
             Task connectTask = client.ConnectAsync(targetIp, ModbusTcpPort);
             Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
             if (completedTask != connectTask)
@@ -368,6 +418,21 @@ public static class NetworkAdapterProbeService
         catch
         {
             // The parent process will report that no probe result was returned.
+        }
+    }
+
+    private static void TryKillProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+            }
+        }
+        catch
+        {
+            // If the elevated helper cannot be killed, return a timeout result to the UI.
         }
     }
 
