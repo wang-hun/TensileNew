@@ -76,6 +76,13 @@
 
 修改配置模型时，需要同时考虑旧 `Setting.json` 的兼容性，避免空值导致启动失败。
 
+## 版本管理
+
+- 应用版本统一维护在 `TensileNeW.csproj` 的 `Version`、`AssemblyVersion`、`FileVersion` 和 `InformationalVersion`。
+- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.0.2606` 表示 1.1.0 版本、2026 年 6 月；`InformationalVersion` 使用带 `V` 前缀的显示格式，例如 `V1.1.0.2606`。
+- 主窗口标题运行时读取程序集 `InformationalVersion`，不要在 XAML 中硬编码版本号。
+- `builder/` 专门负责打包发布，打包目录名由 builder 读取主项目的 `InformationalVersion` 生成；更新版本时优先修改主项目版本元数据，不要在 builder 输出目录或生成产物里手工改版本。
+
 ## 编码规则
 
 - 所有新增或修改的文件必须使用 UTF-8 编码，避免引入乱码。

@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Xml.Linq;
 
 namespace Builder;
@@ -9,6 +7,7 @@ internal static class Program
 {
     private const string ManualsSourceDirectory = @"E:\ECS说明书";
     private const string ManualsOutputDirectoryName = "manuals";
+    private const string DefaultRuntimeIdentifier = "win-x64";
 
     private static int Main(string[] args)
     {
@@ -96,15 +95,11 @@ internal static class Program
         Console.WriteLine($"Publishing {projectPath}");
         RunProcess(
             "dotnet",
-            $"publish --no-restore --nologo {Quote(projectPath)} -c {Quote(configuration)} -o {Quote(packageDirectory)}");
+            $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true -o {Quote(packageDirectory)}");
 
         DeleteNonWindowsRuntimes(packageDirectory);
-        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
         CopyManualsDirectory(packageDirectory);
-        RewriteDepsJson(packageDirectory, assemblyName);
-        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
         WriteStartupScript(packageDirectory, assemblyName);
-        NormalizeDependencyDllsToLib(packageDirectory, assemblyName);
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
     }
@@ -220,57 +215,6 @@ internal static class Program
             : $"{projectMetadata.AssemblyName} {projectMetadata.InformationalVersion}";
     }
 
-    private static void NormalizeDependencyDllsToLib(string packageDirectory, string assemblyName)
-    {
-        const int maxPasses = 20;
-        for (int pass = 0; pass < maxPasses; pass++)
-        {
-            int remainingDependencyCount = MoveDependencyDllsToLib(packageDirectory, assemblyName);
-            if (remainingDependencyCount == 0)
-            {
-                return;
-            }
-
-            Thread.Sleep(100);
-        }
-
-        int remaining = GetRootDependencyDlls(packageDirectory, assemblyName).Count;
-        if (remaining > 0)
-        {
-            throw new InvalidOperationException($"Failed to move {remaining} dependency DLL(s) to lib.");
-        }
-    }
-
-    private static int MoveDependencyDllsToLib(string packageDirectory, string assemblyName)
-    {
-        string libDirectory = Path.Combine(packageDirectory, "lib");
-        Directory.CreateDirectory(libDirectory);
-
-        string mainDllName = assemblyName + ".dll";
-        foreach (string dllFile in GetRootDependencyDlls(packageDirectory, assemblyName))
-        {
-            string fileName = Path.GetFileName(dllFile);
-            string targetFile = Path.Combine(libDirectory, fileName);
-            if (File.Exists(targetFile))
-            {
-                File.Delete(targetFile);
-            }
-
-            File.Move(dllFile, targetFile);
-        }
-
-        return GetRootDependencyDlls(packageDirectory, assemblyName).Count;
-    }
-
-    private static List<string> GetRootDependencyDlls(string packageDirectory, string assemblyName)
-    {
-        string mainDllName = assemblyName + ".dll";
-        return Directory
-            .EnumerateFiles(packageDirectory, "*.dll", SearchOption.TopDirectoryOnly)
-            .Where(dllFile => !Path.GetFileName(dllFile).Equals(mainDllName, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
-
     private static void DeleteNonWindowsRuntimes(string packageDirectory)
     {
         string runtimesDirectory = Path.Combine(packageDirectory, "runtimes");
@@ -289,63 +233,6 @@ internal static class Program
 
             DeleteDirectoryIfExists(runtimeDirectory);
         }
-    }
-
-    private static void RewriteDepsJson(string packageDirectory, string assemblyName)
-    {
-        string depsPath = Path.Combine(packageDirectory, assemblyName + ".deps.json");
-        if (!File.Exists(depsPath))
-        {
-            return;
-        }
-
-        JsonNode? root = JsonNode.Parse(File.ReadAllText(depsPath));
-        JsonObject? targets = root?["targets"] as JsonObject;
-        if (targets is null)
-        {
-            return;
-        }
-
-        string mainDllName = assemblyName + ".dll";
-        foreach (JsonObject target in targets.Select(item => item.Value).OfType<JsonObject>())
-        {
-            foreach (JsonObject library in target.Select(item => item.Value).OfType<JsonObject>())
-            {
-                if (library["runtime"] is JsonObject runtime)
-                {
-                    RewriteRuntimeEntries(runtime, mainDllName);
-                }
-            }
-        }
-
-        File.WriteAllText(
-            depsPath,
-            root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-    }
-
-    private static void RewriteRuntimeEntries(JsonObject runtime, string mainDllName)
-    {
-        List<KeyValuePair<string, JsonNode?>> entries = runtime.ToList();
-        runtime.Clear();
-
-        foreach ((string key, JsonNode? value) in entries)
-        {
-            string fileName = GetDepsPathFileName(key);
-            string targetKey = fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-                && !fileName.Equals(mainDllName, StringComparison.OrdinalIgnoreCase)
-                    ? "lib/" + fileName
-                    : key;
-
-            runtime[targetKey] = value;
-        }
-    }
-
-    private static string GetDepsPathFileName(string path)
-    {
-        int separatorIndex = path.LastIndexOf('/');
-        return separatorIndex >= 0
-            ? path[(separatorIndex + 1)..]
-            : Path.GetFileName(path);
     }
 
     private static void WriteStartupScript(string packageDirectory, string assemblyName)

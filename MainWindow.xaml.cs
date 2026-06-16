@@ -4,6 +4,7 @@ using NLog;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -38,6 +39,17 @@ public partial class MainWindow : Window
     private static void ShowSuccess(string msg) => Growl.Success(msg, GrowlToken);
     private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
     private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
+
+    private static string GetWindowTitle()
+    {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+        string assemblyName = assembly.GetName().Name ?? "ECS";
+        string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        return string.IsNullOrWhiteSpace(version)
+            ? assemblyName
+            : $"{assemblyName} {version}";
+    }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
@@ -94,6 +106,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
             LoadPlot,
             () => _autoTrackLatestPoint,
