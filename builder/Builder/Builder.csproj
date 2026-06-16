@@ -22,7 +22,7 @@
 
   <Target Name="PublishExternalProjectToBuilderOutput" AfterTargets="Build" Condition="'$(ExternalProjectPublishOnBuild)' == 'true'">
     <Message Importance="high" Text="Packaging external project '$(ExternalProjectPath)' to '$(TargetDir)publish'." />
-    <Exec Command="dotnet &quot;$(TargetPath)&quot; pack &quot;$(ExternalProjectPath)&quot; &quot;$(Configuration)&quot; &quot;$(TargetDir)publish&quot;" />
+    <Exec Command="dotnet &quot;$(TargetPath)&quot; pack &quot;$(ExternalProjectPath)&quot; &quot;Release&quot; &quot;$(TargetDir)publish&quot;" />
   </Target>
 
 </Project>

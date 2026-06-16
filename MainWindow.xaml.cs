@@ -1,4 +1,5 @@
 ﻿using HandyControl.Data;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
@@ -21,6 +22,7 @@ namespace TensileNeW;
 public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
+    private const string PackagedWebView2DirectoryName = "ECS.exe.WebView2";
     private const int SettingsUnlockClickCount = 6;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
@@ -49,6 +51,14 @@ public partial class MainWindow : Window
         return string.IsNullOrWhiteSpace(version)
             ? assemblyName
             : $"{assemblyName} {version}";
+    }
+
+    private static string? GetPackagedWebView2RuntimeDirectory()
+    {
+        string runtimeDirectory = Path.Combine(AppContext.BaseDirectory, PackagedWebView2DirectoryName);
+        return File.Exists(Path.Combine(runtimeDirectory, "msedgewebview2.exe"))
+            ? runtimeDirectory
+            : null;
     }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -172,13 +182,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadHelpDocument()
+    private async void LoadHelpDocument()
     {
         try
         {
             _helpDocumentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
             if (_helpDocumentUri is not null)
             {
+                await EnsureHelpWebView2Async();
                 HelpWebView.Source = _helpDocumentUri;
             }
 
@@ -250,7 +261,7 @@ public partial class MainWindow : Window
                 await navigationCompleted.Task;
             }
 
-            await HelpWebView.EnsureCoreWebView2Async();
+            await EnsureHelpWebView2Async();
             if (string.IsNullOrWhiteSpace(item?.Anchor))
             {
                 await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
@@ -404,7 +415,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await HelpWebView.EnsureCoreWebView2Async();
+            await EnsureHelpWebView2Async();
             string effectiveKeyword = keyword;
             if (string.IsNullOrWhiteSpace(effectiveKeyword))
             {
@@ -453,7 +464,7 @@ public partial class MainWindow : Window
                 HelpWebView.Source = _helpDocumentUri;
             }
 
-            await HelpWebView.EnsureCoreWebView2Async();
+            await EnsureHelpWebView2Async();
             await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
         }
         catch
@@ -527,6 +538,32 @@ public partial class MainWindow : Window
     private void UpdateHelpZoomText()
     {
         HelpZoomBox.Text = $"{_helpZoomFactor:P0}";
+    }
+
+    private async Task EnsureHelpWebView2Async()
+    {
+        if (HelpWebView.CoreWebView2 is not null)
+        {
+            return;
+        }
+
+        string? runtimeDirectory = GetPackagedWebView2RuntimeDirectory();
+        if (string.IsNullOrWhiteSpace(runtimeDirectory))
+        {
+            await HelpWebView.EnsureCoreWebView2Async();
+            return;
+        }
+
+        string userDataDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ECS",
+            "WebView2UserData");
+        Directory.CreateDirectory(userDataDirectory);
+
+        CoreWebView2Environment environment = await CoreWebView2Environment.CreateAsync(
+            browserExecutableFolder: runtimeDirectory,
+            userDataFolder: userDataDirectory);
+        await HelpWebView.EnsureCoreWebView2Async(environment);
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
