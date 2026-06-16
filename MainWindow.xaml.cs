@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private PlotWindow? _plotWindow;
     private readonly LoadPlotController _loadPlotController;
     private int _logoClickCount;
+    private bool _networkProbeRunning;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
     private string _lastHelpWebSearchKeyword = string.Empty;
@@ -144,7 +145,7 @@ public partial class MainWindow : Window
             Dispatcher.BeginInvoke(() =>
             {
                 ShowError("连接失败，请检查线路！");
-                Dialog.Show(new ConnectionErrorDialog());
+                ShowConnectionErrorDialog();
             });
         }
 
@@ -567,6 +568,7 @@ public partial class MainWindow : Window
     {
         ReconnectButton.IsEnabled = false;
         IsEnabled = false;
+        bool connected = false;
 
         var waitWindow = new StartupWaitWindow(GetConnectWaitText());
 
@@ -575,19 +577,19 @@ public partial class MainWindow : Window
             waitWindow.Show();
             var reconnectTask = TryReconnectWithTimeoutAsync();
             await Task.WhenAll(reconnectTask, Task.Delay(TimeSpan.FromSeconds(2)));
-            bool connected = await reconnectTask;
-
-            if (!connected)
-            {
-                ShowError("\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u7ebf\u8def\uff01");
-                Dialog.Show(new ConnectionErrorDialog());
-            }
+            connected = await reconnectTask;
         }
         finally
         {
             waitWindow.Close();
             IsEnabled = true;
             ReconnectButton.IsEnabled = true;
+        }
+
+        if (!connected)
+        {
+            ShowError("\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u7ebf\u8def\uff01");
+            _ = Dispatcher.BeginInvoke(ShowConnectionErrorDialog);
         }
     }
 
@@ -616,6 +618,57 @@ public partial class MainWindow : Window
         catch
         {
             return false;
+        }
+    }
+
+    private void ShowConnectionErrorDialog()
+    {
+        Dialog.Show(new ConnectionErrorDialog(RunNetworkProbeAndReconnectAsync));
+    }
+
+    private async Task RunNetworkProbeAndReconnectAsync()
+    {
+        if (_networkProbeRunning)
+        {
+            return;
+        }
+
+        _networkProbeRunning = true;
+        ReconnectButton.IsEnabled = false;
+        IsEnabled = false;
+
+        var waitWindow = new StartupWaitWindow("正在探测有线网络并尝试连接设备，请稍后...");
+        try
+        {
+            waitWindow.Show();
+            NetworkProbeResult probeResult = await NetworkAdapterProbeService.RunElevatedProbeAsync(RAM.SettingModel.PLC_IP);
+            if (!probeResult.Success)
+            {
+                ShowWarning(probeResult.Message ?? "网络探测失败。");
+                return;
+            }
+
+            waitWindow.SetWaitText("已找到设备，正在重新连接...");
+            bool connected = await TryReconnectWithTimeoutAsync();
+            if (connected)
+            {
+                string adapterName = string.IsNullOrWhiteSpace(probeResult.AdapterName)
+                    ? "有线网卡"
+                    : probeResult.AdapterName;
+                ShowSuccess($"已通过 {adapterName} 连接设备。");
+            }
+            else
+            {
+                ShowError("已找到设备网络，但重新连接失败。");
+                ShowConnectionErrorDialog();
+            }
+        }
+        finally
+        {
+            waitWindow.Close();
+            IsEnabled = true;
+            ReconnectButton.IsEnabled = true;
+            _networkProbeRunning = false;
         }
     }
 

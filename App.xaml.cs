@@ -19,6 +19,12 @@ public partial class App : Application
 
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
+        if (NetworkAdapterProbeService.IsProbeWorker(e.Args))
+        {
+            Shutdown(NetworkAdapterProbeService.RunProbeWorker(e.Args));
+            return;
+        }
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         StartupWaitWindow? waitWindow = null;
 
@@ -82,6 +88,13 @@ public partial class App : Application
     {
         try
         {
+            bool hasSameSubnetAddress = await Task.Run(() =>
+                NetworkAdapterProbeService.HasSameSubnetWiredAddress(RAM.SettingModel.PLC_IP));
+            if (!hasSameSubnetAddress)
+            {
+                return false;
+            }
+
             Task<bool> connectTask = Task.Run(() => DataAqc.TryConnect());
             Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
