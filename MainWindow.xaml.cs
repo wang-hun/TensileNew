@@ -111,7 +111,7 @@ public partial class MainWindow : Window
             () => _autoTrackLatestPoint,
             () => _viewModel.Setting.ShowPlotLegend,
             () => _viewModel.Setting.KeepPlotOnReset,
-            22);
+            11);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)

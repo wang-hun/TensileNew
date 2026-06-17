@@ -14,7 +14,7 @@ public partial class PlotWindow : Window
     public PlotWindow(Func<bool> autoPlayEnabled, Func<bool> showLegend, Func<bool> keepPlotOnReset)
     {
         InitializeComponent();
-        _plotController = new LoadPlotController(PlotHost, autoPlayEnabled, showLegend, keepPlotOnReset, 44);
+        _plotController = new LoadPlotController(PlotHost, autoPlayEnabled, showLegend, keepPlotOnReset, 22);
         Owner = Application.Current?.MainWindow;
         Topmost = true;
 

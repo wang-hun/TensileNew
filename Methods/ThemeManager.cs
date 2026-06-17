@@ -12,38 +12,41 @@ namespace TensileNeW;
 public static class ThemeManager
 {
     public const string DefaultSchemeName = "黑金";
+    private const int BlackGoldBaseRgb = 0xB23526;
+
+    public static Color BlackGoldBaseColor { get; } = ColorFromRgb(BlackGoldBaseRgb);
 
     public static IReadOnlyList<ColorScheme> Schemes { get; } =
     [
         new()
         {
             Name = "黑金",
-            CaptionColor = ColorFromRgb(0x101010),
+            CaptionColor = BlackGoldBaseColor,
             CaptionTextColor = ColorFromRgb(0xD4D5CF),
             StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
             Colors = new Dictionary<string, Color>
             {
-                ["AppHeaderBackgroundBrush"] = ColorFromRgb(0x101010),
+                ["AppHeaderBackgroundBrush"] = BlackGoldBaseColor,
                 ["AppHeaderBorderBrush"] = ColorFromRgb(0xD8DBE3),
-                ["AppNavBackgroundBrush"] = ColorFromRgb(0x101010),
+                ["AppNavBackgroundBrush"] = BlackGoldBaseColor,
                 ["AppNavForegroundBrush"] = MediaColors.White,
                 ["AppNavSelectedForegroundBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppSidebarBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
                 ["AppSurfaceBackgroundBrush"] = ColorFromRgb(0xE1E2DC),
                 ["AppSidebarLabelForegroundBrush"] = ColorFromRgb(0x005BC2),
                 ["AppMetricNameBackgroundBrush"] = ColorFromRgb(0xE1E2DC),
-                ["AppMetricNameForegroundBrush"] = ColorFromRgb(0x101010),
+                ["AppMetricNameForegroundBrush"] = BlackGoldBaseColor,
                 ["AppMetricValueForegroundBrush"] = ColorFromRgb(0x005BC2),
                 ["AppHomeCenterBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
                 ["AppLayoutBorderBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppReconnectBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
-                ["AppReconnectForegroundBrush"] = ColorFromRgb(0x101010),
+                ["AppReconnectForegroundBrush"] = BlackGoldBaseColor,
                 ["AppReconnectHoverForegroundBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppReconnectPressedForegroundBrush"] = MediaColors.Black,
                 ["AppReconnectBorderBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppConnectionLabelBrush"] = MediaColors.White,
                 ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
-                ["AppStartupWaitBackgroundBrush"] = ColorFromRgb(0x101010),
+                ["AppStartupWaitBackgroundBrush"] = BlackGoldBaseColor,
                 ["AppStartupWaitForegroundBrush"] = MediaColors.White,
                 ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppConnectionErrorBackgroundBrush"] = ColorFromRgb(0xD4D5CF),

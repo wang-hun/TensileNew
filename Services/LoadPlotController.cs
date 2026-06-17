@@ -239,9 +239,9 @@ public sealed class LoadPlotController
     private void ApplyLabels()
     {
         ApplyStyle();
-        _plotHost.Plot.Title("力位移数据", 30);
-        _plotHost.Plot.XLabel("位移（mm）", 30);
-        _plotHost.Plot.YLabel("力（KN）", 30);
+        _plotHost.Plot.Title("力位移数据", 15);
+        _plotHost.Plot.XLabel("位移（mm）", 15);
+        _plotHost.Plot.YLabel("力（KN）", 15);
         _plotHost.Plot.Axes.Bottom.TickLabelStyle.FontSize = _tickLabelFontSize;
         _plotHost.Plot.Axes.Left.TickLabelStyle.FontSize = _tickLabelFontSize;
         _plotHost.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
