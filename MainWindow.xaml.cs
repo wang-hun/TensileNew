@@ -544,11 +544,11 @@ public partial class MainWindow : Window
             : "正在连接 设备主机，请稍后...";
     }
 
-    private static async Task<bool> TryReconnectWithTimeoutAsync()
+    private static async Task<bool> TryReconnectWithTimeoutAsync(bool forceReconnect = true)
     {
         try
         {
-            var reconnectTask = Task.Run(() => DataAqc.TryReconnect(forceReconnect: true));
+            var reconnectTask = Task.Run(() => DataAqc.TryReconnect(forceReconnect));
             var completedTask = await Task.WhenAny(reconnectTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
             if (completedTask == reconnectTask)
@@ -597,7 +597,7 @@ public partial class MainWindow : Window
             else
             {
                 waitWindow.SetWaitText("已找到设备，正在重新连接...");
-                bool connected = await TryReconnectWithTimeoutAsync();
+                bool connected = await TryReconnectWithTimeoutAsync(forceReconnect: false);
                 if (connected)
                 {
                     string adapterName = string.IsNullOrWhiteSpace(probeResult.AdapterName)
