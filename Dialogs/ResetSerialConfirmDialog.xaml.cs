@@ -5,26 +5,22 @@ using System.Windows.Media;
 
 namespace TensileNeW;
 
-public partial class ConnectionErrorDialog : UserControl
+public partial class ResetSerialConfirmDialog : UserControl
 {
-    private readonly Func<Task>? _networkProbeRequested;
-
-    public ConnectionErrorDialog(Func<Task>? networkProbeRequested = null)
+    public ResetSerialConfirmDialog()
     {
-        _networkProbeRequested = networkProbeRequested;
         InitializeComponent();
     }
 
-    private async void NetworkProbe_Click(object sender, RoutedEventArgs e)
+    public event EventHandler? Confirmed;
+
+    private void Ok_Click(object sender, RoutedEventArgs e)
     {
+        Confirmed?.Invoke(this, EventArgs.Empty);
         CloseDialog();
-        if (_networkProbeRequested is not null)
-        {
-            await _networkProbeRequested();
-        }
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e)
+    private void Cancel_Click(object sender, RoutedEventArgs e)
     {
         CloseDialog();
     }

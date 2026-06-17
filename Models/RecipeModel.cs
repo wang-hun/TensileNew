@@ -19,6 +19,7 @@ namespace TensileNeW.Models
         public const ushort DefaultShutdownDelay = 10;
         public const float DefaultShutdownRatio = 0.8f;
         public const float DefaultSpeed = 1f;
+        public const float DefaultTensileDistanceLimit = 100f;
 
         public static RecipeModel CreateDefault(string recipeName)
         {
@@ -29,7 +30,8 @@ namespace TensileNeW.Models
                 ClosedLoopStampingForce = DefaultClosedLoopStampingForce,
                 ShutdownDelay = DefaultShutdownDelay,
                 ShutdownRatio = DefaultShutdownRatio,
-                Speed = DefaultSpeed
+                Speed = DefaultSpeed,
+                TensileDistanceLimit = DefaultTensileDistanceLimit
             };
         }
 
@@ -39,7 +41,8 @@ namespace TensileNeW.Models
             float closedLoopStampingForce,
             ushort shutdownDelay,
             float shutdownRatio,
-            float speed)
+            float speed,
+            float tensileDistanceLimit)
         {
             return new RecipeModel
             {
@@ -49,6 +52,7 @@ namespace TensileNeW.Models
                 ShutdownDelay = shutdownDelay,
                 ShutdownRatio = shutdownRatio,
                 Speed = speed,
+                TensileDistanceLimit = tensileDistanceLimit,
                 IsBuiltInRecipe = true
             };
         }
@@ -62,7 +66,8 @@ namespace TensileNeW.Models
                 ClosedLoopStampingForce = ClosedLoopStampingForce,
                 ShutdownDelay = ShutdownDelay,
                 ShutdownRatio = ShutdownRatio,
-                Speed = Speed
+                Speed = Speed,
+                TensileDistanceLimit = TensileDistanceLimit
             };
         }
 
@@ -124,6 +129,16 @@ namespace TensileNeW.Models
         {
             get => _Speed;
             set => SetProperty(ref _Speed, value);
+        }
+
+        /// <summary>
+        /// 拉伸位移上限
+        /// </summary>
+        private float _TensileDistanceLimit = DefaultTensileDistanceLimit;
+        public float TensileDistanceLimit
+        {
+            get => _TensileDistanceLimit;
+            set => SetProperty(ref _TensileDistanceLimit, value);
         }
 
 

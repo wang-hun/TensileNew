@@ -1,4 +1,4 @@
-<UserControl x:Class="TensileNeW.RecipeConfirmDialog"
+<UserControl x:Class="TensileNeW.ResetSerialConfirmDialog"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Width="420"
@@ -13,19 +13,26 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Text="确认是否删除当前试验？"
+            <TextBlock Text="确认重置序列号？"
                        FontSize="17"
                        FontWeight="Bold"
                        Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
 
-            <StackPanel Grid.Row="1"
+            <TextBlock Grid.Row="1"
+                       Margin="0,12,0,0"
+                       Text="这只影响下一次开始的试验。"
+                       FontSize="14"
+                       Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+
+            <StackPanel Grid.Row="2"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Margin="0,24,0,0">
-                <Button Style="{StaticResource ButtonDanger}"
-                        Content="删除"
+                <Button Style="{StaticResource ButtonPrimary}"
+                        Content="确定"
                         Width="88"
                         Height="34"
                         Margin="0,0,8,0"

@@ -6,19 +6,19 @@
         Height="620"
         MinWidth="560"
         MinHeight="360"
-        Background="#F5F6F8"
+        Background="{DynamicResource AppSidebarBackgroundBrush}"
         FontFamily="Microsoft YaHei"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
-    <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="White" Margin="10">
+    <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1" Background="{DynamicResource AppSidebarBackgroundBrush}" Margin="10">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="55" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border Background="#F5F6F8" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
+            <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,0,1">
                 <TextBlock Text="变量实时显示"
-                           Foreground="#404040"
+                           Foreground="{DynamicResource AppMetricNameForegroundBrush}"
                            FontSize="18"
                            FontWeight="Bold"
                            HorizontalAlignment="Center"
@@ -30,6 +30,7 @@
                       IsReadOnly="True"
                       Margin="10"
                       RowHeaderWidth="0"
+                      Background="{DynamicResource AppSidebarBackgroundBrush}"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>

@@ -43,6 +43,8 @@ public partial class SettingsPinDialog : UserControl
 
     private void CloseDialog()
     {
+        System.Windows.Window? ownerWindow = System.Windows.Window.GetWindow(this);
+
         DependencyObject? current = this;
         while (current != null)
         {
@@ -54,5 +56,7 @@ public partial class SettingsPinDialog : UserControl
 
             current = VisualTreeHelper.GetParent(current);
         }
+
+        ownerWindow?.Close();
     }
 }

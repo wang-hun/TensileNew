@@ -1,6 +1,5 @@
 using Microsoft.Win32;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
@@ -28,11 +27,10 @@ public static class SevenSegmentFontHelper
                 return new FontFamily(FontFamilyName);
             }
 
-            string? baseDirectory = Path.GetDirectoryName(Environment.ProcessPath)
-                ?? Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string? baseDirectory = Path.GetDirectoryName(Environment.ProcessPath);
             if (string.IsNullOrWhiteSpace(baseDirectory))
             {
-                return DefaultFontFamily;
+                baseDirectory = AppContext.BaseDirectory;
             }
 
             string fontPath = Path.Combine(baseDirectory, AssetsFolderName, FontFileName);

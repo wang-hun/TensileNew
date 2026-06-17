@@ -7,6 +7,10 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Windows.Xps.Packaging;
+using PdfiumViewer;
+using DrawingColor = System.Drawing.Color;
+using DrawingRectangleF = System.Drawing.RectangleF;
+using Forms = System.Windows.Forms;
 
 namespace TensileNeW.Controls;
 
@@ -16,6 +20,10 @@ public partial class ManualDocumentViewer : UserControl
     private const double MaxZoom = 2.0;
 
     private FixedDocumentSequence? _documentSequence;
+    private PdfViewer? _pdfViewer;
+    private IPdfDocument? _pdfDocument;
+    private readonly List<PdfMatch> _pdfMatches = [];
+    private int _lastPdfMatchIndex = -1;
     private readonly List<PageSearchEntry> _searchIndex = [];
     private int _lastMatchedPageIndex = -1;
     private SearchRequest? _lastSearchRequest;
@@ -193,10 +201,27 @@ public partial class ManualDocumentViewer : UserControl
 
     public void SetDocument(XpsDocument document)
     {
+        ClearPdfDocument();
+        InnerDocumentViewer.Visibility = Visibility.Visible;
+        PdfHost.Visibility = Visibility.Collapsed;
         _documentSequence = document.GetFixedDocumentSequence();
         InnerDocumentViewer.Document = _documentSequence;
         RebuildSearchIndex();
         _lastMatchedPageIndex = -1;
+    }
+
+    public void SetPdfDocument(string path)
+    {
+        ClearDocument();
+        EnsurePdfViewer();
+
+        _pdfDocument = PdfDocument.Load(path);
+        _pdfViewer!.Document = _pdfDocument;
+        _pdfViewer.ZoomMode = PdfViewerZoomMode.FitWidth;
+        InnerDocumentViewer.Visibility = Visibility.Collapsed;
+        PdfHost.Visibility = Visibility.Visible;
+        _lastPdfMatchIndex = -1;
+        _pdfMatches.Clear();
     }
 
     public void ClearDocument()
@@ -205,23 +230,42 @@ public partial class ManualDocumentViewer : UserControl
         _documentSequence = null;
         _searchIndex.Clear();
         _lastMatchedPageIndex = -1;
+        ClearPdfDocument();
     }
 
     public void SetZoomFactor(double zoomFactor)
     {
-        InnerDocumentViewer.Zoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom) * 100.0;
+        double clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
+        if (_pdfViewer is not null && PdfHost.Visibility == Visibility.Visible)
+        {
+            _pdfViewer.Renderer.ZoomMode = PdfViewerZoomMode.FitBest;
+            _pdfViewer.Renderer.Zoom = clampedZoom;
+            return;
+        }
+
+        InnerDocumentViewer.Zoom = clampedZoom * 100.0;
     }
 
     public bool Search(string keyword, bool searchWholeDocument, bool forward, out string? message)
     {
         message = null;
-        if (string.IsNullOrWhiteSpace(keyword) || _documentSequence is null || _searchIndex.Count == 0)
+        if (string.IsNullOrWhiteSpace(keyword))
         {
             return false;
         }
 
         keyword = keyword.Trim();
         _lastSearchRequest = new SearchRequest(keyword, searchWholeDocument, forward);
+
+        if (_pdfDocument is not null && _pdfViewer is not null && PdfHost.Visibility == Visibility.Visible)
+        {
+            return SearchPdf(keyword, searchWholeDocument, forward, out message);
+        }
+
+        if (_documentSequence is null || _searchIndex.Count == 0)
+        {
+            return false;
+        }
 
         if (TrySelectTextMatch(keyword, searchWholeDocument, forward))
         {
@@ -253,6 +297,129 @@ public partial class ManualDocumentViewer : UserControl
         }
 
         return Search(_lastSearchRequest.Keyword, _lastSearchRequest.SearchWholeDocument, forward, out message);
+    }
+
+    private void EnsurePdfViewer()
+    {
+        if (_pdfViewer is not null)
+        {
+            return;
+        }
+
+        _pdfViewer = new PdfViewer
+        {
+            Dock = Forms.DockStyle.Fill,
+            ShowToolbar = false,
+            ShowBookmarks = false,
+            BackColor = DrawingColor.White
+        };
+        PdfHost.Child = _pdfViewer;
+    }
+
+    private void ClearPdfDocument()
+    {
+        _pdfMatches.Clear();
+        _lastPdfMatchIndex = -1;
+
+        if (_pdfViewer is not null)
+        {
+            _pdfViewer.Document = null;
+            _pdfViewer.Renderer.Markers.Clear();
+        }
+
+        _pdfDocument?.Dispose();
+        _pdfDocument = null;
+    }
+
+    private bool SearchPdf(string keyword, bool searchWholeDocument, bool forward, out string? message)
+    {
+        message = null;
+        if (_pdfDocument is null || _pdfViewer is null)
+        {
+            return false;
+        }
+
+        IReadOnlyList<PdfMatch> matches = GetPdfMatches(keyword, searchWholeDocument);
+        if (matches.Count == 0)
+        {
+            message = "未找到对应内容。";
+            return false;
+        }
+
+        if (!PdfMatchesEqual(matches, _pdfMatches))
+        {
+            _pdfMatches.Clear();
+            _pdfMatches.AddRange(matches);
+            _lastPdfMatchIndex = forward ? -1 : _pdfMatches.Count;
+        }
+
+        _lastPdfMatchIndex = forward
+            ? (_lastPdfMatchIndex + 1) % _pdfMatches.Count
+            : (_lastPdfMatchIndex - 1 + _pdfMatches.Count) % _pdfMatches.Count;
+
+        PdfMatch match = _pdfMatches[_lastPdfMatchIndex];
+        DrawingRectangleF matchBounds = GetPdfMatchBounds(match);
+        _pdfViewer.Renderer.Page = match.Page;
+        _pdfViewer.Renderer.Markers.Clear();
+        _pdfViewer.Renderer.Markers.Add(new PdfMarker(
+            match.Page,
+            matchBounds,
+            DrawingColor.FromArgb(96, 255, 208, 0),
+            DrawingColor.FromArgb(220, 230, 140, 0),
+            1));
+        _pdfViewer.Renderer.ScrollIntoView(new PdfRectangle(match.Page, matchBounds));
+        _pdfViewer.Renderer.Invalidate();
+        _pdfViewer.Focus();
+        return true;
+    }
+
+    private DrawingRectangleF GetPdfMatchBounds(PdfMatch match)
+    {
+        if (_pdfDocument is null)
+        {
+            return DrawingRectangleF.Empty;
+        }
+
+        PdfRectangle bounds = _pdfDocument.GetTextBounds(match.TextSpan).FirstOrDefault();
+        return bounds.IsValid ? bounds.Bounds : DrawingRectangleF.Empty;
+    }
+
+    private IReadOnlyList<PdfMatch> GetPdfMatches(string keyword, bool searchWholeDocument)
+    {
+        if (_pdfDocument is null || _pdfViewer is null)
+        {
+            return [];
+        }
+
+        int currentPage = Math.Clamp(_pdfViewer.Renderer.Page, 0, Math.Max(0, _pdfDocument.PageCount - 1));
+        PdfMatches matches = searchWholeDocument
+            ? _pdfDocument.Search(keyword, matchCase: false, wholeWord: false)
+            : _pdfDocument.Search(keyword, matchCase: false, wholeWord: false, currentPage);
+
+        return matches.Items
+            .OrderBy(match => match.Page)
+            .ThenBy(match => match.TextSpan.Offset)
+            .ToList();
+    }
+
+    private static bool PdfMatchesEqual(IReadOnlyList<PdfMatch> left, IReadOnlyList<PdfMatch> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < left.Count; index++)
+        {
+            if (left[index].Page != right[index].Page ||
+                left[index].TextSpan.Offset != right[index].TextSpan.Offset ||
+                left[index].TextSpan.Length != right[index].TextSpan.Length)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void RebuildSearchIndex()

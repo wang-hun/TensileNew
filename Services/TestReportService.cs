@@ -114,6 +114,7 @@ public static class TestReportService
             ("闭环压边力设定", WithUnit(FormatValue(recipe?.ClosedLoopStampingForce), "KN")),
             ("停机延时设定", WithUnit(recipe?.ShutdownDelay.ToString() ?? string.Empty, "S")),
             ("停机比例设定", FormatValue(recipe?.ShutdownRatio)),
+            ("拉伸位移上限", WithUnit(FormatValue(recipe?.TensileDistanceLimit), "mm")),
             ("速度设定", WithUnit(FormatValue(recipe?.Speed), "mm/s"))
         ];
 

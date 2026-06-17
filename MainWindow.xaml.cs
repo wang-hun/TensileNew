@@ -2,9 +2,10 @@
 using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -24,6 +25,10 @@ public partial class MainWindow : Window
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
     private const double HelpMaxZoom = 2.0;
+    private static readonly TimeSpan NetworkProbeUiTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan NetworkAddressApplyDelay = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan NetworkConnectRetryInterval = TimeSpan.FromSeconds(1);
+    private const int NetworkConnectRetryCount = 5;
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -39,6 +44,17 @@ public partial class MainWindow : Window
     private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
     private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
 
+    private static string GetWindowTitle()
+    {
+        Assembly assembly = Assembly.GetExecutingAssembly();
+        string assemblyName = assembly.GetName().Name ?? "ECS";
+        string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        return string.IsNullOrWhiteSpace(version)
+            ? assemblyName
+            : $"{assemblyName} {version}";
+    }
+
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
@@ -47,10 +63,10 @@ public partial class MainWindow : Window
     private PlotWindow? _plotWindow;
     private readonly LoadPlotController _loadPlotController;
     private int _logoClickCount;
+    private bool _networkProbeRunning;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
-    private string _lastHelpWebSearchKeyword = string.Empty;
-    private Uri? _helpDocumentUri;
+    private HelpNavigationItem? _currentHelpItem;
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
@@ -70,6 +86,7 @@ public partial class MainWindow : Window
     public static PLCVariable ShutdownDelayVariable => FindVariable("停机延时设定");
     public static PLCVariable ShutdownRatioVariable => FindVariable("停机比例设定");
     public static PLCVariable SpeedVariable => FindVariable("速度设定");
+    public static PLCVariable TensileDistanceLimitVariable => FindVariable("拉伸位移上限");
 
     public static PLCVariable StartPressCoil => FindVariable("压边线圈");
     public static PLCVariable ReleasePressCoil => FindVariable("压边释放线圈");
@@ -88,10 +105,17 @@ public partial class MainWindow : Window
     {
         _connectedAtStartup = connectedAtStartup;
         _viewModel = new MainViewModel();
+        _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        _loadPlotController = new LoadPlotController(LoadPlot, () => _autoTrackLatestPoint, 22);
+        Title = GetWindowTitle();
+        _loadPlotController = new LoadPlotController(
+            LoadPlot,
+            () => _autoTrackLatestPoint,
+            () => _viewModel.Setting.ShowPlotLegend,
+            () => _viewModel.Setting.KeepPlotOnReset,
+            11);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -137,7 +161,7 @@ public partial class MainWindow : Window
             Dispatcher.BeginInvoke(() =>
             {
                 ShowError("连接失败，请检查线路！");
-                Dialog.Show(new ConnectionErrorDialog());
+                ShowConnectionErrorDialog();
             });
         }
 
@@ -155,18 +179,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            _helpDocumentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
-            if (_helpDocumentUri is not null)
-            {
-                HelpWebView.Source = _helpDocumentUri;
-            }
-
-            HelpNavigationTree.ItemsSource = HelpDocumentLoader.LoadNavigation();
+            HelpNavigationTree.ItemsSource = ManualDocumentService.LoadManualNavigation();
         }
         catch
         {
-            _helpDocumentUri = null;
-            HelpWebView.Source = null;
             HelpNavigationTree.ItemsSource = null;
         }
     }
@@ -194,65 +210,11 @@ public partial class MainWindow : Window
             if (item?.IsManualFile == true)
             {
                 await OpenManualDocumentAsync(item);
-                return;
             }
-
-            ShowHelpWebView();
-            Uri? targetUri = HelpDocumentLoader.TryBuildNavigationUri(item);
-            if (targetUri is null)
-            {
-                return;
-            }
-
-            HelpSearchTextBox.Clear();
-
-            UriBuilder documentBuilder = new(targetUri)
-            {
-                Fragment = string.Empty
-            };
-            Uri documentUri = documentBuilder.Uri;
-            bool shouldLoadDocument = HelpWebView.Source is null ||
-                !string.Equals(HelpWebView.Source.LocalPath, documentUri.LocalPath, StringComparison.OrdinalIgnoreCase);
-
-            if (shouldLoadDocument)
-            {
-                TaskCompletionSource navigationCompleted = new();
-
-                void Handler(object? _, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs __)
-                {
-                    HelpWebView.NavigationCompleted -= Handler;
-                    navigationCompleted.TrySetResult();
-                }
-
-                HelpWebView.NavigationCompleted += Handler;
-                HelpWebView.Source = documentUri;
-                await navigationCompleted.Task;
-            }
-
-            await HelpWebView.EnsureCoreWebView2Async();
-            if (string.IsNullOrWhiteSpace(item?.Anchor))
-            {
-                await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
-                return;
-            }
-
-            string anchor = JsonSerializer.Serialize(item.Anchor);
-            await HelpWebView.ExecuteScriptAsync($$"""
-                (() => {
-                    const anchor = {{anchor}};
-                    const target = document.getElementById(anchor) || document.getElementsByName(anchor)[0];
-                    if (!target) {
-                        return false;
-                    }
-
-                    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                    return true;
-                })();
-                """);
         }
         catch
         {
-            // Keep the help page unchanged if navigation fails.
+            // Keep the current document unchanged if navigation fails.
         }
     }
 
@@ -270,30 +232,41 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (ManualDocumentService.CanOpenInWebView(item.FilePath))
-        {
-            CloseManualXpsDocument();
-            ShowHelpWebView();
-            HelpWebView.Source = new Uri(item.FilePath);
-            HelpSearchTextBox.Clear();
-            return;
-        }
-
-        if (!ManualDocumentService.CanConvertToXps(item.FilePath))
+        bool isPdf = ManualDocumentService.IsPdfManual(item.FilePath);
+        if (!isPdf && !ManualDocumentService.CanConvertToXps(item.FilePath))
         {
             ShowWarning("当前说明书格式不支持预览。");
             return;
         }
 
-        HelpWebView.Visibility = Visibility.Collapsed;
-            HelpDocumentViewer.Visibility = Visibility.Visible;
+        HelpDocumentViewer.Visibility = Visibility.Visible;
+        if (isPdf)
+        {
+            try
+            {
+                CloseManualXpsDocument();
+                _currentHelpItem = item;
+                HelpDocumentViewer.Visibility = Visibility.Visible;
+                OpenHelpSourceButton.Visibility = Visibility.Visible;
+                HelpDocumentViewer.SetPdfDocument(item.FilePath);
+                HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
+                HelpSearchTextBox.Clear();
+            }
+            catch (Exception ex)
+            {
+                HideHelpDocumentViewer();
+                ShowWarning($"说明书预览失败：{ex.Message}");
+            }
+
+            return;
+        }
 
         ManualDocumentConvertResult result = !string.IsNullOrWhiteSpace(item.CachedPath) && File.Exists(item.CachedPath)
             ? ManualDocumentConvertResult.Ok(item.CachedPath)
             : await Task.Run(() => ManualDocumentService.ConvertToXpsFile(item.FilePath));
         if (!result.Success || string.IsNullOrWhiteSpace(result.XpsPath))
         {
-            ShowHelpWebView();
+            HideHelpDocumentViewer();
             ShowWarning(result.Message ?? "说明书打开失败。");
             return;
         }
@@ -302,23 +275,27 @@ public partial class MainWindow : Window
         {
             item.CachedPath = result.XpsPath;
             CloseManualXpsDocument();
+            _currentHelpItem = item;
             _manualXpsDocument = new XpsDocument(result.XpsPath, FileAccess.Read);
             HelpDocumentViewer.Visibility = Visibility.Visible;
+            OpenHelpSourceButton.Visibility = Visibility.Visible;
             HelpDocumentViewer.SetDocument(_manualXpsDocument);
             HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
+            HelpSearchTextBox.Clear();
         }
         catch (Exception ex)
         {
-            ShowHelpWebView();
+            HideHelpDocumentViewer();
             ShowWarning($"说明书预览失败：{ex.Message}");
         }
     }
 
-    private void ShowHelpWebView()
+    private void HideHelpDocumentViewer()
     {
         CloseManualXpsDocument();
         HelpDocumentViewer.Visibility = Visibility.Collapsed;
-        HelpWebView.Visibility = Visibility.Visible;
+        OpenHelpSourceButton.Visibility = Visibility.Collapsed;
+        _currentHelpItem = null;
     }
 
     private void CloseManualXpsDocument()
@@ -326,6 +303,58 @@ public partial class MainWindow : Window
         HelpDocumentViewer.ClearDocument();
         _manualXpsDocument?.Close();
         _manualXpsDocument = null;
+    }
+
+    private void OpenCurrentManualFile_Click(object sender, RoutedEventArgs e)
+    {
+        string? filePath = _currentHelpItem?.FilePath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            ShowWarning("说明书文件不存在。");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            if (OpenContainingFolder(filePath))
+            {
+                ShowWarning("打开原文件失败，已打开所在文件夹。");
+                return;
+            }
+
+            ShowWarning($"打开原文件失败：{ex.Message}");
+        }
+    }
+
+    private static bool OpenContainingFolder(string filePath)
+    {
+        string? directory = Path.GetDirectoryName(filePath);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directory,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async void HelpSearchTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -354,12 +383,12 @@ public partial class MainWindow : Window
         await ExecuteHelpSearchAsync(true, true);
     }
 
-    private async Task ExecuteHelpSearchAsync(bool forward, bool repeatLastSearch)
+    private Task ExecuteHelpSearchAsync(bool forward, bool repeatLastSearch)
     {
-        string keyword = repeatLastSearch ? _lastHelpWebSearchKeyword : HelpSearchTextBox.Text.Trim();
+        string keyword = HelpSearchTextBox.Text.Trim();
         if (!repeatLastSearch && string.IsNullOrWhiteSpace(keyword))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         bool searchWholeDocument = (HelpSearchModeComboBox.SelectedItem as HelpSearchModeOption)?.SearchWholeDocument == true;
@@ -372,73 +401,9 @@ public partial class MainWindow : Window
             {
                 ShowInfo(message);
             }
-
-            return;
         }
 
-        if (HelpWebView.Visibility != Visibility.Visible)
-        {
-            return;
-        }
-
-        try
-        {
-            await HelpWebView.EnsureCoreWebView2Async();
-            string effectiveKeyword = keyword;
-            if (string.IsNullOrWhiteSpace(effectiveKeyword))
-            {
-                return;
-            }
-
-            _lastHelpWebSearchKeyword = effectiveKeyword;
-
-            string serializedKeyword = JsonSerializer.Serialize(effectiveKeyword);
-            string serializedForward = forward ? "true" : "false";
-            string script = $$"""
-                (() => {
-                    const keyword = {{serializedKeyword}};
-                    if (!window.find) {
-                        return "unsupported";
-                    }
-
-                    const forward = {{serializedForward}};
-                    const found = window.find(keyword, false, false, true, false, !forward, false);
-                    return found ? "found" : "not-found";
-                })();
-                """;
-            string result = await HelpWebView.ExecuteScriptAsync(script);
-            if (string.Equals(result, "\"not-found\"", StringComparison.OrdinalIgnoreCase))
-            {
-                ShowInfo("未找到对应内容。");
-            }
-        }
-        catch
-        {
-            ShowWarning("网页内容查找失败。");
-        }
-    }
-
-    private async Task ScrollHelpDocumentToTopAsync()
-    {
-        try
-        {
-            if (_helpDocumentUri is null)
-            {
-                return;
-            }
-
-            if (HelpWebView.Source is null || HelpWebView.Source.LocalPath != _helpDocumentUri.LocalPath)
-            {
-                HelpWebView.Source = _helpDocumentUri;
-            }
-
-            await HelpWebView.EnsureCoreWebView2Async();
-            await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
-        }
-        catch
-        {
-            // Keep the help page unchanged if WebView2 is not available.
-        }
+        return Task.CompletedTask;
     }
 
     private void HelpZoomOut_Click(object sender, RoutedEventArgs e)
@@ -491,15 +456,6 @@ public partial class MainWindow : Window
         if (HelpDocumentViewer.Visibility == Visibility.Visible)
         {
             HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
-            return;
-        }
-
-        try
-        {
-            HelpWebView.ZoomFactor = _helpZoomFactor;
-        }
-        catch
-        {
         }
     }
 
@@ -518,6 +474,7 @@ public partial class MainWindow : Window
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
+        TrialDataStore.TryDeleteDatabaseFile();
         Logger.Info("关闭程序");
     }
 
@@ -538,7 +495,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        _plotWindow = new PlotWindow(() => _autoTrackLatestPoint)
+        _plotWindow = new PlotWindow(
+            () => _autoTrackLatestPoint,
+            () => _viewModel.Setting.ShowPlotLegend,
+            () => _viewModel.Setting.KeepPlotOnReset)
         {
             Owner = this
         };
@@ -556,27 +516,28 @@ public partial class MainWindow : Window
     {
         ReconnectButton.IsEnabled = false;
         IsEnabled = false;
+        bool connected = false;
 
         var waitWindow = new StartupWaitWindow(GetConnectWaitText());
 
         try
         {
             waitWindow.Show();
-            var reconnectTask = TryReconnectWithTimeoutAsync();
+            var reconnectTask = TryReconnectAsync();
             await Task.WhenAll(reconnectTask, Task.Delay(TimeSpan.FromSeconds(2)));
-            bool connected = await reconnectTask;
-
-            if (!connected)
-            {
-                ShowError("\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u7ebf\u8def\uff01");
-                Dialog.Show(new ConnectionErrorDialog());
-            }
+            connected = await reconnectTask;
         }
         finally
         {
             waitWindow.Close();
             IsEnabled = true;
             ReconnectButton.IsEnabled = true;
+        }
+
+        if (!connected)
+        {
+            ShowError("\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u7ebf\u8def\uff01");
+            _ = Dispatcher.BeginInvoke(ShowConnectionErrorDialog);
         }
     }
 
@@ -587,24 +548,154 @@ public partial class MainWindow : Window
             : "正在连接 设备主机，请稍后...";
     }
 
-    private static async Task<bool> TryReconnectWithTimeoutAsync()
+    private static async Task<bool> TryReconnectAsync(bool forceReconnect = true)
     {
         try
         {
-            var reconnectTask = Task.Run(() => DataAqc.TryReconnect(forceReconnect: true));
-            var completedTask = await Task.WhenAny(reconnectTask, Task.Delay(TimeSpan.FromSeconds(5)));
-
-            if (completedTask == reconnectTask)
-            {
-                return await reconnectTask;
-            }
-
-            _ = reconnectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            return false;
+            return await Task.Run(() => DataAqc.TryReconnect(forceReconnect));
         }
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 探测期间在单个候选 IP 上做有限次重试，覆盖刚 add address 后 Windows
+    /// 路由表/源地址选择尚未就绪的窗口；超出整体探测超时立即放弃。
+    /// </summary>
+    private static async Task<bool> TryConnectWithRetriesAsync(Stopwatch probeStopwatch)
+    {
+        for (int attempt = 0; attempt < NetworkConnectRetryCount; attempt++)
+        {
+            if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+            {
+                return false;
+            }
+
+            if (await TryReconnectAsync())
+            {
+                return true;
+            }
+
+            if (attempt < NetworkConnectRetryCount - 1)
+            {
+                await Task.Delay(NetworkConnectRetryInterval);
+            }
+        }
+
+        return false;
+    }
+
+    private void ShowConnectionErrorDialog()
+    {
+        Dialog.Show(new ConnectionErrorDialog(RunNetworkProbeAndReconnectAsync));
+    }
+
+    private async Task RunNetworkProbeAndReconnectAsync()
+    {
+        if (_networkProbeRunning)
+        {
+            return;
+        }
+
+        _networkProbeRunning = true;
+        ReconnectButton.IsEnabled = false;
+        IsEnabled = false;
+        string? successMessage = null;
+        string? warningMessage = null;
+        string? errorMessage = null;
+        bool showFailureDialog = false;
+
+        var waitWindow = new StartupWaitWindow("正在探测有线网络并尝试连接设备，请稍后...");
+        DataAqc.AutoReconnectSuspended = true;
+        try
+        {
+            waitWindow.Show();
+            IReadOnlyList<NetworkProbeCandidate> candidates = NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
+            if (candidates.Count == 0)
+            {
+                warningMessage = "未发现可用于探测的有线网卡。";
+            }
+            else
+            {
+                Stopwatch probeStopwatch = Stopwatch.StartNew();
+                NetworkProbeResult? lastFailure = null;
+                foreach (NetworkProbeCandidate candidate in candidates)
+                {
+                    if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        break;
+                    }
+
+                    waitWindow.SetWaitText($"正在配置 {candidate.AdapterName}，请稍后...");
+                    NetworkProbeResult addResult = await NetworkAdapterProbeService.RunElevatedAddAddressAsync(candidate);
+                    if (!addResult.Success)
+                    {
+                        lastFailure = addResult;
+                        continue;
+                    }
+
+                    await Task.Delay(NetworkAddressApplyDelay);
+                    waitWindow.SetWaitText($"正在通过 {candidate.AdapterName} 连接设备...");
+                    bool connected = await TryConnectWithRetriesAsync(probeStopwatch);
+                    if (connected)
+                    {
+                        successMessage = $"网络检查成功，已通过 {candidate.AdapterName} 连接设备。";
+                        break;
+                    }
+
+                    lastFailure = new NetworkProbeResult
+                    {
+                        Success = false,
+                        AdapterName = candidate.AdapterName,
+                        LocalIp = candidate.LocalIp,
+                        Message = $"已配置 {candidate.AdapterName}，但设备连接失败。"
+                    };
+
+                    waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                    await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                }
+
+                if (string.IsNullOrWhiteSpace(successMessage) && string.IsNullOrWhiteSpace(warningMessage))
+                {
+                    errorMessage = lastFailure?.Message ?? "所有有线网卡均未连接到设备。";
+                    showFailureDialog = true;
+                }
+            }
+        }
+        finally
+        {
+            DataAqc.AutoReconnectSuspended = false;
+            if (waitWindow.IsVisible)
+            {
+                waitWindow.Close();
+            }
+
+            IsEnabled = true;
+            ReconnectButton.IsEnabled = true;
+            _networkProbeRunning = false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            ShowSuccess(successMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(warningMessage))
+        {
+            ShowWarning(warningMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            ShowError(errorMessage);
+        }
+
+        if (showFailureDialog)
+        {
+            _ = Dispatcher.BeginInvoke(ShowConnectionErrorDialog);
         }
     }
 
@@ -620,9 +711,33 @@ public partial class MainWindow : Window
         _viewModel.SaveSettings();
     }
 
-    private void AutoTrackLatestPointCheckBox_Changed(object sender, RoutedEventArgs e)
+    private void ChartSettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        _autoTrackLatestPoint = AutoTrackLatestPointCheckBox.IsChecked == true;
+        var dialog = new ChartSettingsWindow(_viewModel.Setting, _viewModel.SaveSettings)
+        {
+            Owner = this
+        };
+
+        dialog.SettingsChanged += (_, _) =>
+        {
+            _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
+            _loadPlotController.ApplyCurrentTheme();
+            _plotWindow?.ApplyCurrentTheme();
+        };
+        dialog.Confirmed += (_, _) => ShowSuccess("设置成功");
+        dialog.ResetSerialRequested += (_, _) => ShowResetSerialConfirmDialog();
+        dialog.ShowDialog();
+    }
+
+    private void ShowResetSerialConfirmDialog()
+    {
+        var confirm = new ResetSerialConfirmDialog();
+        confirm.Confirmed += (_, _) =>
+        {
+            _viewModel.ResetTrialSerialNumber();
+            ShowSuccess("序列号已重置");
+        };
+        Dialog.Show(confirm);
     }
 
     private void LoadItems_ListChanged(object? sender, ListChangedEventArgs e)
@@ -671,7 +786,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dialog = new SettingsPinDialog();
+        var dialog = new SettingsPinWindow
+        {
+            Owner = this
+        };
         dialog.Unlocked += (_, _) =>
         {
             VariablesButton.Visibility = Visibility.Visible;
@@ -681,7 +799,7 @@ public partial class MainWindow : Window
             ColorSchemesButton.Visibility = Visibility.Visible;
             _viewModel.CurrentPage = "ColorSchemes";
         };
-        Dialog.Show(dialog);
+        dialog.ShowDialog();
     }
 
     private void ApplyColorScheme_Click(object sender, RoutedEventArgs e)
@@ -735,7 +853,11 @@ public partial class MainWindow : Window
     private async void Tanliao_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", true);
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
-    private void SaveData_Click(object sender, RoutedEventArgs e) => _viewModel.SaveDataAs();
+    private void SaveData_Click(object sender, RoutedEventArgs e)
+    {
+        using var _ = BeginCurrentTrialPlotScope();
+        _viewModel.SaveDataAs();
+    }
 
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
@@ -760,21 +882,25 @@ public partial class MainWindow : Window
             string maxForce = MaxForceVariable.CurrentValue;
             string validDistance = ValidDistanceVariable.CurrentValue;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
-            tempImagePath = CaptureReportImageToTempFile();
 
-            await Task.Run(() =>
+            using (BeginCurrentTrialPlotScope())
             {
-                _viewModel.SaveDataToFile(excelPath);
-                SaveTestReportDocumentToFile(
-                    reportPath,
-                    tempImagePath,
-                    recipeName,
-                    trialSerialNumber,
-                    generatedAt,
-                    maxForce,
-                    validDistance,
-                    recipe);
-            });
+                tempImagePath = CaptureReportImageToTempFile();
+
+                await Task.Run(() =>
+                {
+                    _viewModel.SaveDataToFile(excelPath);
+                    SaveTestReportDocumentToFile(
+                        reportPath,
+                        tempImagePath,
+                        recipeName,
+                        trialSerialNumber,
+                        generatedAt,
+                        maxForce,
+                        validDistance,
+                        recipe);
+                });
+            }
 
             ShowSuccess("数据和试验报告保存成功");
         }
@@ -812,7 +938,10 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveTestReportToFile(dialog.FileName, recipeName);
+            using (BeginCurrentTrialPlotScope())
+            {
+                SaveTestReportToFile(dialog.FileName, recipeName);
+            }
             ShowSuccess("试验报告保存成功");
         }
         catch (Exception ex)
@@ -852,6 +981,23 @@ public partial class MainWindow : Window
         InvokePlotMenuItem("自动缩放", "Autoscale");
         InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
         return TestReportService.SaveClipboardImageToTempFile();
+    }
+
+    private IDisposable BeginCurrentTrialPlotScope()
+    {
+        _loadPlotController.HideNonCurrentCurves();
+        _plotWindow?.HideNonCurrentCurves();
+        _loadPlotController.AutoScale();
+        _plotWindow?.AutoScale();
+        return new CurrentTrialPlotScope(this);
+    }
+
+    private void EndCurrentTrialPlotScope()
+    {
+        _loadPlotController.RestoreHiddenCurves();
+        _plotWindow?.RestoreHiddenCurves();
+        _loadPlotController.AutoScale();
+        _plotWindow?.AutoScale();
     }
 
     private static void SaveTestReportDocumentToFile(
@@ -912,15 +1058,16 @@ public partial class MainWindow : Window
     private void AddRecipe_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new RecipeNameDialog();
-        dialog.Confirmed += (_, name) =>
+        dialog.Confirmed += (_, args) =>
         {
+            string name = args.Name;
             if (string.IsNullOrWhiteSpace(name))
             {
                 ShowWarning("配方名称不能为空");
                 return;
             }
 
-            if (!_viewModel.AddRecipe(name))
+            if (!_viewModel.AddRecipe(name, args.TemplateRecipe))
             {
                 ShowWarning("配方名称已经存在，请修改");
                 return;
@@ -1106,4 +1253,20 @@ public partial class MainWindow : Window
     }
 
     private sealed record HelpSearchModeOption(string Title, bool SearchWholeDocument);
+
+    private sealed class CurrentTrialPlotScope(MainWindow owner) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            owner.EndCurrentTrialPlotScope();
+        }
+    }
 }

@@ -1,18 +1,16 @@
-<Window x:Class="TensileNeW.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks" xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF" xmlns:local="clr-namespace:TensileNeW" xmlns:models="clr-namespace:TensileNeW.Models" xmlns:controls="clr-namespace:TensileNeW.Controls" xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf" Title="ECS V1.0.0.2605" Width="1800" Height="1000" WindowState="Maximized" Background="#F5F6F8" FontFamily="Microsoft YaHei" Closing="Window_Closing" Loaded="Window_Loaded">
+<Window x:Class="TensileNeW.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks" xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF" xmlns:local="clr-namespace:TensileNeW" xmlns:models="clr-namespace:TensileNeW.Models" xmlns:controls="clr-namespace:TensileNeW.Controls" Title="ECS" Width="1800" Height="1000" WindowState="Maximized" Background="#F5F6F8" FontFamily="Microsoft YaHei" Closing="Window_Closing" Loaded="Window_Loaded">
   <Window.Resources>
     <local:BoolStringToBrushConverter x:Key="BoolBrush" />
     <local:FloatFormatConverter x:Key="FloatFormat" />
     <HierarchicalDataTemplate DataType="{x:Type models:HelpNavigationItem}" ItemsSource="{Binding Children}">
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <iconPacks:PackIconJamIcons x:Name="HelpRootBookIcon" Kind="Book" Width="20" Height="20" Margin="0,0,7,0" Foreground="#1D4ED8" Visibility="Collapsed" />
-        <TextBlock x:Name="HelpNavigationTitle" Text="{Binding Title}" />
+        <hc:RunningBlock x:Name="HelpNavigationTitle" Content="{Binding Title}" AutoRun="True" Duration="0:0:18" />
       </StackPanel>
       <HierarchicalDataTemplate.Triggers>
         <DataTrigger Binding="{Binding IsRoot}" Value="True">
           <Setter TargetName="HelpRootBookIcon" Property="Visibility" Value="Visible" />
           <Setter TargetName="HelpNavigationTitle" Property="Foreground" Value="#1D4ED8" />
-          <Setter TargetName="HelpNavigationTitle" Property="FontSize" Value="19" />
-          <Setter TargetName="HelpNavigationTitle" Property="FontWeight" Value="SemiBold" />
         </DataTrigger>
         <DataTrigger Binding="{Binding IsUnavailable}" Value="True">
           <Setter TargetName="HelpRootBookIcon" Property="Foreground" Value="#D03050" />
@@ -21,14 +19,16 @@
       </HierarchicalDataTemplate.Triggers>
     </HierarchicalDataTemplate>
     <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
-      <Setter Property="Height" Value="55" />
-      <Setter Property="MinWidth" Value="90" />
-      <Setter Property="Margin" Value="0,6,10,6" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Width" Value="64" />
+      <Setter Property="Height" Value="39" />
+      <Setter Property="MinWidth" Value="64" />
+      <Setter Property="Margin" Value="0,0,10,0" />
+      <Setter Property="FontSize" Value="10" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="{DynamicResource AppNavForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppNavBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -125,10 +125,10 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style x:Key="MetricNameStyle" TargetType="TextBlock">
-      <Setter Property="Background" Value="{DynamicResource AppMetricNameBackgroundBrush}" />
+      <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" />
       <Setter Property="FontSize" Value="16" />
-      <Setter Property="Padding" Value="8,0,12,0" />
+      <Setter Property="Padding" Value="8,0,10,0" />
       <Setter Property="VerticalAlignment" Value="Stretch" />
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="TextAlignment" Value="Right" />
@@ -136,7 +136,7 @@
       <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
     </Style>
     <Style x:Key="CompactMetricNameStyle" TargetType="TextBlock" BasedOn="{StaticResource MetricNameStyle}">
-      <Setter Property="LineHeight" Value="24" />
+      <Setter Property="LineHeight" Value="30" />
     </Style>
     <Style x:Key="MetricValueStyle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource AppMetricValueForegroundBrush}" />
@@ -160,9 +160,78 @@
       <Setter Property="Margin" Value="0" />
     </Style>
     <Style x:Key="MetricValueCellStyle" TargetType="Border">
-      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource AppLayoutBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1,0,0,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="OuterShadowBorderStyle" TargetType="Border">
+      <Setter Property="Effect">
+        <Setter.Value>
+          <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.20" />
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="CurrentTrialContentBorderStyle" TargetType="Border" BasedOn="{StaticResource OuterShadowBorderStyle}">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style x:Key="HomeInnerShadowPanelStyle" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="LargeMetricGroupBorderStyle" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource AppSidebarBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Effect">
+        <Setter.Value>
+          <DropShadowEffect Color="#000000" BlurRadius="9" ShadowDepth="2" Direction="270" Opacity="0.18" />
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="LargeMetricValuePanelStyle" TargetType="Border">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Margin" Value="0,4,8,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="LargeMetricValueStyle" TargetType="TextBlock" BasedOn="{StaticResource SevenSegmentMetricValueStyle}">
+      <Setter Property="Foreground" Value="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style x:Key="LargeMetricUnitStyle" TargetType="TextBlock" BasedOn="{StaticResource MetricUnitStyle}">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Width" Value="48" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="TextAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="LargeMetricNameStyle" TargetType="TextBlock">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="8,0,10,0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style x:Key="HomeSidebarSubTitleStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0" />
     </Style>
     <Style x:Key="StatusIconStyle" TargetType="iconPacks:PackIconBootstrapIcons">
       <Setter Property="Kind" Value="PatchMinusFill" />
@@ -179,20 +248,21 @@
       </Style.Triggers>
     </Style>
     <Style x:Key="HeaderReconnectButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonCustom}">
-      <Setter Property="Width" Value="114" />
-      <Setter Property="Height" Value="35" />
-      <Setter Property="Margin" Value="8,0,2,0" />
-      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Width" Value="96" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Margin" Value="2,0,1,1" />
+      <Setter Property="Padding" Value="8,0" />
       <Setter Property="Background" Value="{DynamicResource AppReconnectBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppReconnectBorderBrush}" />
       <Setter Property="ToolTip" Value="重新连接设备主机" />
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Foreground" Value="{DynamicResource AppReconnectForegroundBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="hc:BorderElement.CornerRadius" Value="4" />
       <Setter Property="hc:BackgroundSwitchElement.MouseHoverBackground" Value="{DynamicResource AppReconnectBackgroundBrush}" />
       <Setter Property="hc:BackgroundSwitchElement.MouseDownBackground" Value="{DynamicResource AppReconnectBackgroundBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Style.Triggers>
@@ -220,7 +290,7 @@
   <hc:DialogContainer>
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="78" />
+        <RowDefinition Height="39" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <StackPanel Grid.RowSpan="2" hc:Growl.Token="MainGrowl" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,16,16,0" Width="360" Panel.ZIndex="9999" />
@@ -231,7 +301,7 @@
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Image x:Name="LogoImage" Source="pack://application:,,,/Assets/GB-LOGO.png" Stretch="Uniform" Margin="0,0,30,5" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
+          <Image x:Name="LogoImage" Source="pack://application:,,,/Assets/GB-LOGO.png" Stretch="Uniform" Height="36.5" Margin="0,0,30,2.5" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" />
           <Grid Grid.Column="1">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="90" />
@@ -240,52 +310,52 @@
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="128" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="128" />
+              <ColumnDefinition Width="104" />
+              <ColumnDefinition Width="68" />
+              <ColumnDefinition Width="100" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBoxIcons2 Kind="RegularHome" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="主页" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconBoxIcons2 Kind="RegularHome" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="主页" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button Grid.Column="1" Style="{StaticResource SettingsNavButtonStyle}" Click="Settings_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconCircumIcons Kind="Settings" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="设置" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconCircumIcons Kind="Settings" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="设置" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button Grid.Column="2" Style="{StaticResource HelpNavButtonStyle}" Click="Help_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="QuestionCircle" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="试验指导" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconBootstrapIcons Kind="QuestionCircle" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="试验指导" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="ColorSchemesButton" Grid.Column="3" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="配色" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="配色" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="VariablesButton" Grid.Column="4" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="26" Height="26" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                <TextBlock Text="变量" Margin="0,6,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="变量" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
             <Button x:Name="ReconnectButton" Grid.Column="6" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="18" Height="18" Margin="0,0,6,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="16" Height="16" Margin="0,0,5,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="重新连接" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <TextBlock Grid.Column="7" Text="联机状态" FontSize="16" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" />
-            <StackPanel Grid.Column="8" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Border Background="{DynamicResource AppConnectionBadgeBackgroundBrush}" CornerRadius="6" Padding="8,4" Margin="6,0,12,0" VerticalAlignment="Center">
+            <TextBlock Grid.Column="7" Text="联机状态" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,3,0" />
+            <Grid Grid.Column="8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="3,0,6,1">
+              <Border Background="{DynamicResource AppConnectionBadgeBackgroundBrush}" CornerRadius="4" Padding="5,2" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                  <Grid Width="22" Height="22" Margin="0,0,6,0">
-                    <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="22" Height="22" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+                  <Grid Width="16" Height="16" Margin="0,0,5,0">
+                    <iconPacks:PackIconVaadinIcons Kind="GlobeWire" Width="16" Height="16" Foreground="#2FB344" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
                       <iconPacks:PackIconVaadinIcons.Style>
                         <Style TargetType="iconPacks:PackIconVaadinIcons">
                           <Setter Property="Visibility" Value="Collapsed" />
@@ -297,7 +367,7 @@
                         </Style>
                       </iconPacks:PackIconVaadinIcons.Style>
                     </iconPacks:PackIconVaadinIcons>
-                    <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="22" Height="22" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
+                    <iconPacks:PackIconPhosphorIcons Kind="GlobeX" Width="16" Height="16" Foreground="#E03131" Tag="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}">
                       <iconPacks:PackIconPhosphorIcons.Style>
                         <Style TargetType="iconPacks:PackIconPhosphorIcons">
                           <Setter Property="Visibility" Value="Visible" />
@@ -310,23 +380,23 @@
                       </iconPacks:PackIconPhosphorIcons.Style>
                     </iconPacks:PackIconPhosphorIcons>
                   </Grid>
-                <TextBlock FontSize="13" FontWeight="Bold">
-                  <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                      <Setter Property="Text" Value="连接失败" />
-                      <Setter Property="Foreground" Value="#E03131" />
-                      <Style.Triggers>
-                        <DataTrigger Binding="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}" Value="true">
-                          <Setter Property="Text" Value="已连接" />
-                          <Setter Property="Foreground" Value="#2FB344" />
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </TextBlock.Style>
-                </TextBlock>
+                  <TextBlock FontSize="11" FontWeight="Bold" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="连接失败" />
+                        <Setter Property="Foreground" Value="#E03131" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Source={x:Static models:DataAqc.plc}, Path=ConnectState}" Value="true">
+                            <Setter Property="Text" Value="已连接" />
+                            <Setter Property="Foreground" Value="#2FB344" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
                 </StackPanel>
               </Border>
-            </StackPanel>
+            </Grid>
           </Grid>
         </Grid>
       </Border>
@@ -349,54 +419,76 @@
         </Grid.ColumnDefinitions>
         <!-- Left side panel: current trial -->
         <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
-          <ScrollViewer VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
-            <Grid MinHeight="415">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="55" />
-                <RowDefinition Height="60" />
-                <RowDefinition Height="60" />
-                <RowDefinition Height="3*" />
-                <RowDefinition Height="112" />
-                <RowDefinition Height="2*" />
-              </Grid.RowDefinitions>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+            <StackPanel Margin="12,8,12,8">
               <!-- 当前试验 title -->
-              <Border Style="{StaticResource SectionTitleStyle}" Grid.Row="0" Height="55">
-                <TextBlock Text="当前试验" Style="{StaticResource SectionTitleTextStyle}" />
-              </Border>
+              <TextBlock Text="当前试验" Style="{StaticResource HomeSidebarSubTitleStyle}" />
               <!-- Recipe + SN row -->
-              <Grid Grid.Row="1" Margin="8,4" HorizontalAlignment="Center">
+              <Border Style="{StaticResource CurrentTrialContentBorderStyle}">
+                <StackPanel>
+              <Grid Height="42" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
-                  <ColumnDefinition Width="175" />
+                  <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Width="175" Height="34" FontSize="16" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBlock Text="当前配置：" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <ComboBox Grid.Column="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberPath="RecipeName" Height="34" FontSize="16" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
-              <Grid Grid.Row="2" Margin="8,4" HorizontalAlignment="Center">
+              <Grid Height="42" Margin="0,4,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
-                  <ColumnDefinition Width="175" />
+                  <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
-                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Width="175" Height="34" FontSize="16" VerticalContentAlignment="Center" HorizontalAlignment="Left" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               </Grid>
+                </StackPanel>
+              </Border>
               <!-- real-time readouts -->
-              <Grid Grid.Row="3">
+              <Grid Height="234" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+                <Grid Grid.Row="1" Grid.RowSpan="7" Grid.ColumnSpan="2" IsHitTestVisible="False">
+                  <Border Style="{StaticResource HomeInnerShadowPanelStyle}" />
+                  <Border Height="12" VerticalAlignment="Top">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1C000000" Offset="0" />
+                        <GradientStop Color="#08000000" Offset="0.45" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Height="8" VerticalAlignment="Bottom">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                        <GradientStop Color="#08000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Width="8" HorizontalAlignment="Right">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                        <GradientStop Color="#07000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                </Grid>
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸时间" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
@@ -475,53 +567,72 @@
                 </Grid>
                 </Border>
               </Grid>
-              <Grid Grid.Row="4" Margin="0,6,0,18">
+              <Grid Height="110" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="42" />
-                  <RowDefinition Height="42" />
+                  <RowDefinition Height="55" />
+                  <RowDefinition Height="55" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="48" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸位移" LineHeight="42" Foreground="Black" />
-                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
-                </Grid>
+                <Border Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="3" Style="{StaticResource LargeMetricGroupBorderStyle}" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource LargeMetricNameStyle}" Text="实时拉伸位移" />
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource LargeMetricValuePanelStyle}">
+                  <TextBlock Style="{StaticResource LargeMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealDistanceVariable}}" />
                 </Border>
-                <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricNameStyle}" Text="实时拉伸力" LineHeight="42" Foreground="Black" />
-                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource SevenSegmentMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
-                </Grid>
+                <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource LargeMetricUnitStyle}" Text="mm" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource LargeMetricNameStyle}" Text="实时拉伸力" />
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource LargeMetricValuePanelStyle}">
+                  <TextBlock Style="{StaticResource LargeMetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.RealForceVariable}}" />
                 </Border>
+                <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource LargeMetricUnitStyle}" Text="KN" />
               </Grid>
               <!-- 试验参数 sub-panel -->
-              <Grid Grid.Row="5">
+              <Grid Height="204" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
-                  <RowDefinition Height="24" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
+                  <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="142" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+                <Grid Grid.Row="1" Grid.RowSpan="6" Grid.ColumnSpan="2" IsHitTestVisible="False">
+                  <Border Style="{StaticResource HomeInnerShadowPanelStyle}" />
+                  <Border Height="12" VerticalAlignment="Top">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1C000000" Offset="0" />
+                        <GradientStop Color="#08000000" Offset="0.45" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Height="8" VerticalAlignment="Bottom">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                        <GradientStop Color="#08000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border Width="8" HorizontalAlignment="Right">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                        <GradientStop Color="#07000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                </Grid>
                 <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="冲程压边力设定" />
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
@@ -577,8 +688,19 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
                 </Grid>
                 </Border>
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限" />
+                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.TensileDistanceLimitVariable}}" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm" />
+                </Grid>
+                </Border>
               </Grid>
-            </Grid>
+            </StackPanel>
           </ScrollViewer>
         </Border>
         <!-- Middle: chart + action buttons -->
@@ -587,20 +709,12 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="260" />
           </Grid.RowDefinitions>
-          <Border BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="1">
+          <Border Style="{StaticResource OuterShadowBorderStyle}" BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="8">
             <Grid>
-              <sp:WpfPlot x:Name="LoadPlot" Margin="8" />
-              <CheckBox x:Name="AutoTrackLatestPointCheckBox"
-                        Content="自动播放曲线图"
-                        IsChecked="True"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top"
-                        Margin="48,12,0,0"
-                        Panel.ZIndex="20"
-                        FontSize="14"
-                        Foreground="#404040"
-                        Checked="AutoTrackLatestPointCheckBox_Changed"
-                        Unchecked="AutoTrackLatestPointCheckBox_Changed" />
+              <sp:WpfPlot x:Name="LoadPlot" Margin="8" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+              <Button x:Name="ChartSettingsButton" Width="31.5" Height="31.5" Margin="0,2.75,45,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="曲线图设置" Click="ChartSettingsButton_Click">
+                <iconPacks:PackIconForkAwesome Kind="Cogs" Width="22" Height="22" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+              </Button>
               <Button x:Name="ChartHintButton" Width="31.5" Height="31.5" Margin="0,2.75,8,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="显示/隐藏曲线图操作提示" Click="ChartHintButton_Click">
                 <Grid>
                   <iconPacks:PackIconBootstrapIcons x:Name="ChartHintInfoIcon" Kind="InfoCircle" Width="24" Height="24" Foreground="#1677FF">
@@ -635,7 +749,21 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
-                  <TextBlock Margin="18,14,46,8" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap" Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。&#xA;鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。&#xA;在曲线图上点击鼠标右键查看更多功能。" />
+                  <TextBlock Margin="18,14,46,8" FontSize="17" Foreground="#263238" LineHeight="30" TextWrapping="Wrap">
+                    <Run Text="鼠标悬浮在X轴和Y轴之上，滚动鼠标滑轮，可以缩放比例。" />
+                    <LineBreak />
+                    <Run Text="鼠标左键按住曲线图上后，可以拖拽改变曲线图显示区域。" />
+                    <LineBreak />
+                    <Run Text="在曲线图上点击鼠标右键查看更多功能。" />
+                    <LineBreak />
+                    <Run Text="点击“" />
+                    <InlineUIContainer BaselineAlignment="Center">
+                      <iconPacks:PackIconForkAwesome Kind="Cogs" Width="18" Height="18" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                    </InlineUIContainer>
+                    <Run Text="”，可以打开曲线设置界面。" />
+                    <LineBreak />
+                    <Run Text="勾选“重置数据不清空曲线图”后，点击数据重置不会清空已有曲线，下一次试验会使用新颜色继续绘制。" />
+                  </TextBlock>
                   <CheckBox Grid.Row="1" Content="下次启动后不再自动显示。" IsChecked="{Binding Setting.HideChartHintOnStartup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Right" Margin="18,0,16,12" FontSize="14" Checked="ChartHintStartupCheckBox_Changed" Unchecked="ChartHintStartupCheckBox_Changed" />
                   <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort" Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="#1677FF" />
                 </Grid>
@@ -865,6 +993,12 @@
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <Button x:Name="OpenHelpSourceButton" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="0" BorderThickness="0" Background="Transparent" Foreground="#1D4ED8" Cursor="Hand" Visibility="Collapsed" Click="OpenCurrentManualFile_Click">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconBootstrapIcons Kind="BoxArrowUpRight" Width="16" Height="16" Margin="0,0,6,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <TextBlock Text="打开原文件" FontSize="14" TextDecorations="Underline" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  </StackPanel>
+                </Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                   <Border Width="220" Height="28" BorderBrush="#D0D5DD" BorderThickness="1" Background="White">
                     <Grid>
@@ -903,7 +1037,6 @@
               </Grid>
             </Border>
             <Grid Grid.Row="1">
-              <wv2:WebView2 x:Name="HelpWebView" />
               <controls:ManualDocumentViewer x:Name="HelpDocumentViewer" Visibility="Collapsed" />
             </Grid>
           </Grid>
@@ -1070,6 +1203,9 @@
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="停机延时设定" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedRecipe.ShutdownDelay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSelectedRecipeReadOnly}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="4" Grid.Column="2" Text="(10ms)" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
+                <TextBlock Grid.Row="4" Grid.Column="3" Text="拉伸位移上限" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                <TextBox Grid.Row="4" Grid.Column="4" Text="{Binding SelectedRecipe.TensileDistanceLimit, UpdateSourceTrigger=Explicit}" IsReadOnly="{Binding IsSelectedRecipeReadOnly}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" TextChanged="DecimalBox_TextChanged" LostFocus="DecimalBox_LostFocus" />
+                <TextBlock Grid.Row="4" Grid.Column="5" Text="mm" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="8,0,0,0" />
                 <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="6" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,4">
                   <TextBlock Text="默认配置 不允许修改及删除。" FontSize="14" Foreground="#0F5FA8" Margin="0,0,0,6" HorizontalAlignment="Center" TextAlignment="Center">
                     <TextBlock.Style>

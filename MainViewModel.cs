@@ -219,6 +219,7 @@ public sealed class MainViewModel : ObservableObject
                     DataAqc.plc.WriteFloat(Address("冲程压边力设定"), recipe.StrokeStampingForce);
                     DataAqc.plc.WriteFloat(Address("闭环压边力设定"), recipe.ClosedLoopStampingForce);
                     DataAqc.plc.WriteFloat(Address("速度设定"), recipe.Speed);
+                    DataAqc.plc.WriteFloat(Address("拉伸位移上限"), recipe.TensileDistanceLimit);
                     DataAqc.plc.WriteFloat(Address("停机比例设定"), recipe.ShutdownRatio);
                     DataAqc.plc.WriteUShort(Address("停机延时设定"), recipe.ShutdownDelay);
                     return VerifyRecipeWritten(recipe);
@@ -237,7 +238,7 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
     }
-    public bool AddRecipe(string name)
+    public bool AddRecipe(string name, RecipeModel? templateRecipe = null)
     {
         name = name.Trim();
         if (string.IsNullOrEmpty(name))
@@ -250,7 +251,8 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        var recipe = RecipeModel.CreateDefault(name);
+        var recipe = templateRecipe?.CloneForUser() ?? RecipeModel.CreateDefault(name);
+        recipe.RecipeName = name;
         recipe.IsBuiltInRecipe = false;
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
@@ -338,6 +340,13 @@ public sealed class MainViewModel : ObservableObject
         TrialSerialNumber = SNModel.GetSn();
     }
 
+    public void ResetTrialSerialNumber()
+    {
+        SNModel.ResetSN();
+        OnPropertyChanged(nameof(CurrentSn));
+        TrialSerialNumber = SNModel.GetSn();
+    }
+
     public static void StopConsumers()
     {
         DataAqc._cts.Cancel();
@@ -402,6 +411,7 @@ public sealed class MainViewModel : ObservableObject
         return NearlyEqual(DataAqc.plc.ReadFloat(Address("冲程压边力设定")), recipe.StrokeStampingForce, tolerance)
             && NearlyEqual(DataAqc.plc.ReadFloat(Address("闭环压边力设定")), recipe.ClosedLoopStampingForce, tolerance)
             && NearlyEqual(DataAqc.plc.ReadFloat(Address("速度设定")), recipe.Speed, tolerance)
+            && NearlyEqual(DataAqc.plc.ReadFloat(Address("拉伸位移上限")), recipe.TensileDistanceLimit, tolerance)
             && NearlyEqual(DataAqc.plc.ReadFloat(Address("停机比例设定")), recipe.ShutdownRatio, tolerance)
             && DataAqc.plc.ReadUShort(Address("停机延时设定")) == recipe.ShutdownDelay;
     }

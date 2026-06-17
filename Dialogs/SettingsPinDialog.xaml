@@ -3,9 +3,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:hc="https://handyorg.github.io/handycontrol"
              Width="420"
-             Background="White"
+             Background="{DynamicResource AppSurfaceBackgroundBrush}"
              FontFamily="Microsoft YaHei">
-    <Border Padding="24" Background="White" CornerRadius="4">
+    <Border Padding="24"
+            Background="{DynamicResource AppSurfaceBackgroundBrush}"
+            BorderBrush="{DynamicResource AppLayoutBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="4">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -25,7 +29,7 @@
                        Text="请输入管理员密码。"
                        FontSize="18"
                        FontWeight="Bold"
-                       Foreground="#263238"
+                       Foreground="{DynamicResource AppMetricNameForegroundBrush}"
                        HorizontalAlignment="Center"
                        Margin="0,0,0,12" />
 

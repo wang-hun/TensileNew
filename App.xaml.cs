@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,11 +15,18 @@ public partial class App : Application
 {
     static App()
     {
+        AddPdfiumNativeSearchPath();
         AppDomain.CurrentDomain.AssemblyResolve += ResolveAssemblyFromLib;
     }
 
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
+        if (NetworkAdapterProbeService.IsProbeWorker(e.Args))
+        {
+            Shutdown(NetworkAdapterProbeService.RunProbeWorker(e.Args));
+            return;
+        }
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         StartupWaitWindow? waitWindow = null;
 
@@ -29,11 +37,13 @@ public partial class App : Application
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
 
+            bool isFirstRun = !SNModel.HasSnFile();
             bool needsToGenerateCache = ManualDocumentService.NeedsToGenerateCache();
             waitWindow = new StartupWaitWindow(
                 needsToGenerateCache
                     ? "正在安装试验说明书，请稍后...."
                     : "正在加载安装试验说明书，请稍后....");
+            waitWindow.SetHintVisibility(isFirstRun);
             waitWindow.Show();
 
             ManualDocumentStartupResult manualStartupResult = await Task.Run(ManualDocumentService.PrepareManualCache);
@@ -80,6 +90,13 @@ public partial class App : Application
     {
         try
         {
+            bool hasSameSubnetAddress = await Task.Run(() =>
+                NetworkAdapterProbeService.HasSameSubnetWiredAddress(RAM.SettingModel.PLC_IP));
+            if (!hasSameSubnetAddress)
+            {
+                return false;
+            }
+
             Task<bool> connectTask = Task.Run(() => DataAqc.TryConnect());
             Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
@@ -107,5 +124,26 @@ public partial class App : Application
 
         string libPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lib", assemblyName + ".dll");
         return File.Exists(libPath) ? Assembly.LoadFrom(libPath) : null;
+    }
+
+    private static void AddPdfiumNativeSearchPath()
+    {
+        string x64Directory = Path.Combine(AppContext.BaseDirectory, "x64");
+        if (Directory.Exists(x64Directory))
+        {
+            NativeLibrary.SetDllImportResolver(
+                typeof(PdfiumViewer.PdfDocument).Assembly,
+                (libraryName, assembly, searchPath) =>
+                {
+                    if (!string.Equals(libraryName, "pdfium.dll", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(libraryName, "pdfium", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return IntPtr.Zero;
+                    }
+
+                    string pdfiumPath = Path.Combine(x64Directory, "pdfium.dll");
+                    return NativeLibrary.TryLoad(pdfiumPath, out IntPtr handle) ? handle : IntPtr.Zero;
+                });
+        }
     }
 }

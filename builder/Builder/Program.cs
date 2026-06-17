@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Xml.Linq;
 
 namespace Builder;
@@ -9,6 +7,7 @@ internal static class Program
 {
     private const string ManualsSourceDirectory = @"E:\ECS说明书";
     private const string ManualsOutputDirectoryName = "manuals";
+    private const string DefaultRuntimeIdentifier = "win-x64";
 
     private static int Main(string[] args)
     {
@@ -17,7 +16,7 @@ internal static class Program
             if (args.Length == 0)
             {
                 string defaultProjectPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "TensileNeW.csproj"));
-                string defaultConfiguration = GetConfigurationFromBaseDirectory();
+                string defaultConfiguration = "Release";
                 string defaultOutputRoot = Path.Combine(AppContext.BaseDirectory, "publish");
 
                 PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot);
@@ -44,21 +43,6 @@ internal static class Program
             Console.Error.WriteLine(ex);
             return 1;
         }
-    }
-
-    private static string GetConfigurationFromBaseDirectory()
-    {
-        DirectoryInfo? directory = Directory.GetParent(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (directory?.Parent is not null)
-        {
-            string name = directory.Parent.Name;
-            if (name.Equals("Debug", StringComparison.OrdinalIgnoreCase) || name.Equals("Release", StringComparison.OrdinalIgnoreCase))
-            {
-                return name;
-            }
-        }
-
-        return "Debug";
     }
 
     private static void PackageExternalProject(string projectPath, string configuration, string outputRoot)
@@ -96,14 +80,45 @@ internal static class Program
         Console.WriteLine($"Publishing {projectPath}");
         RunProcess(
             "dotnet",
-            $"publish --no-restore --nologo {Quote(projectPath)} -c {Quote(configuration)} -o {Quote(packageDirectory)}");
+            $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
+            "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
+            $"-p:DebugType=None -p:DebugSymbols=false -o {Quote(packageDirectory)}");
 
-        MoveDependencyDllsToLib(packageDirectory, assemblyName);
+        DeleteNonWindowsRuntimes(packageDirectory);
+        DeleteUnneededPublishArtifacts(packageDirectory);
+        EnsureSingleFileLayout(packageDirectory, assemblyName);
         CopyManualsDirectory(packageDirectory);
-        RewriteDepsJson(packageDirectory, assemblyName);
+        DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
+        EnsureStartupScriptExists(packageDirectory, assemblyName);
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
+    }
+
+    private static void EnsureSingleFileLayout(string packageDirectory, string assemblyName)
+    {
+        string exePath = Path.Combine(packageDirectory, assemblyName + ".exe");
+        if (!File.Exists(exePath))
+        {
+            throw new FileNotFoundException("Single-file publish did not produce the expected executable.", exePath);
+        }
+
+        // A correct single-file self-contained publish embeds the managed assemblies, the
+        // .NET runtime and native libraries into the EXE, so no loose *.dll must remain at the
+        // package root. If any survive, the publish silently fell back to a multi-file layout
+        // and the package is no longer the intended single-file green build.
+        List<string> strayDlls = Directory
+            .EnumerateFiles(packageDirectory, "*.dll", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrEmpty(name))
+            .Select(name => name!)
+            .ToList();
+
+        if (strayDlls.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Single-file publish left loose DLL(s) at the package root: " + string.Join(", ", strayDlls));
+        }
     }
 
     private static void CopyManualsDirectory(string packageDirectory)
@@ -165,6 +180,7 @@ internal static class Program
         }
 
         DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "lib"));
+        DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "Systemlib"));
         DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "runtimes"));
     }
 
@@ -217,76 +233,57 @@ internal static class Program
             : $"{projectMetadata.AssemblyName} {projectMetadata.InformationalVersion}";
     }
 
-    private static void MoveDependencyDllsToLib(string packageDirectory, string assemblyName)
+    private static void DeleteUnneededPublishArtifacts(string packageDirectory)
     {
-        string libDirectory = Path.Combine(packageDirectory, "lib");
-        Directory.CreateDirectory(libDirectory);
-
-        string mainDllName = assemblyName + ".dll";
-        foreach (string dllFile in Directory.EnumerateFiles(packageDirectory, "*.dll", SearchOption.TopDirectoryOnly))
+        foreach (string pattern in new[] { "*.pdb", "*.xml" })
         {
-            string fileName = Path.GetFileName(dllFile);
-            if (fileName.Equals(mainDllName, StringComparison.OrdinalIgnoreCase))
+            foreach (string file in Directory.EnumerateFiles(packageDirectory, pattern, SearchOption.TopDirectoryOnly))
+            {
+                File.Delete(file);
+            }
+        }
+
+        string createdumpPath = Path.Combine(packageDirectory, "createdump.exe");
+        if (File.Exists(createdumpPath))
+        {
+            File.Delete(createdumpPath);
+        }
+
+        foreach (string cultureDirectory in GetUnneededSatelliteResourceDirectories(packageDirectory))
+        {
+            DeleteDirectoryIfExists(cultureDirectory);
+        }
+    }
+
+    private static IEnumerable<string> GetUnneededSatelliteResourceDirectories(string packageDirectory)
+    {
+        HashSet<string> cultureNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "cs", "de", "es", "fr", "it", "ja", "ko", "pl", "pt-BR", "ru", "tr", "zh-Hans", "zh-Hant"
+        };
+
+        return Directory
+            .EnumerateDirectories(packageDirectory, "*", SearchOption.TopDirectoryOnly)
+            .Where(directory => cultureNames.Contains(Path.GetFileName(directory)));
+    }
+
+    private static void DeleteNonWindowsRuntimes(string packageDirectory)
+    {
+        string runtimesDirectory = Path.Combine(packageDirectory, "runtimes");
+        if (!Directory.Exists(runtimesDirectory))
+        {
+            return;
+        }
+
+        foreach (string runtimeDirectory in Directory.EnumerateDirectories(runtimesDirectory, "*", SearchOption.TopDirectoryOnly))
+        {
+            string runtimeName = Path.GetFileName(runtimeDirectory);
+            if (runtimeName.StartsWith("win", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            string targetFile = Path.Combine(libDirectory, fileName);
-            if (File.Exists(targetFile))
-            {
-                File.Delete(targetFile);
-            }
-
-            File.Move(dllFile, targetFile);
-        }
-    }
-
-    private static void RewriteDepsJson(string packageDirectory, string assemblyName)
-    {
-        string depsPath = Path.Combine(packageDirectory, assemblyName + ".deps.json");
-        if (!File.Exists(depsPath))
-        {
-            return;
-        }
-
-        JsonNode? root = JsonNode.Parse(File.ReadAllText(depsPath));
-        JsonObject? targets = root?["targets"] as JsonObject;
-        if (targets is null)
-        {
-            return;
-        }
-
-        string mainDllName = assemblyName + ".dll";
-        foreach (JsonObject target in targets.Select(item => item.Value).OfType<JsonObject>())
-        {
-            foreach (JsonObject library in target.Select(item => item.Value).OfType<JsonObject>())
-            {
-                if (library["runtime"] is JsonObject runtime)
-                {
-                    RewriteRuntimeEntries(runtime, mainDllName);
-                }
-            }
-        }
-
-        File.WriteAllText(
-            depsPath,
-            root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-    }
-
-    private static void RewriteRuntimeEntries(JsonObject runtime, string mainDllName)
-    {
-        List<KeyValuePair<string, JsonNode?>> entries = runtime.ToList();
-        runtime.Clear();
-
-        foreach ((string key, JsonNode? value) in entries)
-        {
-            string fileName = Path.GetFileName(key);
-            string targetKey = fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-                && !fileName.Equals(mainDllName, StringComparison.OrdinalIgnoreCase)
-                    ? "lib/" + fileName
-                    : key;
-
-            runtime[targetKey] = value;
+            DeleteDirectoryIfExists(runtimeDirectory);
         }
     }
 
@@ -313,6 +310,15 @@ exit /b %EXITCODE%
 """;
 
         File.WriteAllText(scriptPath, script);
+    }
+
+    private static void EnsureStartupScriptExists(string packageDirectory, string assemblyName)
+    {
+        string scriptPath = Path.Combine(packageDirectory, $"start-{assemblyName}.cmd");
+        if (!File.Exists(scriptPath))
+        {
+            throw new FileNotFoundException("Startup diagnostic script was not generated.", scriptPath);
+        }
     }
 
     private static void RunProcess(string fileName, string arguments)
