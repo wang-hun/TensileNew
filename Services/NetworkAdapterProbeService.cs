@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Security.Principal;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -22,24 +21,46 @@ public sealed class NetworkProbeResult
     public string? Message { get; set; }
 }
 
+public sealed class NetworkProbeCandidate
+{
+    public required string AdapterName { get; init; }
+    public string? AdapterDescription { get; init; }
+    public required string LocalIp { get; init; }
+}
+
 public static class NetworkAdapterProbeService
 {
     private const string ProbeArg = "--network-probe";
-    private const int ModbusTcpPort = 502;
+    private const string AddAddressCommand = "add-address";
+    private const string RemoveAddressCommand = "remove-address";
+    private static readonly TimeSpan AddressCommandTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan NetshCommandTimeout = TimeSpan.FromSeconds(5);
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     public static bool IsProbeWorker(string[] args) =>
-        args.Length >= 3 && string.Equals(args[0], ProbeArg, StringComparison.OrdinalIgnoreCase);
+        args.Length >= 5 && string.Equals(args[0], ProbeArg, StringComparison.OrdinalIgnoreCase);
 
     public static int RunProbeWorker(string[] args)
     {
         try
         {
-            string plcIp = args[1];
+            string command = args[1];
             string resultPath = args[2];
-            NetworkProbeResult result = Task.Run(() => ProbeAllWiredAdaptersAsync(plcIp)).GetAwaiter().GetResult();
-            Directory.CreateDirectory(Path.GetDirectoryName(resultPath)!);
-            File.WriteAllText(resultPath, JsonSerializer.Serialize(result));
+            string adapterName = args[3];
+            string localIp = args[4];
+
+            NetworkProbeResult result = command switch
+            {
+                AddAddressCommand => AddAddress(adapterName, localIp),
+                RemoveAddressCommand => RemoveAddress(adapterName, localIp),
+                _ => new NetworkProbeResult
+                {
+                    Success = false,
+                    Message = $"未知网络配置命令：{command}"
+                }
+            };
+
+            WriteProbeResult(resultPath, result);
             return result.Success ? 0 : 2;
         }
         catch (Exception ex)
@@ -52,18 +73,51 @@ public static class NetworkAdapterProbeService
     public static bool HasSameSubnetWiredAddress(string plcIp)
     {
         if (!IPAddress.TryParse(plcIp, out IPAddress? targetIp) ||
-            targetIp.AddressFamily != AddressFamily.InterNetwork)
+            targetIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
         {
             return false;
         }
 
         return EnumerateWiredAdapters()
             .SelectMany(adapter => adapter.GetIPProperties().UnicastAddresses)
-            .Where(address => address.Address.AddressFamily == AddressFamily.InterNetwork)
+            .Where(address => address.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
             .Any(address => IsInSameSubnet(address.Address, targetIp, address.PrefixLength));
     }
 
-    public static async Task<NetworkProbeResult> RunElevatedProbeAsync(string plcIp)
+    public static IReadOnlyList<NetworkProbeCandidate> BuildProbeCandidates(string plcIp)
+    {
+        if (!IPAddress.TryParse(plcIp, out IPAddress? targetIp) ||
+            targetIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return [];
+        }
+
+        List<NetworkProbeCandidate> candidates = [];
+        HashSet<IPAddress> existingAddresses = GetAllLocalIPv4Addresses();
+
+        foreach (NetworkInterface adapter in EnumerateWiredAdapters())
+        {
+            foreach (IPAddress localIp in BuildCandidateLocalIps(targetIp, existingAddresses))
+            {
+                candidates.Add(new NetworkProbeCandidate
+                {
+                    AdapterName = adapter.Name,
+                    AdapterDescription = adapter.Description,
+                    LocalIp = localIp.ToString()
+                });
+            }
+        }
+
+        return candidates;
+    }
+
+    public static Task<NetworkProbeResult> RunElevatedAddAddressAsync(NetworkProbeCandidate candidate) =>
+        RunElevatedAddressCommandAsync(AddAddressCommand, candidate);
+
+    public static Task<NetworkProbeResult> RunElevatedRemoveAddressAsync(NetworkProbeCandidate candidate) =>
+        RunElevatedAddressCommandAsync(RemoveAddressCommand, candidate);
+
+    private static async Task<NetworkProbeResult> RunElevatedAddressCommandAsync(string command, NetworkProbeCandidate candidate)
     {
         string? processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath) || !File.Exists(processPath))
@@ -71,23 +125,23 @@ public static class NetworkAdapterProbeService
             return new NetworkProbeResult
             {
                 Success = false,
-                Message = "无法找到当前程序路径，不能启动网络探测。"
+                Message = "无法找到当前程序路径，不能启动网络配置进程。"
             };
         }
 
         string resultPath = Path.Combine(Path.GetTempPath(), $"TensileNeW-NetworkProbe-{Guid.NewGuid():N}.json");
         try
         {
-            using Process process = StartElevatedProbeProcess(processPath, plcIp, resultPath);
+            using Process process = StartElevatedAddressProcess(processPath, command, resultPath, candidate);
             Task exitTask = process.WaitForExitAsync();
-            Task completedTask = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(45)));
+            Task completedTask = await Task.WhenAny(exitTask, Task.Delay(AddressCommandTimeout));
             if (completedTask != exitTask)
             {
                 TryKillProcess(process);
                 return new NetworkProbeResult
                 {
                     Success = false,
-                    Message = "网络探测超时，请检查设备线路后重试。"
+                    Message = "网络配置超时，请检查系统网络设置后重试。"
                 };
             }
 
@@ -96,7 +150,7 @@ public static class NetworkAdapterProbeService
                 return new NetworkProbeResult
                 {
                     Success = false,
-                    Message = "网络探测未返回结果。"
+                    Message = "网络配置未返回结果。"
                 };
             }
 
@@ -105,7 +159,7 @@ public static class NetworkAdapterProbeService
             return result ?? new NetworkProbeResult
             {
                 Success = false,
-                Message = "网络探测结果无效。"
+                Message = "网络配置结果无效。"
             };
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
@@ -118,7 +172,7 @@ public static class NetworkAdapterProbeService
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "启动网络探测失败。");
+            Logger.Error(ex, "启动网络配置失败。");
             return new NetworkProbeResult
             {
                 Success = false,
@@ -131,7 +185,11 @@ public static class NetworkAdapterProbeService
         }
     }
 
-    private static Process StartElevatedProbeProcess(string processPath, string plcIp, string resultPath)
+    private static Process StartElevatedAddressProcess(
+        string processPath,
+        string command,
+        string resultPath,
+        NetworkProbeCandidate candidate)
     {
         ProcessStartInfo startInfo = new()
         {
@@ -146,89 +204,46 @@ public static class NetworkAdapterProbeService
         }
 
         startInfo.ArgumentList.Add(ProbeArg);
-        startInfo.ArgumentList.Add(plcIp);
+        startInfo.ArgumentList.Add(command);
         startInfo.ArgumentList.Add(resultPath);
+        startInfo.ArgumentList.Add(candidate.AdapterName);
+        startInfo.ArgumentList.Add(candidate.LocalIp);
 
-        return Process.Start(startInfo) ?? throw new InvalidOperationException("无法启动网络探测进程。");
+        return Process.Start(startInfo) ?? throw new InvalidOperationException("无法启动网络配置进程。");
     }
 
-    private static async Task<NetworkProbeResult> ProbeAllWiredAdaptersAsync(string plcIp)
+    private static NetworkProbeResult AddAddress(string adapterName, string localIp)
     {
-        if (!IPAddress.TryParse(plcIp, out IPAddress? targetIp) ||
-            targetIp.AddressFamily != AddressFamily.InterNetwork)
-        {
-            return new NetworkProbeResult
-            {
-                Success = false,
-                Message = $"设备 IP 无效：{plcIp}"
-            };
-        }
-
-        List<NetworkInterface> adapters = EnumerateWiredAdapters().ToList();
-        if (adapters.Count == 0)
-        {
-            return new NetworkProbeResult
-            {
-                Success = false,
-                Message = "未发现已连接的有线网卡。"
-            };
-        }
-
-        HashSet<IPAddress> existingAddresses = GetAllLocalIPv4Addresses();
-        foreach (NetworkInterface adapter in adapters)
-        {
-            foreach (IPAddress localIp in BuildCandidateLocalIps(targetIp, existingAddresses))
-            {
-                bool added = false;
-                bool keepAddress = false;
-                try
-                {
-                    CommandResult addResult = RunNetsh("interface", "ipv4", "add", "address",
-                        $"name={adapter.Name}",
-                        $"address={localIp}",
-                        "mask=255.255.255.0");
-
-                    if (!addResult.Success)
-                    {
-                        Logger.Warn($"添加额外 IP 失败：{adapter.Name} {localIp} {addResult.Output}");
-                        continue;
-                    }
-
-                    added = true;
-                    existingAddresses.Add(localIp);
-                    await Task.Delay(700);
-
-                    if (await CanDetectDeviceAsync(localIp, targetIp))
-                    {
-                        keepAddress = true;
-                        return new NetworkProbeResult
-                        {
-                            Success = true,
-                            AdapterName = adapter.Name,
-                            AdapterDescription = adapter.Description,
-                            LocalIp = localIp.ToString(),
-                            Message = $"已在 {adapter.Name} 上找到设备。"
-                        };
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex, $"探测网卡失败：{adapter.Name}");
-                }
-                finally
-                {
-                    if (added && !keepAddress)
-                    {
-                        RemoveAddress(adapter.Name, localIp);
-                    }
-                }
-            }
-        }
+        CommandResult addResult = RunNetsh("interface", "ipv4", "add", "address",
+            $"name={adapterName}",
+            $"address={localIp}",
+            "mask=255.255.255.0");
 
         return new NetworkProbeResult
         {
-            Success = false,
-            Message = "所有有线网卡均未探测到设备。"
+            Success = addResult.Success,
+            AdapterName = adapterName,
+            LocalIp = localIp,
+            Message = addResult.Success
+                ? $"已在 {adapterName} 上添加 {localIp}。"
+                : $"添加额外 IP 失败：{addResult.Output}"
+        };
+    }
+
+    private static NetworkProbeResult RemoveAddress(string adapterName, string localIp)
+    {
+        CommandResult removeResult = RunNetsh("interface", "ipv4", "delete", "address",
+            $"name={adapterName}",
+            $"address={localIp}");
+
+        return new NetworkProbeResult
+        {
+            Success = removeResult.Success,
+            AdapterName = adapterName,
+            LocalIp = localIp,
+            Message = removeResult.Success
+                ? $"已从 {adapterName} 移除 {localIp}。"
+                : $"移除额外 IP 失败：{removeResult.Output}"
         };
     }
 
@@ -267,45 +282,6 @@ public static class NetworkAdapterProbeService
         }
     }
 
-    private static async Task<bool> CanDetectDeviceAsync(IPAddress localIp, IPAddress targetIp)
-    {
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            if (attempt > 0)
-            {
-                await Task.Delay(500);
-            }
-
-            if (await CanConnectFromLocalIpAsync(localIp, targetIp))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static async Task<bool> CanConnectFromLocalIpAsync(IPAddress localIp, IPAddress targetIp)
-    {
-        try
-        {
-            using TcpClient client = new(new IPEndPoint(localIp, 0));
-            Task connectTask = client.ConnectAsync(targetIp, ModbusTcpPort);
-            Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
-            if (completedTask != connectTask)
-            {
-                return false;
-            }
-
-            await connectTask;
-            return client.Connected;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private static bool IsInSameSubnet(IPAddress localIp, IPAddress targetIp, int prefixLength)
     {
         if (prefixLength is <= 0 or > 32)
@@ -332,21 +308,9 @@ public static class NetworkAdapterProbeService
     {
         return NetworkInterface.GetAllNetworkInterfaces()
             .SelectMany(adapter => adapter.GetIPProperties().UnicastAddresses)
-            .Where(address => address.Address.AddressFamily == AddressFamily.InterNetwork)
+            .Where(address => address.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
             .Select(address => address.Address)
             .ToHashSet();
-    }
-
-    private static void RemoveAddress(string adapterName, IPAddress localIp)
-    {
-        CommandResult removeResult = RunNetsh("interface", "ipv4", "delete", "address",
-            $"name={adapterName}",
-            $"address={localIp}");
-
-        if (!removeResult.Success)
-        {
-            Logger.Warn($"移除额外 IP 失败：{adapterName} {localIp} {removeResult.Output}");
-        }
     }
 
     private static CommandResult RunNetsh(params string[] arguments)
@@ -366,10 +330,16 @@ public static class NetworkAdapterProbeService
         }
 
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("无法启动 netsh。");
-        string output = process.StandardOutput.ReadToEnd();
-        string error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
+        Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+        Task<string> errorTask = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit((int)NetshCommandTimeout.TotalMilliseconds))
+        {
+            TryKillProcess(process);
+            return new CommandResult(false, "netsh 执行超时。");
+        }
 
+        string output = outputTask.GetAwaiter().GetResult();
+        string error = errorTask.GetAwaiter().GetResult();
         return new CommandResult(process.ExitCode == 0, string.Join(Environment.NewLine, output, error).Trim());
     }
 
@@ -386,17 +356,23 @@ public static class NetworkAdapterProbeService
         {
             if (args.Length >= 3)
             {
-                File.WriteAllText(args[2], JsonSerializer.Serialize(new NetworkProbeResult
+                WriteProbeResult(args[2], new NetworkProbeResult
                 {
                     Success = false,
                     Message = message
-                }));
+                });
             }
         }
         catch
         {
-            // The parent process will report that no probe result was returned.
+            // The parent process will report that no network configuration result was returned.
         }
+    }
+
+    private static void WriteProbeResult(string resultPath, NetworkProbeResult result)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(resultPath)!);
+        File.WriteAllText(resultPath, JsonSerializer.Serialize(result));
     }
 
     private static void TryKillProcess(Process process)

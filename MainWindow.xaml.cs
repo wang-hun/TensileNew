@@ -25,6 +25,10 @@ public partial class MainWindow : Window
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
     private const double HelpMaxZoom = 2.0;
+    private static readonly TimeSpan NetworkProbeUiTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan NetworkAddressApplyDelay = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan NetworkConnectRetryInterval = TimeSpan.FromSeconds(1);
+    private const int NetworkConnectRetryCount = 5;
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -519,7 +523,7 @@ public partial class MainWindow : Window
         try
         {
             waitWindow.Show();
-            var reconnectTask = TryReconnectWithTimeoutAsync();
+            var reconnectTask = TryReconnectAsync();
             await Task.WhenAll(reconnectTask, Task.Delay(TimeSpan.FromSeconds(2)));
             connected = await reconnectTask;
         }
@@ -544,25 +548,43 @@ public partial class MainWindow : Window
             : "正在连接 设备主机，请稍后...";
     }
 
-    private static async Task<bool> TryReconnectWithTimeoutAsync(bool forceReconnect = true)
+    private static async Task<bool> TryReconnectAsync(bool forceReconnect = true)
     {
         try
         {
-            var reconnectTask = Task.Run(() => DataAqc.TryReconnect(forceReconnect));
-            var completedTask = await Task.WhenAny(reconnectTask, Task.Delay(TimeSpan.FromSeconds(5)));
-
-            if (completedTask == reconnectTask)
-            {
-                return await reconnectTask;
-            }
-
-            _ = reconnectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            return false;
+            return await Task.Run(() => DataAqc.TryReconnect(forceReconnect));
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 探测期间在单个候选 IP 上做有限次重试，覆盖刚 add address 后 Windows
+    /// 路由表/源地址选择尚未就绪的窗口；超出整体探测超时立即放弃。
+    /// </summary>
+    private static async Task<bool> TryConnectWithRetriesAsync(Stopwatch probeStopwatch)
+    {
+        for (int attempt = 0; attempt < NetworkConnectRetryCount; attempt++)
+        {
+            if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+            {
+                return false;
+            }
+
+            if (await TryReconnectAsync())
+            {
+                return true;
+            }
+
+            if (attempt < NetworkConnectRetryCount - 1)
+            {
+                await Task.Delay(NetworkConnectRetryInterval);
+            }
+        }
+
+        return false;
     }
 
     private void ShowConnectionErrorDialog()
@@ -586,34 +608,66 @@ public partial class MainWindow : Window
         bool showFailureDialog = false;
 
         var waitWindow = new StartupWaitWindow("正在探测有线网络并尝试连接设备，请稍后...");
+        DataAqc.AutoReconnectSuspended = true;
         try
         {
             waitWindow.Show();
-            NetworkProbeResult probeResult = await NetworkAdapterProbeService.RunElevatedProbeAsync(RAM.SettingModel.PLC_IP);
-            if (!probeResult.Success)
+            IReadOnlyList<NetworkProbeCandidate> candidates = NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
+            if (candidates.Count == 0)
             {
-                warningMessage = probeResult.Message ?? "网络探测失败。";
+                warningMessage = "未发现可用于探测的有线网卡。";
             }
             else
             {
-                waitWindow.SetWaitText("已找到设备，正在重新连接...");
-                bool connected = await TryReconnectWithTimeoutAsync(forceReconnect: false);
-                if (connected)
+                Stopwatch probeStopwatch = Stopwatch.StartNew();
+                NetworkProbeResult? lastFailure = null;
+                foreach (NetworkProbeCandidate candidate in candidates)
                 {
-                    string adapterName = string.IsNullOrWhiteSpace(probeResult.AdapterName)
-                        ? "有线网卡"
-                        : probeResult.AdapterName;
-                    successMessage = $"网络检查成功，已通过 {adapterName} 连接设备。";
+                    if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        break;
+                    }
+
+                    waitWindow.SetWaitText($"正在配置 {candidate.AdapterName}，请稍后...");
+                    NetworkProbeResult addResult = await NetworkAdapterProbeService.RunElevatedAddAddressAsync(candidate);
+                    if (!addResult.Success)
+                    {
+                        lastFailure = addResult;
+                        continue;
+                    }
+
+                    await Task.Delay(NetworkAddressApplyDelay);
+                    waitWindow.SetWaitText($"正在通过 {candidate.AdapterName} 连接设备...");
+                    bool connected = await TryConnectWithRetriesAsync(probeStopwatch);
+                    if (connected)
+                    {
+                        successMessage = $"网络检查成功，已通过 {candidate.AdapterName} 连接设备。";
+                        break;
+                    }
+
+                    lastFailure = new NetworkProbeResult
+                    {
+                        Success = false,
+                        AdapterName = candidate.AdapterName,
+                        LocalIp = candidate.LocalIp,
+                        Message = $"已配置 {candidate.AdapterName}，但设备连接失败。"
+                    };
+
+                    waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                    await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
                 }
-                else
+
+                if (string.IsNullOrWhiteSpace(successMessage) && string.IsNullOrWhiteSpace(warningMessage))
                 {
-                    errorMessage = "网络检查成功，但重新连接设备失败。";
+                    errorMessage = lastFailure?.Message ?? "所有有线网卡均未连接到设备。";
                     showFailureDialog = true;
                 }
             }
         }
         finally
         {
+            DataAqc.AutoReconnectSuspended = false;
             if (waitWindow.IsVisible)
             {
                 waitWindow.Close();

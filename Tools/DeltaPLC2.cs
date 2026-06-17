@@ -60,6 +60,7 @@ namespace TensileNeW.Tools
     }
     public class DeltaPLC2:ObservableObject
     {
+        private const int ConnectTimeoutMilliseconds = 5000;
         private IModbusMaster _master; 
         private TcpClient _client; 
         private readonly string _ipAddress;
@@ -92,13 +93,34 @@ namespace TensileNeW.Tools
         public void Connect(int port = 502)
         {
             ConnectState="false";
-            Client = new TcpClient(_ipAddress, port);
-            Client.SendTimeout =5000;
-            Client.ReceiveTimeout = 500; 
-            _master = new ModbusFactory().CreateMaster(Client);
-            _master.Transport.ReadTimeout = 100;
-            _master.Transport.WriteTimeout = 1000;
-            ConnectState = "true";
+            TcpClient client = new();
+
+            try
+            {
+                Task connectTask = client.ConnectAsync(_ipAddress, port);
+                if (!connectTask.Wait(ConnectTimeoutMilliseconds))
+                {
+                    _ = connectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                    throw new TimeoutException($"连接 PLC 超时：{_ipAddress}:{port}");
+                }
+
+                connectTask.GetAwaiter().GetResult();
+                client.SendTimeout =5000;
+                client.ReceiveTimeout = 500; 
+                IModbusMaster master = new ModbusFactory().CreateMaster(client);
+                master.Transport.ReadTimeout = 100;
+                master.Transport.WriteTimeout = 1000;
+
+                Client = client;
+                _master = master;
+                ConnectState = "true";
+            }
+            catch
+            {
+                client.Close();
+                ConnectState = "false";
+                throw;
+            }
         }
 
         /// <summary>

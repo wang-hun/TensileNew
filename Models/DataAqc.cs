@@ -34,6 +34,12 @@ namespace TensileNeW.Models
         public static bool _simlatueRunFlag = false;
 
         /// <summary>
+        /// 网络探测期间置 true，<see cref="Refresh"/> 循环里的自动重连会跳过本轮调用，
+        /// 避免与主窗口探测流程同时争用 PLC 连接锁或旧 socket 状态。探测结束后必须恢复为 false。
+        /// </summary>
+        public static volatile bool AutoReconnectSuspended = false;
+
+        /// <summary>
         /// 初始化本地状态（PLC 变量表和 plc 客户端对象），不发起网络连接。
         /// 连接请在后台线程通过 <see cref="TryConnect"/> 调用。
         /// </summary>
@@ -125,7 +131,7 @@ namespace TensileNeW.Models
 
         /// <summary>
         /// 尝试与 PLC 建立 TCP 连接。返回 true 表示成功，false 表示失败（异常会被捕获）。
-        /// PLC 不在线时本方法会阻塞到 TCP 系统超时（约 21 秒），调用方应放到后台线程。
+        /// PLC 不在线时本方法会在 TCP 建连超时后返回失败，调用方应放到后台线程。
         /// </summary>
         public static bool TryConnect()
         {
@@ -200,6 +206,12 @@ namespace TensileNeW.Models
                 {
                     try
                     {
+                        if (AutoReconnectSuspended)
+                        {
+                            Thread.Sleep(200);
+                            continue;
+                        }
+
                         if (null == plc.Client || plc.Client.Connected == false)
                         {
 
@@ -324,6 +336,10 @@ namespace TensileNeW.Models
                     catch (Exception ex)
                     {
                         Thread.Sleep(500);
+                        if (AutoReconnectSuspended)
+                        {
+                            continue;
+                        }
                         //上次成功时间 过了5秒了
                         if ((DateTime.Now - exceptionTime).TotalSeconds > 5)
                         {
