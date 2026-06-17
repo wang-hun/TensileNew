@@ -11,7 +11,7 @@ namespace TensileNeW;
 
 public static class ThemeManager
 {
-    public const string DefaultSchemeName = "黑金";
+    public const string DefaultSchemeName = "警戒";
     private const int BlackGoldBaseRgb = 0xB23526;
 
     public static Color BlackGoldBaseColor { get; } = ColorFromRgb(BlackGoldBaseRgb);
@@ -20,7 +20,7 @@ public static class ThemeManager
     [
         new()
         {
-            Name = "黑金",
+            Name = "警戒",
             CaptionColor = BlackGoldBaseColor,
             CaptionTextColor = ColorFromRgb(0xD4D5CF),
             StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
