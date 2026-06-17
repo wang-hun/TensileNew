@@ -1,6 +1,7 @@
 <UserControl x:Class="TensileNeW.Controls.ManualDocumentViewer"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration">
     <UserControl.Resources>
         <Style x:Key="EmbeddedDocumentViewerStyle" TargetType="DocumentViewer">
             <Setter Property="Template">
@@ -19,9 +20,10 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <Grid>
+    <Grid Background="{DynamicResource AppSurfaceBackgroundBrush}">
         <DocumentViewer x:Name="InnerDocumentViewer"
                         Style="{StaticResource EmbeddedDocumentViewerStyle}"
                         Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+        <wfi:WindowsFormsHost x:Name="PdfHost" Visibility="Collapsed" />
     </Grid>
 </UserControl>

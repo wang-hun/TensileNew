@@ -1,12 +1,11 @@
 ﻿using HandyControl.Data;
-using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -22,7 +21,6 @@ namespace TensileNeW;
 public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
-    private const string PackagedWebView2DirectoryName = "ECS.exe.WebView2";
     private const int SettingsUnlockClickCount = 6;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
@@ -53,14 +51,6 @@ public partial class MainWindow : Window
             : $"{assemblyName} {version}";
     }
 
-    private static string? GetPackagedWebView2RuntimeDirectory()
-    {
-        string runtimeDirectory = Path.Combine(AppContext.BaseDirectory, PackagedWebView2DirectoryName);
-        return File.Exists(Path.Combine(runtimeDirectory, "msedgewebview2.exe"))
-            ? runtimeDirectory
-            : null;
-    }
-
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
     private readonly MainViewModel _viewModel;
@@ -72,8 +62,7 @@ public partial class MainWindow : Window
     private bool _networkProbeRunning;
     private bool _autoTrackLatestPoint = true;
     private double _helpZoomFactor = 1.0;
-    private string _lastHelpWebSearchKeyword = string.Empty;
-    private Uri? _helpDocumentUri;
+    private HelpNavigationItem? _currentHelpItem;
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
@@ -182,23 +171,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void LoadHelpDocument()
+    private void LoadHelpDocument()
     {
         try
         {
-            _helpDocumentUri = HelpDocumentLoader.TryGetDefaultDocumentUri();
-            if (_helpDocumentUri is not null)
-            {
-                await EnsureHelpWebView2Async();
-                HelpWebView.Source = _helpDocumentUri;
-            }
-
-            HelpNavigationTree.ItemsSource = HelpDocumentLoader.LoadNavigation();
+            HelpNavigationTree.ItemsSource = ManualDocumentService.LoadManualNavigation();
         }
         catch
         {
-            _helpDocumentUri = null;
-            HelpWebView.Source = null;
             HelpNavigationTree.ItemsSource = null;
         }
     }
@@ -226,65 +206,11 @@ public partial class MainWindow : Window
             if (item?.IsManualFile == true)
             {
                 await OpenManualDocumentAsync(item);
-                return;
             }
-
-            ShowHelpWebView();
-            Uri? targetUri = HelpDocumentLoader.TryBuildNavigationUri(item);
-            if (targetUri is null)
-            {
-                return;
-            }
-
-            HelpSearchTextBox.Clear();
-
-            UriBuilder documentBuilder = new(targetUri)
-            {
-                Fragment = string.Empty
-            };
-            Uri documentUri = documentBuilder.Uri;
-            bool shouldLoadDocument = HelpWebView.Source is null ||
-                !string.Equals(HelpWebView.Source.LocalPath, documentUri.LocalPath, StringComparison.OrdinalIgnoreCase);
-
-            if (shouldLoadDocument)
-            {
-                TaskCompletionSource navigationCompleted = new();
-
-                void Handler(object? _, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs __)
-                {
-                    HelpWebView.NavigationCompleted -= Handler;
-                    navigationCompleted.TrySetResult();
-                }
-
-                HelpWebView.NavigationCompleted += Handler;
-                HelpWebView.Source = documentUri;
-                await navigationCompleted.Task;
-            }
-
-            await EnsureHelpWebView2Async();
-            if (string.IsNullOrWhiteSpace(item?.Anchor))
-            {
-                await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
-                return;
-            }
-
-            string anchor = JsonSerializer.Serialize(item.Anchor);
-            await HelpWebView.ExecuteScriptAsync($$"""
-                (() => {
-                    const anchor = {{anchor}};
-                    const target = document.getElementById(anchor) || document.getElementsByName(anchor)[0];
-                    if (!target) {
-                        return false;
-                    }
-
-                    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                    return true;
-                })();
-                """);
         }
         catch
         {
-            // Keep the help page unchanged if navigation fails.
+            // Keep the current document unchanged if navigation fails.
         }
     }
 
@@ -302,30 +228,41 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (ManualDocumentService.CanOpenInWebView(item.FilePath))
-        {
-            CloseManualXpsDocument();
-            ShowHelpWebView();
-            HelpWebView.Source = new Uri(item.FilePath);
-            HelpSearchTextBox.Clear();
-            return;
-        }
-
-        if (!ManualDocumentService.CanConvertToXps(item.FilePath))
+        bool isPdf = ManualDocumentService.IsPdfManual(item.FilePath);
+        if (!isPdf && !ManualDocumentService.CanConvertToXps(item.FilePath))
         {
             ShowWarning("当前说明书格式不支持预览。");
             return;
         }
 
-        HelpWebView.Visibility = Visibility.Collapsed;
-            HelpDocumentViewer.Visibility = Visibility.Visible;
+        HelpDocumentViewer.Visibility = Visibility.Visible;
+        if (isPdf)
+        {
+            try
+            {
+                CloseManualXpsDocument();
+                _currentHelpItem = item;
+                HelpDocumentViewer.Visibility = Visibility.Visible;
+                OpenHelpSourceButton.Visibility = Visibility.Visible;
+                HelpDocumentViewer.SetPdfDocument(item.FilePath);
+                HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
+                HelpSearchTextBox.Clear();
+            }
+            catch (Exception ex)
+            {
+                HideHelpDocumentViewer();
+                ShowWarning($"说明书预览失败：{ex.Message}");
+            }
+
+            return;
+        }
 
         ManualDocumentConvertResult result = !string.IsNullOrWhiteSpace(item.CachedPath) && File.Exists(item.CachedPath)
             ? ManualDocumentConvertResult.Ok(item.CachedPath)
             : await Task.Run(() => ManualDocumentService.ConvertToXpsFile(item.FilePath));
         if (!result.Success || string.IsNullOrWhiteSpace(result.XpsPath))
         {
-            ShowHelpWebView();
+            HideHelpDocumentViewer();
             ShowWarning(result.Message ?? "说明书打开失败。");
             return;
         }
@@ -334,23 +271,27 @@ public partial class MainWindow : Window
         {
             item.CachedPath = result.XpsPath;
             CloseManualXpsDocument();
+            _currentHelpItem = item;
             _manualXpsDocument = new XpsDocument(result.XpsPath, FileAccess.Read);
             HelpDocumentViewer.Visibility = Visibility.Visible;
+            OpenHelpSourceButton.Visibility = Visibility.Visible;
             HelpDocumentViewer.SetDocument(_manualXpsDocument);
             HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
+            HelpSearchTextBox.Clear();
         }
         catch (Exception ex)
         {
-            ShowHelpWebView();
+            HideHelpDocumentViewer();
             ShowWarning($"说明书预览失败：{ex.Message}");
         }
     }
 
-    private void ShowHelpWebView()
+    private void HideHelpDocumentViewer()
     {
         CloseManualXpsDocument();
         HelpDocumentViewer.Visibility = Visibility.Collapsed;
-        HelpWebView.Visibility = Visibility.Visible;
+        OpenHelpSourceButton.Visibility = Visibility.Collapsed;
+        _currentHelpItem = null;
     }
 
     private void CloseManualXpsDocument()
@@ -358,6 +299,58 @@ public partial class MainWindow : Window
         HelpDocumentViewer.ClearDocument();
         _manualXpsDocument?.Close();
         _manualXpsDocument = null;
+    }
+
+    private void OpenCurrentManualFile_Click(object sender, RoutedEventArgs e)
+    {
+        string? filePath = _currentHelpItem?.FilePath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            ShowWarning("说明书文件不存在。");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            if (OpenContainingFolder(filePath))
+            {
+                ShowWarning("打开原文件失败，已打开所在文件夹。");
+                return;
+            }
+
+            ShowWarning($"打开原文件失败：{ex.Message}");
+        }
+    }
+
+    private static bool OpenContainingFolder(string filePath)
+    {
+        string? directory = Path.GetDirectoryName(filePath);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directory,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async void HelpSearchTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -386,12 +379,12 @@ public partial class MainWindow : Window
         await ExecuteHelpSearchAsync(true, true);
     }
 
-    private async Task ExecuteHelpSearchAsync(bool forward, bool repeatLastSearch)
+    private Task ExecuteHelpSearchAsync(bool forward, bool repeatLastSearch)
     {
-        string keyword = repeatLastSearch ? _lastHelpWebSearchKeyword : HelpSearchTextBox.Text.Trim();
+        string keyword = HelpSearchTextBox.Text.Trim();
         if (!repeatLastSearch && string.IsNullOrWhiteSpace(keyword))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         bool searchWholeDocument = (HelpSearchModeComboBox.SelectedItem as HelpSearchModeOption)?.SearchWholeDocument == true;
@@ -404,73 +397,9 @@ public partial class MainWindow : Window
             {
                 ShowInfo(message);
             }
-
-            return;
         }
 
-        if (HelpWebView.Visibility != Visibility.Visible)
-        {
-            return;
-        }
-
-        try
-        {
-            await EnsureHelpWebView2Async();
-            string effectiveKeyword = keyword;
-            if (string.IsNullOrWhiteSpace(effectiveKeyword))
-            {
-                return;
-            }
-
-            _lastHelpWebSearchKeyword = effectiveKeyword;
-
-            string serializedKeyword = JsonSerializer.Serialize(effectiveKeyword);
-            string serializedForward = forward ? "true" : "false";
-            string script = $$"""
-                (() => {
-                    const keyword = {{serializedKeyword}};
-                    if (!window.find) {
-                        return "unsupported";
-                    }
-
-                    const forward = {{serializedForward}};
-                    const found = window.find(keyword, false, false, true, false, !forward, false);
-                    return found ? "found" : "not-found";
-                })();
-                """;
-            string result = await HelpWebView.ExecuteScriptAsync(script);
-            if (string.Equals(result, "\"not-found\"", StringComparison.OrdinalIgnoreCase))
-            {
-                ShowInfo("未找到对应内容。");
-            }
-        }
-        catch
-        {
-            ShowWarning("网页内容查找失败。");
-        }
-    }
-
-    private async Task ScrollHelpDocumentToTopAsync()
-    {
-        try
-        {
-            if (_helpDocumentUri is null)
-            {
-                return;
-            }
-
-            if (HelpWebView.Source is null || HelpWebView.Source.LocalPath != _helpDocumentUri.LocalPath)
-            {
-                HelpWebView.Source = _helpDocumentUri;
-            }
-
-            await EnsureHelpWebView2Async();
-            await HelpWebView.ExecuteScriptAsync("window.scrollTo({ top: 0, behavior: 'smooth' });");
-        }
-        catch
-        {
-            // Keep the help page unchanged if WebView2 is not available.
-        }
+        return Task.CompletedTask;
     }
 
     private void HelpZoomOut_Click(object sender, RoutedEventArgs e)
@@ -523,47 +452,12 @@ public partial class MainWindow : Window
         if (HelpDocumentViewer.Visibility == Visibility.Visible)
         {
             HelpDocumentViewer.SetZoomFactor(_helpZoomFactor);
-            return;
-        }
-
-        try
-        {
-            HelpWebView.ZoomFactor = _helpZoomFactor;
-        }
-        catch
-        {
         }
     }
 
     private void UpdateHelpZoomText()
     {
         HelpZoomBox.Text = $"{_helpZoomFactor:P0}";
-    }
-
-    private async Task EnsureHelpWebView2Async()
-    {
-        if (HelpWebView.CoreWebView2 is not null)
-        {
-            return;
-        }
-
-        string? runtimeDirectory = GetPackagedWebView2RuntimeDirectory();
-        if (string.IsNullOrWhiteSpace(runtimeDirectory))
-        {
-            await HelpWebView.EnsureCoreWebView2Async();
-            return;
-        }
-
-        string userDataDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ECS",
-            "WebView2UserData");
-        Directory.CreateDirectory(userDataDirectory);
-
-        CoreWebView2Environment environment = await CoreWebView2Environment.CreateAsync(
-            browserExecutableFolder: runtimeDirectory,
-            userDataFolder: userDataDirectory);
-        await HelpWebView.EnsureCoreWebView2Async(environment);
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)

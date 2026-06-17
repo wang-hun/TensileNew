@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <Version>1.1.0.2606</Version>
     <AssemblyVersion>1.1.0.2606</AssemblyVersion>
@@ -16,21 +17,30 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="builder\**" />
     <Compile Remove="bin\**" />
     <Compile Remove="codex_obj\**" />
+    <Compile Remove="helper\**" />
     <Compile Remove="obj\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
     <EmbeddedResource Remove="codex_obj\**" />
+    <EmbeddedResource Remove="helper\**" />
     <EmbeddedResource Remove="obj\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
     <None Remove="codex_obj\**" />
+    <None Remove="helper\**" />
     <None Remove="obj\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
     <Page Remove="codex_obj\**" />
+    <Page Remove="helper\**" />
     <Page Remove="obj\**" />
   </ItemGroup>
 
@@ -50,11 +60,12 @@
     <PackageReference Include="Haukcode.HighResolutionTimer" Version="1.2.0" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.2.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NLog" Version="4.7.15" />
     <PackageReference Include="NModbus" Version="3.0.81" />
     <PackageReference Include="NPOI" Version="2.7.3" />
+    <PackageReference Include="PdfiumViewer" Version="2.13.0" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" GeneratePathProperty="true" />
     <PackageReference Include="ScottPlot.WPF" Version="5.1.58" />
   </ItemGroup>
 
@@ -67,12 +78,14 @@
     <Content Include="Assets\DefaultRecipe.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="helper\**\*">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Assets\Seven Segment.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="CopyPdfiumNativeToPublishDirectory" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <MakeDir Directories="$(PublishDir)x64" />
+    <Copy SourceFiles="$(NuGetPackageRoot)pdfiumviewer.native.x86_64.v8-xfa\2018.4.8.256\Build\x64\pdfium.dll" DestinationFiles="$(PublishDir)x64\pdfium.dll" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

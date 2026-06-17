@@ -8,7 +8,6 @@ internal static class Program
     private const string ManualsSourceDirectory = @"E:\ECS说明书";
     private const string ManualsOutputDirectoryName = "manuals";
     private const string DefaultRuntimeIdentifier = "win-x64";
-    private const string WebView2RuntimeEnvironmentVariable = "ECS_WEBVIEW2_FIXED_RUNTIME";
 
     private static int Main(string[] args)
     {
@@ -89,7 +88,6 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         EnsureSingleFileLayout(packageDirectory, assemblyName);
         CopyManualsDirectory(packageDirectory);
-        CopyWebView2FixedRuntime(packageDirectory, assemblyName);
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
@@ -184,53 +182,6 @@ internal static class Program
         DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "lib"));
         DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "Systemlib"));
         DeleteDirectoryIfExists(Path.Combine(builderOutputDirectory, "runtimes"));
-    }
-
-    private static void CopyWebView2FixedRuntime(string packageDirectory, string assemblyName)
-    {
-        string sourceDirectory = ResolveWebView2FixedRuntimeDirectory();
-        string targetDirectory = Path.Combine(packageDirectory, $"{assemblyName}.exe.WebView2");
-        EnsureTargetIsNotSource(sourceDirectory, targetDirectory);
-        DeleteDirectoryIfExists(targetDirectory);
-        CopyDirectory(sourceDirectory, targetDirectory);
-    }
-
-    private static string ResolveWebView2FixedRuntimeDirectory()
-    {
-        string? configuredDirectory = Environment.GetEnvironmentVariable(WebView2RuntimeEnvironmentVariable);
-        if (IsWebView2FixedRuntimeDirectory(configuredDirectory))
-        {
-            return Path.GetFullPath(configuredDirectory!);
-        }
-
-        string[] roots =
-        [
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "EdgeWebView", "Application"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "EdgeWebView", "Application")
-        ];
-
-        foreach (string root in roots.Where(Directory.Exists))
-        {
-            string? runtimeDirectory = Directory
-                .EnumerateDirectories(root, "*", SearchOption.TopDirectoryOnly)
-                .Where(IsWebView2FixedRuntimeDirectory)
-                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(runtimeDirectory))
-            {
-                return Path.GetFullPath(runtimeDirectory);
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"WebView2 fixed runtime was not found. Set {WebView2RuntimeEnvironmentVariable} to a directory containing msedgewebview2.exe.");
-    }
-
-    private static bool IsWebView2FixedRuntimeDirectory(string? path)
-    {
-        return !string.IsNullOrWhiteSpace(path) &&
-            Directory.Exists(path) &&
-            File.Exists(Path.Combine(path, "msedgewebview2.exe"));
     }
 
     private static void DeleteDirectoryIfExists(string path)

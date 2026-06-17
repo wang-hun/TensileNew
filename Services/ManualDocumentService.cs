@@ -23,15 +23,11 @@ public static class ManualDocumentService
     private const string CacheDirectoryName = "manual-cache";
     private const string CacheManifestName = "manual-cache.json";
 
-    private static readonly string[] WebExtensions = [".htm", ".html", ".pdf", ".txt"];
     private static readonly string[] WordExtensions = [".doc", ".docx"];
     private static readonly string[] PowerPointExtensions = [".ppt", ".pptx"];
     private static readonly string[] SupportedManualExtensions =
     [
-        ".htm",
-        ".html",
         ".pdf",
-        ".txt",
         ".doc",
         ".docx",
         ".ppt",
@@ -55,17 +51,16 @@ public static class ManualDocumentService
     public static bool HasAnyOfficeProvider =>
         WordProviders.Concat(PowerPointProviders).Any(provider => Type.GetTypeFromProgID(provider.ProgId) is not null);
 
-    public static bool CanOpenInWebView(string path)
-    {
-        string extension = Path.GetExtension(path);
-        return WebExtensions.Any(x => string.Equals(x, extension, StringComparison.OrdinalIgnoreCase));
-    }
-
     public static bool CanConvertToXps(string path)
     {
         string extension = Path.GetExtension(path);
         return WordExtensions.Concat(PowerPointExtensions)
             .Any(x => string.Equals(x, extension, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsPdfManual(string path)
+    {
+        return string.Equals(Path.GetExtension(path), ".pdf", StringComparison.OrdinalIgnoreCase);
     }
 
     public static IReadOnlyList<HelpNavigationItem> LoadManualNavigation()
@@ -78,14 +73,14 @@ public static class ManualDocumentService
     public static ManualDocumentStartupResult PrepareManualCache()
     {
         IReadOnlyList<string> manualFiles = EnumerateManualFiles();
-        bool hasOfficeDocuments = manualFiles.Any(CanConvertToXps);
+        bool hasOfficeDocuments = manualFiles.Any(ShouldPrecacheXps);
         if (hasOfficeDocuments && !HasAnyOfficeProvider)
         {
             return new ManualDocumentStartupResult(true, MissingOfficeMessage, false);
         }
 
         bool generatedCache = false;
-        foreach (string manualFile in manualFiles.Where(CanConvertToXps))
+        foreach (string manualFile in manualFiles.Where(ShouldPrecacheXps))
         {
             ManualDocumentConvertResult result = ConvertToXpsFile(manualFile);
             if (result.Success)
@@ -99,7 +94,12 @@ public static class ManualDocumentService
 
     public static bool NeedsToGenerateCache()
     {
-        foreach (string manualFile in EnumerateManualFiles().Where(CanConvertToXps))
+        if (!HasAnyOfficeProvider)
+        {
+            return false;
+        }
+
+        foreach (string manualFile in EnumerateManualFiles().Where(ShouldPrecacheXps))
         {
             if (!TryGetCachedXps(manualFile).Success)
             {
@@ -108,6 +108,13 @@ public static class ManualDocumentService
         }
 
         return false;
+    }
+
+    private static bool ShouldPrecacheXps(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return WordExtensions.Concat(PowerPointExtensions)
+            .Any(x => string.Equals(x, extension, StringComparison.OrdinalIgnoreCase));
     }
 
     [ThreadStatic]

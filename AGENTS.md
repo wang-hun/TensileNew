@@ -22,7 +22,7 @@
 - `Controls/`：复用控件，例如说明文档查看器。
 - `Themes/`：颜色方案和主题资源。
 - `Assets/`：图标、Logo、默认配方和字体资源。
-- `helper/`：随程序分发的本地帮助文档和图片资源。
+- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
 
 ## 启动流程
@@ -32,7 +32,7 @@
 1. 调用 `RAM.Init()` 读取或创建配置。
 2. 应用主题和七段数码字体资源。
 3. 调用 `DataAqc.InitVariables()` 初始化 PLC 变量和 `DeltaPLC2` 客户端对象。
-4. 显示 `StartupWaitWindow`，准备帮助文档缓存。
+4. 显示 `StartupWaitWindow`，准备试验指导文档缓存。
 5. 调用 `TryConnectWithTimeoutAsync()`，后台执行 `DataAqc.TryConnect()` 连接 PLC。
 6. 创建并显示 `MainWindow`，将启动连接结果传入窗口。
 
@@ -54,7 +54,7 @@
 
 ## 启动网络检查和探测
 
-程序启动加载动画窗口 `StartupWaitWindow` 期间会异步执行多项启动逻辑，包括帮助文档缓存、字体准备和连接设备。连接设备前会先检查已连接的有线网卡是否存在与 `RAM.SettingModel.PLC_IP` 同网段的 IPv4 地址；如果没有同网段地址，启动阶段不申请管理员权限、不修改网络，直接跳过连接并进入主窗口失败状态。
+程序启动加载动画窗口 `StartupWaitWindow` 期间会异步执行多项启动逻辑，包括试验指导文档缓存、字体准备和连接设备。连接设备前会先检查已连接的有线网卡是否存在与 `RAM.SettingModel.PLC_IP` 同网段的 IPv4 地址；如果没有同网段地址，启动阶段不申请管理员权限、不修改网络，直接跳过连接并进入主窗口失败状态。
 
 主窗口显示连接失败弹窗 `ConnectionErrorDialog` 时提供“网络探测”入口。用户点击后，程序通过 UAC 启动同一 EXE 的提权探测进程，由 `Services/NetworkAdapterProbeService.cs` 依次处理所有已连接的有线网卡并跳过 Wi-Fi：
 
@@ -85,23 +85,21 @@
 
 ## 绿色版打包
 
-发布包必须是严格绿色版：拷贝到一台没有 .NET、WebView2 或其他额外运行时环境的 Windows 电脑后，解压即可运行，不允许弹出安装 .NET 8、WebView2 Runtime 或其他运行时的系统提示。
+发布包必须是严格绿色版：拷贝到一台没有 .NET 或其他额外运行时环境的 Windows 电脑后，解压即可运行，不允许弹出安装 .NET 8 或其他运行时的系统提示。
 
 `builder/` 打包主项目时必须使用 `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` 生成单文件自包含包，不能退回框架依赖发布，也不能改回多文件 `lib/` 收纳布局。即使 `Builder.exe` 自身用 Debug 运行，生成的目标程序也必须是 Release。
 
-单文件发布会把全部托管程序集、.NET 运行时和原生库（SkiaSharp、e_sqlite3、glfw3、WebView2Loader 等）打进唯一的 `{AssemblyName}.exe`，因此发布目录根部不再有散落的业务或第三方 DLL，也不再有 `lib/`、`runtimes/`、`ECS.dll`、`ECS.deps.json`、`ECS.runtimeconfig.json`。builder 必须断言根部 `*.dll` 数量为 0，否则视为单文件发布回退失败并报错，不能输出残留多文件包。
+单文件发布会把全部托管程序集、.NET 运行时和原生库（SkiaSharp、e_sqlite3、glfw3 等）打进唯一的 `{AssemblyName}.exe`，因此发布目录根部不再有散落的业务或第三方 DLL，也不再有 `lib/`、`runtimes/`、`ECS.dll`、`ECS.deps.json`、`ECS.runtimeconfig.json`。builder 必须断言根部 `*.dll` 数量为 0，否则视为单文件发布回退失败并报错，不能输出残留多文件包。
 
-发布目录根部允许且应当保留的项：`{AssemblyName}.exe`（单文件主程序）、`NLog.config`、启动诊断脚本 `start-{AssemblyName}.cmd`、`Assets/`、`helper/`、`manuals/`、`{AssemblyName}.exe.WebView2/`。运行 EXE 后系统会在临时目录解包原生库，这是单文件机制的正常行为，不要尝试改成自定义解包目录。
+发布目录根部允许且应当保留的项：`{AssemblyName}.exe`（单文件主程序）、`NLog.config`、启动诊断脚本 `start-{AssemblyName}.cmd`、`Assets/`、`manuals/`。运行 EXE 后系统会在临时目录解包原生库，这是单文件机制的正常行为，不要尝试改成自定义解包目录。
 
 由于单文件已内嵌运行时，不再需要把依赖 DLL 移动到 `lib/`，也不再需要改写 `.deps.json` 的运行时路径；相关收纳和改写逻辑已从 builder 删除，不要重新引入。`hostfxr.dll`、`hostpolicy.dll`、`coreclr.dll`、`clrjit.dll`、`System.Private.CoreLib.dll` 等启动核心文件同样被打进单文件，不会出现在根部。
 
-WebView2 不能依赖目标机已安装环境。发布目录必须包含 `{AssemblyName}.exe.WebView2/` 固定版本运行时目录，且其中必须有 `msedgewebview2.exe`。主程序初始化 WebView2 时应优先使用随包固定运行时；builder 找不到固定运行时源时必须失败，而不是生成不完整发布包。构建机可通过 `ECS_WEBVIEW2_FIXED_RUNTIME` 环境变量指定固定运行时源目录。
-
 启动诊断脚本是绿色版的一部分，不能删。`builder/` 必须生成并保留 `start-{AssemblyName}.cmd`，脚本负责切到程序目录、运行 EXE、写入 `{AssemblyName}-startup.log`，并在非零退出码时显示日志和暂停，便于在无环境机器上排查启动失败。清理发布产物时可以删除 `.pdb`、`.xml`、`createdump.exe` 和无用语言资源目录，但不能删除 `.cmd`、启动日志或其他用于排查运行失败的工具。
 
-验证绿色版时，除构建成功外，还要检查发布目录根部 `*.dll` 数量为 0、`{AssemblyName}.exe` 存在、`NLog.config` 存在、`{AssemblyName}.exe.WebView2/msedgewebview2.exe` 存在、`start-{AssemblyName}.cmd` 存在；必要时在无 .NET / 无 WebView2 的干净 Windows 环境实机验证单文件 EXE 能直接启动。
+验证绿色版时，除构建成功外，还要检查发布目录根部 `*.dll` 数量为 0、`{AssemblyName}.exe` 存在、`NLog.config` 存在、`start-{AssemblyName}.cmd` 存在；必要时在无 .NET 的干净 Windows 环境实机验证单文件 EXE 能直接启动。
 
-注意单文件模式下 `System.Reflection.Assembly.Location` 会返回空字符串（编译器 IL3000 警告），涉及程序目录定位的代码必须优先使用 `Environment.ProcessPath` 或 `AppContext.BaseDirectory`，不能依赖 `Assembly.Location`。当前 `HelpDocumentLoader`、`ManualDocumentService` 已用 `Environment.ProcessPath` 优先、`WebView2` 已用 `AppContext.BaseDirectory`，修改这些路径逻辑时要保持单文件兼容。
+注意单文件模式下 `System.Reflection.Assembly.Location` 会返回空字符串（编译器 IL3000 警告），涉及程序目录定位的代码必须优先使用 `Environment.ProcessPath` 或 `AppContext.BaseDirectory`，不能依赖 `Assembly.Location`。当前 `ManualDocumentService` 已用 `Environment.ProcessPath` 优先，修改这些路径逻辑时要保持单文件兼容。
 
 调试 builder 时不要把 `outputRoot` 指到仓库根目录：builder 会把 `outputRoot` 的上级目录当成历史发布目录清理，可能误删仓库里的 `NLog.config` 等文件。验证时应使用仓库外的临时目录作为输出根。
 
@@ -117,7 +115,7 @@ WebView2 不能依赖目标机已安装环境。发布目录必须包含 `{Assem
 - 保持现有 WPF、HandyControl、MahApps、ScottPlot 和 MVVM Toolkit 的使用方式，不为局部修改引入新的 UI 框架或大规模重构。
 - 修改 PLC 通信逻辑时，要确认是否影响启动连接、手动重连、自动重连和采集循环。
 - 修改配方逻辑时，要确认内置配方和用户配方的保存边界。`RAM.NormalizeUserRecipes()` 会过滤内置配方，避免把内置配方写入用户配置。
-- 修改帮助文档逻辑时，要确认 `helper/` 资源复制、缓存生成和缺少 Office 时的降级提示。
+- 修改试验指导文档逻辑时，要确认 `manuals/` 资源复制、缓存生成、PDF/Word/PPT 内嵌预览和缺少 Office/WPS 时的降级提示。
 - 修改曲线或数据表逻辑时，要确认主窗口内嵌显示和独立窗口显示都能正常工作。
 - 如果新增了本文件没有提及的新功能、新逻辑或新文件，应同步更新 `AGENTS.md`，补充职责、约束和验证注意事项。
 
