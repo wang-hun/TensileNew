@@ -21,11 +21,11 @@
   <SolidColorBrush x:Key="AppHomeCenterBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppLayoutBorderBrush" Color="#FFDD00" />
 
-  <SolidColorBrush x:Key="AppReconnectBackgroundBrush" Color="#D4D5CF" />
-  <SolidColorBrush x:Key="AppReconnectForegroundBrush" Color="{x:Static local:ThemeManager.BlackGoldBaseColor}" />
+  <SolidColorBrush x:Key="AppReconnectBackgroundBrush" Color="#005bc2" />
+  <SolidColorBrush x:Key="AppReconnectForegroundBrush" Color="White" />
   <SolidColorBrush x:Key="AppReconnectHoverForegroundBrush" Color="#FFDD00" />
   <SolidColorBrush x:Key="AppReconnectPressedForegroundBrush" Color="Black" />
-  <SolidColorBrush x:Key="AppReconnectBorderBrush" Color="#FFDD00" />
+  <SolidColorBrush x:Key="AppReconnectBorderBrush" Color="#005bc2" />
 
   <SolidColorBrush x:Key="AppConnectionLabelBrush" Color="White" />
   <SolidColorBrush x:Key="AppConnectionBadgeBackgroundBrush" Color="#D4D5CF" />
