@@ -276,8 +276,7 @@ public static class NetworkAdapterProbeService
                 await Task.Delay(500);
             }
 
-            if (await CanConnectFromLocalIpAsync(localIp, targetIp) ||
-                await CanConnectAsync(targetIp))
+            if (await CanConnectFromLocalIpAsync(localIp, targetIp))
             {
                 return true;
             }
@@ -291,27 +290,6 @@ public static class NetworkAdapterProbeService
         try
         {
             using TcpClient client = new(new IPEndPoint(localIp, 0));
-            Task connectTask = client.ConnectAsync(targetIp, ModbusTcpPort);
-            Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
-            if (completedTask != connectTask)
-            {
-                return false;
-            }
-
-            await connectTask;
-            return client.Connected;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static async Task<bool> CanConnectAsync(IPAddress targetIp)
-    {
-        try
-        {
-            using TcpClient client = new();
             Task connectTask = client.ConnectAsync(targetIp, ModbusTcpPort);
             Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2)));
             if (completedTask != connectTask)
