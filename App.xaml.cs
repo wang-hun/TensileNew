@@ -3,8 +3,10 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Media;
+using Newtonsoft.Json.Linq;
 using TensileNeW.Models;
 using TensileNeW.Services;
 using HandyMessageBox = HandyControl.Controls.MessageBox;
@@ -13,6 +15,10 @@ namespace TensileNeW;
 
 public partial class App : Application
 {
+    private const string SingleInstanceMutexName = @"Local\TensileNeW_ECS_SingleInstance";
+    private const string SingleInstanceNoticeMutexName = @"Local\TensileNeW_ECS_SingleInstanceNotice";
+    private static Mutex? singleInstanceMutex;
+
     static App()
     {
         AddPdfiumNativeSearchPath();
@@ -24,6 +30,13 @@ public partial class App : Application
         if (NetworkAdapterProbeService.IsProbeWorker(e.Args))
         {
             Shutdown(NetworkAdapterProbeService.RunProbeWorker(e.Args));
+            return;
+        }
+
+        if (!TryAcquireSingleInstanceMutex())
+        {
+            ShowSingleInstanceWindow();
+            Shutdown();
             return;
         }
 
@@ -84,6 +97,113 @@ public partial class App : Application
             HandyMessageBox.Error($"程序启动失败：{ex.Message}", "TensileNeW");
             Shutdown();
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        ReleaseSingleInstanceMutex();
+        base.OnExit(e);
+    }
+
+    private static bool TryAcquireSingleInstanceMutex()
+    {
+        singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out bool createdNew);
+        if (createdNew)
+        {
+            return true;
+        }
+
+        try
+        {
+            if (singleInstanceMutex.WaitOne(0))
+            {
+                return true;
+            }
+        }
+        catch (AbandonedMutexException)
+        {
+            return true;
+        }
+
+        singleInstanceMutex.Dispose();
+        singleInstanceMutex = null;
+        return false;
+    }
+
+    private static void ReleaseSingleInstanceMutex()
+    {
+        if (singleInstanceMutex is null)
+        {
+            return;
+        }
+
+        try
+        {
+            singleInstanceMutex.ReleaseMutex();
+        }
+        catch (ApplicationException)
+        {
+        }
+        finally
+        {
+            singleInstanceMutex.Dispose();
+            singleInstanceMutex = null;
+        }
+    }
+
+    private void ShowSingleInstanceWindow()
+    {
+        using Mutex noticeMutex = new(true, SingleInstanceNoticeMutexName, out bool createdNew);
+        if (!createdNew && !TryAcquireExistingMutex(noticeMutex))
+        {
+            return;
+        }
+
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        try
+        {
+            ThemeManager.Apply(GetConfiguredColorSchemeName());
+        }
+        catch
+        {
+            ThemeManager.Apply(ThemeManager.DefaultSchemeName);
+        }
+
+        new SingleInstanceWindow().ShowDialog();
+    }
+
+    private static bool TryAcquireExistingMutex(Mutex mutex)
+    {
+        try
+        {
+            return mutex.WaitOne(0);
+        }
+        catch (AbandonedMutexException)
+        {
+            return true;
+        }
+    }
+
+    private static string GetConfiguredColorSchemeName()
+    {
+        string configPath = Path.Combine(AppContext.BaseDirectory, RAM.SettingFileName);
+        if (!File.Exists(configPath) && File.Exists(RAM.SettingFileName))
+        {
+            configPath = RAM.SettingFileName;
+        }
+
+        if (!File.Exists(configPath))
+        {
+            return ThemeManager.DefaultSchemeName;
+        }
+
+        string? schemeName = JObject.Parse(File.ReadAllText(configPath))
+            .Value<string>(nameof(SettingModel.ColorSchemeName));
+
+        return string.IsNullOrWhiteSpace(schemeName)
+            ? ThemeManager.DefaultSchemeName
+            : schemeName;
     }
 
     private static async Task<bool> TryConnectWithTimeoutAsync()

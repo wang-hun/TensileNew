@@ -163,7 +163,8 @@ namespace TensileNeW.Models
             {
                 RecipeModel.CreateBuiltIn("FLC", 380, 200, 5, 0.8f, 1, RecipeModel.DefaultTensileDistanceLimit),
                 RecipeModel.CreateBuiltIn("深拉试验", 108, 50, 10, 0f, 1, RecipeModel.DefaultTensileDistanceLimit),
-                RecipeModel.CreateBuiltIn("铝合金冲杯", 50, 100, 10, 0.95f, 1, RecipeModel.DefaultTensileDistanceLimit)
+                RecipeModel.CreateBuiltIn("铝合金冲杯", 50, 100, 10, 0.95f, 1, RecipeModel.DefaultTensileDistanceLimit),
+                RecipeModel.CreateBuiltIn("杯凸", 60, 60, 8, 0.8f, 1, RecipeModel.DefaultTensileDistanceLimit)
             });
         }
 

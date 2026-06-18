@@ -2,21 +2,23 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     xmlns:local="clr-namespace:TensileNeW">
-  <!-- 当前默认方案：警戒 -->
-  <Color x:Key="AppCaptionColorValue">{x:Static local:ThemeManager.BlackGoldBaseColor}</Color>
+  <!-- 当前默认方案：帕琪 -->
+  <Color x:Key="AppCaptionColorValue">{x:Static local:ThemeManager.PatchouliBaseColor}</Color>
   <Color x:Key="AppCaptionTextColorValue">#D4D5CF</Color>
   <iconPacks:PackIconBootstrapIconsKind x:Key="AppStatusActiveIconKind">PatchCheckFill</iconPacks:PackIconBootstrapIconsKind>
+  <BitmapImage x:Key="AppLogoImageSource" UriSource="pack://application:,,,/Assets/GB-LOGO.png" />
+  <SolidColorBrush x:Key="AppStartupWaitAccentBrush" Color="#FFDD00" />
 
-  <SolidColorBrush x:Key="AppHeaderBackgroundBrush" Color="{x:Static local:ThemeManager.BlackGoldBaseColor}" />
+  <SolidColorBrush x:Key="AppHeaderBackgroundBrush" Color="{x:Static local:ThemeManager.PatchouliBaseColor}" />
   <SolidColorBrush x:Key="AppHeaderBorderBrush" Color="#D8DBE3" />
-  <SolidColorBrush x:Key="AppNavBackgroundBrush" Color="{x:Static local:ThemeManager.BlackGoldBaseColor}" />
+  <SolidColorBrush x:Key="AppNavBackgroundBrush" Color="{x:Static local:ThemeManager.PatchouliBaseColor}" />
   <SolidColorBrush x:Key="AppNavForegroundBrush" Color="White" />
   <SolidColorBrush x:Key="AppNavSelectedForegroundBrush" Color="#FFDD00" />
   <SolidColorBrush x:Key="AppSidebarBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppSurfaceBackgroundBrush" Color="#E1E2DC" />
   <SolidColorBrush x:Key="AppSidebarLabelForegroundBrush" Color="#005bc2" />
   <SolidColorBrush x:Key="AppMetricNameBackgroundBrush" Color="#E1E2DC" />
-  <SolidColorBrush x:Key="AppMetricNameForegroundBrush" Color="{x:Static local:ThemeManager.BlackGoldBaseColor}" />
+  <SolidColorBrush x:Key="AppMetricNameForegroundBrush" Color="{x:Static local:ThemeManager.PatchouliBaseColor}" />
   <SolidColorBrush x:Key="AppMetricValueForegroundBrush" Color="#005bc2" />
   <SolidColorBrush x:Key="AppHomeCenterBackgroundBrush" Color="#D4D5CF" />
   <SolidColorBrush x:Key="AppLayoutBorderBrush" Color="#FFDD00" />
@@ -29,7 +31,7 @@
 
   <SolidColorBrush x:Key="AppConnectionLabelBrush" Color="White" />
   <SolidColorBrush x:Key="AppConnectionBadgeBackgroundBrush" Color="#D4D5CF" />
-  <SolidColorBrush x:Key="AppStartupWaitBackgroundBrush" Color="{x:Static local:ThemeManager.BlackGoldBaseColor}" />
+  <SolidColorBrush x:Key="AppStartupWaitBackgroundBrush" Color="{x:Static local:ThemeManager.PatchouliBaseColor}" />
   <SolidColorBrush x:Key="AppStartupWaitForegroundBrush" Color="White" />
   <SolidColorBrush x:Key="AppStartupWaitBorderBrush" Color="#FFDD00" />
   <SolidColorBrush x:Key="AppConnectionErrorBackgroundBrush" Color="#D4D5CF" />

@@ -9,10 +9,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>1.1.1.2606</Version>
-    <AssemblyVersion>1.1.1.2606</AssemblyVersion>
-    <FileVersion>1.1.1.2606</FileVersion>
-    <InformationalVersion>V1.1.1.2606</InformationalVersion>
+    <Version>1.1.2.2606</Version>
+    <AssemblyVersion>1.1.2.2606</AssemblyVersion>
+    <FileVersion>1.1.2.2606</FileVersion>
+    <InformationalVersion>V1.1.2.2606</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -72,6 +72,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\GB-LOGO.png" />
+    <Resource Include="Assets\GB-LOGO_BLUE.png" />
     <Resource Include="Assets\logo.ico" />
     <None Update="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

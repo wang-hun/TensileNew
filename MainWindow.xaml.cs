@@ -6,9 +6,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
 using TensileNeW.Models;
 using TensileNeW.Services;
@@ -22,6 +25,7 @@ public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
+    private const double AppHeaderHeight = 39;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
     private const double HelpMaxZoom = 2.0;
@@ -138,7 +142,74 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
+        ConfigureWindowChrome();
         NativeTitleBarHelper.ApplyTheme(this);
+    }
+
+    private void ConfigureWindowChrome()
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        double captionHeight = GetSystemCaptionHeight(hwnd);
+        HeaderRowDefinition.Height = new GridLength(captionHeight + AppHeaderHeight);
+        NativeTitleBarRowDefinition.Height = new GridLength(captionHeight);
+
+        WindowChrome.SetWindowChrome(this, new WindowChrome
+        {
+            CaptionHeight = captionHeight,
+            GlassFrameThickness = new Thickness(0, captionHeight, 0, 0),
+            ResizeBorderThickness = SystemParameters.WindowResizeBorderThickness,
+            CornerRadius = new CornerRadius(0),
+            UseAeroCaptionButtons = true
+        });
+    }
+
+    private static double GetSystemCaptionHeight(IntPtr hwnd)
+    {
+        int dpi = GetDpiForWindow(hwnd);
+        int captionPixels = GetSystemMetricsForDpiOrDefault(SM_CYCAPTION, dpi);
+        int framePixels = GetSystemMetricsForDpiOrDefault(SM_CYFRAME, dpi);
+        int paddedBorderPixels = GetSystemMetricsForDpiOrDefault(SM_CXPADDEDBORDER, dpi);
+
+        return PixelsToDips(captionPixels + framePixels + paddedBorderPixels, dpi);
+    }
+
+    private static int GetSystemMetricsForDpiOrDefault(int index, int dpi)
+    {
+        if (dpi > 0)
+        {
+            try
+            {
+                return GetSystemMetricsForDpi(index, (uint)dpi);
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
+
+        return GetSystemMetrics(index);
+    }
+
+    private static int GetDpiForWindow(IntPtr hwnd)
+    {
+        if (hwnd != IntPtr.Zero)
+        {
+            try
+            {
+                return (int)GetDpiForWindowNative(hwnd);
+            }
+            catch (EntryPointNotFoundException)
+            {
+            }
+        }
+
+        return 96;
+    }
+
+    private static double PixelsToDips(int pixels, int dpi)
+    {
+        return dpi > 0
+            ? pixels * 96.0 / dpi
+            : pixels;
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -1269,4 +1340,17 @@ public partial class MainWindow : Window
             owner.EndCurrentTrialPlotScope();
         }
     }
+
+    private const int SM_CYCAPTION = 4;
+    private const int SM_CYFRAME = 33;
+    private const int SM_CXPADDEDBORDER = 92;
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
+
+    [DllImport("user32.dll", EntryPoint = "GetDpiForWindow")]
+    private static extern uint GetDpiForWindowNative(IntPtr hwnd);
 }

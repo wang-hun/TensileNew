@@ -25,5 +25,14 @@
     "ShutdownRatio": 0.95,
     "Speed": 1.0,
     "TensileDistanceLimit": 100.0
+  },
+  {
+    "RecipeName": "杯凸",
+    "StrokeStampingForce": 60.0,
+    "ClosedLoopStampingForce": 60.0,
+    "ShutdownDelay": 8,
+    "ShutdownRatio": 0.8,
+    "Speed": 1.0,
+    "TensileDistanceLimit": 100.0
   }
 ]
