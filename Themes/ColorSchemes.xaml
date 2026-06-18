@@ -6,6 +6,8 @@
   <Color x:Key="AppCaptionColorValue">{x:Static local:ThemeManager.PatchouliBaseColor}</Color>
   <Color x:Key="AppCaptionTextColorValue">#D4D5CF</Color>
   <iconPacks:PackIconBootstrapIconsKind x:Key="AppStatusActiveIconKind">PatchCheckFill</iconPacks:PackIconBootstrapIconsKind>
+  <BitmapImage x:Key="AppLogoImageSource" UriSource="pack://application:,,,/Assets/GB-LOGO.png" />
+  <SolidColorBrush x:Key="AppStartupWaitAccentBrush" Color="#FFDD00" />
 
   <SolidColorBrush x:Key="AppHeaderBackgroundBrush" Color="{x:Static local:ThemeManager.PatchouliBaseColor}" />
   <SolidColorBrush x:Key="AppHeaderBorderBrush" Color="#D8DBE3" />

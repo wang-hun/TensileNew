@@ -26,6 +26,8 @@ public static class ThemeManager
             CaptionColor = BlackGoldBaseColor,
             CaptionTextColor = ColorFromRgb(0xD4D5CF),
             StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
+            LogoResourcePath = "pack://application:,,,/Assets/GB-LOGO.png",
+            StartupWaitAccentColor = ColorFromRgb(0xFFDD00),
             Colors = new Dictionary<string, Color>
             {
                 ["AppHeaderBackgroundBrush"] = BlackGoldBaseColor,
@@ -61,6 +63,8 @@ public static class ThemeManager
             CaptionColor = PatchouliBaseColor,
             CaptionTextColor = ColorFromRgb(0xD4D5CF),
             StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
+            LogoResourcePath = "pack://application:,,,/Assets/GB-LOGO.png",
+            StartupWaitAccentColor = ColorFromRgb(0xFFDD00),
             Colors = new Dictionary<string, Color>
             {
                 ["AppHeaderBackgroundBrush"] = PatchouliBaseColor,
@@ -96,6 +100,8 @@ public static class ThemeManager
             CaptionColor = ColorFromRgb(0xFFFFFF),
             CaptionTextColor = ColorFromRgb(0x000000),
             StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheck,
+            LogoResourcePath = "pack://application:,,,/Assets/GB-LOGO_BLUE.png",
+            StartupWaitAccentColor = ColorFromRgb(0x1677FF),
             Colors = new Dictionary<string, Color>
             {
                 ["AppHeaderBackgroundBrush"] = ColorFromRgb(0xF5F6F8),
@@ -137,6 +143,8 @@ public static class ThemeManager
         resources["AppCaptionColorValue"] = scheme.CaptionColor;
         resources["AppCaptionTextColorValue"] = scheme.CaptionTextColor;
         resources["AppStatusActiveIconKind"] = scheme.StatusActiveIconKind;
+        resources["AppLogoImageSource"] = new ImageSourceConverter().ConvertFromString(scheme.LogoResourcePath);
+        resources["AppStartupWaitAccentBrush"] = new SolidColorBrush(scheme.StartupWaitAccentColor);
 
         foreach ((string key, Color color) in scheme.Colors)
         {

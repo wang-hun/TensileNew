@@ -22,7 +22,7 @@
         </PathGeometry>
     </Window.Resources>
 
-    <Border BorderBrush="{DynamicResource AppStartupWaitBorderBrush}" BorderThickness="1" Background="{DynamicResource AppStartupWaitBackgroundBrush}">
+    <Border BorderThickness="0" Background="{DynamicResource AppStartupWaitBackgroundBrush}">
         <Grid Margin="22">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -41,7 +41,7 @@
                                       Duration="00:00:01.4"
                                       Stretch="Uniform"
                                       StrokeThickness="4"
-                                      Stroke="#FFDD00"
+                                      Stroke="{DynamicResource AppStartupWaitAccentBrush}"
                                       StrokeStartLineCap="Flat"
                                       StrokeEndLineCap="Flat" />
                 </Grid>
