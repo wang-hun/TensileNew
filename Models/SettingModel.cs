@@ -79,7 +79,7 @@ namespace TensileNeW.Models
             set => SetProperty(ref _KeepPlotOnReset, value);
         }
 
-        private string _ColorSchemeName = "警戒";
+        private string _ColorSchemeName = "帕琪";
         public string ColorSchemeName
         {
             get => _ColorSchemeName;

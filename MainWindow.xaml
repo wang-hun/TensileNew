@@ -418,7 +418,7 @@
           <ColumnDefinition Width="300" />
         </Grid.ColumnDefinitions>
         <!-- Left side panel: current trial -->
-        <Border BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+        <Border Background="{DynamicResource AppSidebarBackgroundBrush}">
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
             <StackPanel Margin="12,8,12,8">
               <!-- 当前试验 title -->
@@ -890,7 +890,7 @@
           </Grid>
         </Grid>
         <!-- Right: save + data grid -->
-        <Border Grid.Column="2" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1,0,0,0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+        <Border Grid.Column="2" Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="86" />

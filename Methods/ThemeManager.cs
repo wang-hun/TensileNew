@@ -11,12 +11,12 @@ namespace TensileNeW;
 
 public static class ThemeManager
 {
-    public const string DefaultSchemeName = "警戒";
+    public const string DefaultSchemeName = "帕琪";
     private const int BlackGoldBaseRgb = 0xB23526;
     private const int PatchouliBaseRgb = 0x592489;
 
     public static Color BlackGoldBaseColor { get; } = ColorFromRgb(BlackGoldBaseRgb);
-    private static Color PatchouliBaseColor { get; } = ColorFromRgb(PatchouliBaseRgb);
+    public static Color PatchouliBaseColor { get; } = ColorFromRgb(PatchouliBaseRgb);
 
     public static IReadOnlyList<ColorScheme> Schemes { get; } =
     [
@@ -146,8 +146,10 @@ public static class ThemeManager
 
     public static void Apply(string schemeName)
     {
+        ColorScheme defaultScheme = Schemes.First(item =>
+            string.Equals(item.Name, DefaultSchemeName, StringComparison.Ordinal));
         ColorScheme scheme = Schemes.FirstOrDefault(item =>
-            string.Equals(item.Name, schemeName, StringComparison.Ordinal)) ?? Schemes[0];
+            string.Equals(item.Name, schemeName, StringComparison.Ordinal)) ?? defaultScheme;
         Apply(scheme);
     }
 
