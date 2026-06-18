@@ -13,8 +13,10 @@ public static class ThemeManager
 {
     public const string DefaultSchemeName = "警戒";
     private const int BlackGoldBaseRgb = 0xB23526;
+    private const int PatchouliBaseRgb = 0x592489;
 
     public static Color BlackGoldBaseColor { get; } = ColorFromRgb(BlackGoldBaseRgb);
+    private static Color PatchouliBaseColor { get; } = ColorFromRgb(PatchouliBaseRgb);
 
     public static IReadOnlyList<ColorScheme> Schemes { get; } =
     [
@@ -47,6 +49,41 @@ public static class ThemeManager
                 ["AppConnectionLabelBrush"] = MediaColors.White,
                 ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
                 ["AppStartupWaitBackgroundBrush"] = BlackGoldBaseColor,
+                ["AppStartupWaitForegroundBrush"] = MediaColors.White,
+                ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xFFDD00),
+                ["AppConnectionErrorBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppConnectionErrorForegroundBrush"] = ColorFromRgb(0xD03050)
+            }
+        },
+        new()
+        {
+            Name = "帕琪",
+            CaptionColor = PatchouliBaseColor,
+            CaptionTextColor = ColorFromRgb(0xD4D5CF),
+            StatusActiveIconKind = PackIconBootstrapIconsKind.PatchCheckFill,
+            Colors = new Dictionary<string, Color>
+            {
+                ["AppHeaderBackgroundBrush"] = PatchouliBaseColor,
+                ["AppHeaderBorderBrush"] = ColorFromRgb(0xD8DBE3),
+                ["AppNavBackgroundBrush"] = PatchouliBaseColor,
+                ["AppNavForegroundBrush"] = MediaColors.White,
+                ["AppNavSelectedForegroundBrush"] = ColorFromRgb(0xFFDD00),
+                ["AppSidebarBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppSurfaceBackgroundBrush"] = ColorFromRgb(0xE1E2DC),
+                ["AppSidebarLabelForegroundBrush"] = ColorFromRgb(0x005BC2),
+                ["AppMetricNameBackgroundBrush"] = ColorFromRgb(0xE1E2DC),
+                ["AppMetricNameForegroundBrush"] = PatchouliBaseColor,
+                ["AppMetricValueForegroundBrush"] = ColorFromRgb(0x005BC2),
+                ["AppHomeCenterBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppLayoutBorderBrush"] = ColorFromRgb(0xFFDD00),
+                ["AppReconnectBackgroundBrush"] = ColorFromRgb(0x005BC2),
+                ["AppReconnectForegroundBrush"] = MediaColors.White,
+                ["AppReconnectHoverForegroundBrush"] = ColorFromRgb(0xFFDD00),
+                ["AppReconnectPressedForegroundBrush"] = MediaColors.Black,
+                ["AppReconnectBorderBrush"] = ColorFromRgb(0x005BC2),
+                ["AppConnectionLabelBrush"] = MediaColors.White,
+                ["AppConnectionBadgeBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
+                ["AppStartupWaitBackgroundBrush"] = PatchouliBaseColor,
                 ["AppStartupWaitForegroundBrush"] = MediaColors.White,
                 ["AppStartupWaitBorderBrush"] = ColorFromRgb(0xFFDD00),
                 ["AppConnectionErrorBackgroundBrush"] = ColorFromRgb(0xD4D5CF),
@@ -112,6 +149,12 @@ public static class ThemeManager
         ColorScheme scheme = Schemes.FirstOrDefault(item =>
             string.Equals(item.Name, schemeName, StringComparison.Ordinal)) ?? Schemes[0];
         Apply(scheme);
+    }
+
+    public static bool UsesWarningStyle(ColorScheme scheme)
+    {
+        return string.Equals(scheme.Name, DefaultSchemeName, StringComparison.Ordinal) ||
+               string.Equals(scheme.Name, "帕琪", StringComparison.Ordinal);
     }
 
     private static Color ColorFromRgb(int rgb)

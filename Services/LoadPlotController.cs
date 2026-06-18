@@ -263,7 +263,7 @@ public sealed class LoadPlotController
 
     private void ApplyStyle()
     {
-        bool useSanae = string.Equals(ThemeManager.CurrentScheme.Name, ThemeManager.DefaultSchemeName, StringComparison.Ordinal);
+        bool useSanae = ThemeManager.UsesWarningStyle(ThemeManager.CurrentScheme);
 
         _plotHost.Plot.FigureBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultFigureBackgroundColor;
         _plotHost.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
