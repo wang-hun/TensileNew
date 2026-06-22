@@ -7,7 +7,6 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using TensileNeW.Models;
-using LicenseContext = OfficeOpenXml.LicenseContext;
 
 namespace TensileNeW.Tools
 {
@@ -186,7 +185,6 @@ namespace TensileNeW.Tools
         /// </summary>
         public ExcelExporter_EPPlus()
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             _package = new ExcelPackage();
         }
 
@@ -225,7 +223,7 @@ namespace TensileNeW.Tools
             }
 
             // 设置样式
-            var style = _sheet.Rows[_currentRow].Style;
+            var style = _sheet.Row(_currentRow).Style;
             style.Font.Bold = true;
             if (bgColor.HasValue)
             {

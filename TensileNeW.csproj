@@ -54,8 +54,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="DocX" Version="5.0.0" />
-    <PackageReference Include="EPPlus" Version="7.7.0" />
+    <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
     <PackageReference Include="Haukcode.HighResolutionTimer" Version="1.2.0" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.2.1" />
