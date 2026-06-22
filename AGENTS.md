@@ -52,6 +52,55 @@
 
 `DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
 
+## 本地正弦曲线调试
+
+用户可能会临时要求恢复正弦曲线调试功能，用于在没有连接设备时验证曲线图、数据表格和 `TrialDataStore` 的真实数据链路。这个功能是本地调试辅助，不应作为产品功能保存并提交；实现后必须明确告知当前工作区存在未提交调试改动。
+
+硬性边界：
+
+- 只允许在设备未连接时生成调试数据。只要 `DataAqc.plc?.Client.Connected == true` 且 `DataAqc.plc.ConnectState` 能解析为 `true`，启动时必须跳过，运行中必须立即停止。
+- 不允许修改 `DataAqc.Refresh()`、`DeltaPLC2`、PLC 连接、重连、自动重连、采集周期或 PLC 读写逻辑。
+- 不允许在采集循环里增加调试判断，以免影响真实采集周期精度。
+- 不允许直接改曲线控制器、直接写 `DataAqc.loadModels`、直接触发 `LoadDataChanged` 或直接写 `TrialDataStore`。
+- 调试数据必须走 `DataAqc.Enqueue(loadModel)`。这样会自然进入 `TrialDataStore.EnqueuePoint()`、消费者队列、主窗口数据表格、主窗口曲线和独立曲线窗口。
+- 不写入 `Setting.json`，不持久化开关状态，不随程序自动启动。
+
+固定触发方式：
+
+- 管理员密码窗口仍保持五位输入。
+- `SINON` 启动正弦调试数据。
+- `SINOF` 停止正弦调试数据。注意是五位 `SINOF`，不是 `SINOFF`。
+- 触发入口是 `SettingsPinDialog` / `SettingsPinWindow`，不要新增公开按钮或菜单。
+
+文件级复现步骤：
+
+1. 新增 `Services/SineDebugDataService.cs`。
+2. 在服务里定义 `SineDebugDataResult`，至少包含 `Started`、`Stopped`、`AlreadyRunning`、`NotRunning`、`SkippedBecauseConnected`。
+3. `SineDebugDataService` 构造函数接收主窗口 `Dispatcher`，内部用 `DispatcherTimer` 周期生成数据。推荐周期 `50ms`。
+4. 服务公开 `Start()` 和 `Stop()`。`Start()` 先检查 PLC 连接，已连接则返回 `SkippedBecauseConnected`；已运行则返回 `AlreadyRunning`；否则启动定时器。`Stop()` 停止定时器。
+5. 定时器 Tick 内再次检查 PLC 连接，若已连接，立即停止并返回，不再生成点。
+6. Tick 内生成：
+   - `force = 10 * (Math.Sin(x / 2) + 1)`
+   - `Loadmodel.RealForce = (float)force`
+   - `Loadmodel.RealDistance = (float)x`
+   - `Loadmodel.Index` 从当前 `DataAqc.loadModels.Count` 后继续递增
+   - `Loadmodel.RealPress = 0`
+   - `Loadmodel.Time` 可使用调试计时秒数 `Stopwatch.Elapsed.TotalSeconds.ToString("F3")`
+7. Tick 末尾只调用 `DataAqc.Enqueue(loadModel)`，不要调用其他绘图或存储接口。
+8. 在 `Dialogs/SettingsPinDialog.xaml.cs` 增加常量 `SINON`、`SINOF`，增加 `SineDebugStartRequested`、`SineDebugStopRequested` 事件，识别密码后触发事件并关闭弹窗。
+9. 在 `Dialogs/SettingsPinWindow.xaml.cs` 透传 `SineDebugStartRequested`、`SineDebugStopRequested`。
+10. 在 `MainWindow.xaml.cs` 增加字段 `_sineDebugDataService`，构造函数 `InitializeComponent()` 后实例化：`new SineDebugDataService(Dispatcher)`。
+11. 在 `LogoImage_MouseLeftButtonDown` 创建 `SettingsPinWindow` 后订阅启动/停止事件，分别调用主窗口私有方法处理结果。
+12. 主窗口处理结果时只显示 Growl 提示，不做 PLC 操作：启动成功、已运行、设备已连接跳过、停止成功、未运行。
+
+验收检查：
+
+- `SINON` 在未连接设备时，主数据表格持续新增点，曲线图跟随现有 `DataAqc.LoadDataChanged` 刷新，独立曲线窗口也能刷新。
+- 数据库写入路径来自 `DataAqc.Enqueue()` 内部的 `TrialDataStore.EnqueuePoint()`，不应存在额外写库调用。
+- 连接设备后再次输入 `SINON` 应提示跳过；调试生成过程中一旦设备连接，定时器应停止。
+- `dotnet build .\TensileNeW.csproj` 必须通过；允许保留项目既有警告。
+- 不提交这个调试功能相关改动；如用户要求提交，必须先提醒它被标记为本地调试辅助，按本节规则不应保存并提交。
+
 ## 启动网络检查和探测
 
 程序启动加载动画窗口 `StartupWaitWindow` 期间会异步执行多项启动逻辑，包括试验指导文档缓存、字体准备和连接设备。连接设备前会先检查已连接的有线网卡是否存在与 `RAM.SettingModel.PLC_IP` 同网段的 IPv4 地址；如果没有同网段地址，启动阶段不申请管理员权限、不修改网络，直接跳过连接并进入主窗口失败状态。
