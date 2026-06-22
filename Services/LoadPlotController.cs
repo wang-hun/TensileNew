@@ -118,6 +118,7 @@ public sealed class LoadPlotController
                 series.Scatter.Smooth = true;
                 series.Scatter.LegendText = series.TrialSerialNumber;
                 series.Scatter.Color = series.LineColor;
+                series.Scatter.MarkerSize = 0;
             }
 
             _pointCount++;
