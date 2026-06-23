@@ -701,7 +701,7 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限" />
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限设定" />
                 <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
