@@ -2,9 +2,10 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Resources;
+using NPOI.Util;
+using NPOI.WP.UserModel;
+using NPOI.XWPF.UserModel;
 using TensileNeW.Models;
-using Xceed.Document.NET;
-using Xceed.Words.NET;
 
 namespace TensileNeW.Services;
 
@@ -20,35 +21,27 @@ public static class TestReportService
         string validDistance,
         RecipeModel? recipe)
     {
-        using var document = DocX.Create(fileName);
-        document.Sections[0].PageLayout.Orientation = Orientation.Portrait;
+        using var document = new XWPFDocument();
         AddLogoHeader(document);
 
-        var title = document.InsertParagraph("试验报告");
-        title.Alignment = Alignment.center;
-        title.FontSize(18).Bold();
+        AddParagraph(document, "试验报告", 18, bold: true, ParagraphAlignment.CENTER);
+        AddParagraph(
+            document,
+            $"试验名称：{recipeName}    试验序列号：{trialSerialNumber}    生成时间：{generatedAt:yyyy-MM-dd HH:mm:ss}",
+            11,
+            bold: false,
+            ParagraphAlignment.CENTER);
 
-        var info = document.InsertParagraph(
-            $"试验名称：{recipeName}    试验序列号：{trialSerialNumber}    生成时间：{generatedAt:yyyy-MM-dd HH:mm:ss}");
-        info.Alignment = Alignment.center;
-        info.FontSize(11);
+        AddPictureParagraph(document, imagePath, maxWidth: 500, maxHeight: 330, ParagraphAlignment.CENTER);
 
-        var picture = document.AddImage(imagePath).CreatePicture();
-        FitPicture(picture, imagePath, maxWidth: 500, maxHeight: 330);
-        var pictureParagraph = document.InsertParagraph();
-        pictureParagraph.Alignment = Alignment.center;
-        pictureParagraph.AppendPicture(picture);
-
-        var resultTitle = document.InsertParagraph("试验结果");
-        resultTitle.FontSize(14).Bold();
-
-        var maxForceParagraph = document.InsertParagraph($"最大拉伸力：{WithUnit(maxForce, "KN")}");
-        maxForceParagraph.FontSize(12);
-        var validDistanceParagraph = document.InsertParagraph($"有效拉伸位移：{WithUnit(validDistance, "mm")}");
-        validDistanceParagraph.FontSize(12);
+        AddParagraph(document, "试验结果", 14, bold: true);
+        AddParagraph(document, $"最大拉伸力：{WithUnit(maxForce, "KN")}", 12);
+        AddParagraph(document, $"有效拉伸位移：{WithUnit(validDistance, "mm")}", 12);
 
         AddParameterSection(document, recipe);
-        document.Save();
+
+        using var stream = File.Create(fileName);
+        document.Write(stream);
     }
 
     public static string SaveClipboardImageToTempFile()
@@ -67,7 +60,7 @@ public static class TestReportService
         return tempImagePath;
     }
 
-    private static void AddLogoHeader(DocX document)
+    private static void AddLogoHeader(XWPFDocument document)
     {
         using Stream? logoStream = OpenResourceStream("Assets/GB-LOGO.png");
         if (logoStream is null)
@@ -79,20 +72,27 @@ public static class TestReportService
         logoStream.CopyTo(memoryStream);
         byte[] logoBytes = memoryStream.ToArray();
 
-        document.AddHeaders();
-        AddLogoToHeader(document, document.Headers.Odd, logoBytes);
-        AddLogoToHeader(document, document.Headers.First, logoBytes);
-        AddLogoToHeader(document, document.Headers.Even, logoBytes);
+        AddLogoToHeader(document, HeaderFooterType.DEFAULT, logoBytes);
+        AddLogoToHeader(document, HeaderFooterType.FIRST, logoBytes);
+        AddLogoToHeader(document, HeaderFooterType.EVEN, logoBytes);
     }
 
-    private static void AddLogoToHeader(DocX document, Header header, byte[] logoBytes)
+    private static void AddLogoToHeader(XWPFDocument document, HeaderFooterType type, byte[] logoBytes)
     {
+        var header = document.CreateHeader(type);
+        var paragraph = header.CreateParagraph();
+        paragraph.Alignment = ParagraphAlignment.LEFT;
+
+        var run = paragraph.CreateRun();
         using var imageStream = new MemoryStream(logoBytes);
-        var picture = document.AddImage(imageStream).CreatePicture();
-        FitPicture(picture, logoBytes, maxWidth: 120, maxHeight: 45);
-        var paragraph = header.InsertParagraph();
-        paragraph.Alignment = Alignment.left;
-        paragraph.AppendPicture(picture);
+        var size = GetScaledSize(imageStream, maxWidth: 120, maxHeight: 45);
+        imageStream.Position = 0;
+        run.AddPicture(
+            imageStream,
+            (int)PictureType.PNG,
+            "GB-LOGO.png",
+            Units.ToEMU(size.Width),
+            Units.ToEMU(size.Height));
     }
 
     private static Stream? OpenResourceStream(string resourcePath)
@@ -102,10 +102,9 @@ public static class TestReportService
         return resourceInfo?.Stream;
     }
 
-    private static void AddParameterSection(DocX document, RecipeModel? recipe)
+    private static void AddParameterSection(XWPFDocument document, RecipeModel? recipe)
     {
-        var title = document.InsertParagraph("参数设置");
-        title.FontSize(14).Bold();
+        AddParagraph(document, "参数设置", 14, bold: true);
 
         List<(string Name, string Value)> parameters =
         [
@@ -118,18 +117,60 @@ public static class TestReportService
             ("速度设定", WithUnit(FormatValue(recipe?.Speed), "mm/s"))
         ];
 
-        var table = document.AddTable(parameters.Count + 1, 2);
-        table.Design = TableDesign.TableGrid;
-        table.Rows[0].Cells[0].Paragraphs[0].Append("参数").Bold();
-        table.Rows[0].Cells[1].Paragraphs[0].Append("值").Bold();
+        var table = document.CreateTable(parameters.Count + 1, 2);
+        SetCellText(table.GetRow(0).GetCell(0), "参数", bold: true);
+        SetCellText(table.GetRow(0).GetCell(1), "值", bold: true);
 
         for (int i = 0; i < parameters.Count; i++)
         {
-            table.Rows[i + 1].Cells[0].Paragraphs[0].Append(parameters[i].Name);
-            table.Rows[i + 1].Cells[1].Paragraphs[0].Append(parameters[i].Value);
+            SetCellText(table.GetRow(i + 1).GetCell(0), parameters[i].Name);
+            SetCellText(table.GetRow(i + 1).GetCell(1), parameters[i].Value);
         }
+    }
 
-        document.InsertTable(table);
+    private static void AddParagraph(
+        XWPFDocument document,
+        string text,
+        int fontSize,
+        bool bold = false,
+        ParagraphAlignment alignment = ParagraphAlignment.LEFT)
+    {
+        var paragraph = document.CreateParagraph();
+        paragraph.Alignment = alignment;
+        var run = paragraph.CreateRun();
+        run.FontSize = fontSize;
+        run.IsBold = bold;
+        run.SetText(text);
+    }
+
+    private static void AddPictureParagraph(
+        XWPFDocument document,
+        string imagePath,
+        int maxWidth,
+        int maxHeight,
+        ParagraphAlignment alignment)
+    {
+        var paragraph = document.CreateParagraph();
+        paragraph.Alignment = alignment;
+        var run = paragraph.CreateRun();
+
+        using var stream = File.OpenRead(imagePath);
+        var size = GetScaledSize(stream, maxWidth, maxHeight);
+        stream.Position = 0;
+        run.AddPicture(
+            stream,
+            (int)PictureType.PNG,
+            Path.GetFileName(imagePath),
+            Units.ToEMU(size.Width),
+            Units.ToEMU(size.Height));
+    }
+
+    private static void SetCellText(XWPFTableCell cell, string text, bool bold = false)
+    {
+        var paragraph = cell.Paragraphs.Count > 0 ? cell.Paragraphs[0] : cell.AddParagraph();
+        var run = paragraph.CreateRun();
+        run.IsBold = bold;
+        run.SetText(text);
     }
 
     private static string FormatValue(float? value) => value?.ToString("0.###") ?? string.Empty;
@@ -139,31 +180,20 @@ public static class TestReportService
         return string.IsNullOrWhiteSpace(value) ? string.Empty : $"{value} {unit}";
     }
 
-    private static void FitPicture(Picture picture, string imagePath, int maxWidth, int maxHeight)
-    {
-        using var stream = File.OpenRead(imagePath);
-        FitPicture(picture, stream, maxWidth, maxHeight);
-    }
-
-    private static void FitPicture(Picture picture, byte[] imageBytes, int maxWidth, int maxHeight)
-    {
-        using var stream = new MemoryStream(imageBytes);
-        FitPicture(picture, stream, maxWidth, maxHeight);
-    }
-
-    private static void FitPicture(Picture picture, Stream stream, int maxWidth, int maxHeight)
+    private static (int Width, int Height) GetScaledSize(Stream stream, int maxWidth, int maxHeight)
     {
         var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
         int sourceWidth = decoder.Frames[0].PixelWidth;
         int sourceHeight = decoder.Frames[0].PixelHeight;
         if (sourceWidth <= 0 || sourceHeight <= 0)
         {
-            return;
+            return (maxWidth, maxHeight);
         }
 
         double scale = Math.Min((double)maxWidth / sourceWidth, (double)maxHeight / sourceHeight);
         scale = Math.Min(scale, 1.0);
-        picture.Width = Math.Max(1, (int)Math.Round(sourceWidth * scale));
-        picture.Height = Math.Max(1, (int)Math.Round(sourceHeight * scale));
+        return (
+            Math.Max(1, (int)Math.Round(sourceWidth * scale)),
+            Math.Max(1, (int)Math.Round(sourceHeight * scale)));
     }
 }

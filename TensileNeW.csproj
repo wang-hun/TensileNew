@@ -9,10 +9,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>1.1.2.2606</Version>
-    <AssemblyVersion>1.1.2.2606</AssemblyVersion>
-    <FileVersion>1.1.2.2606</FileVersion>
-    <InformationalVersion>V1.1.2.2606</InformationalVersion>
+    <Version>1.1.3.2606</Version>
+    <AssemblyVersion>1.1.3.2606</AssemblyVersion>
+    <FileVersion>1.1.3.2606</FileVersion>
+    <InformationalVersion>V1.1.3.2606</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -54,8 +54,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="DocX" Version="5.0.0" />
-    <PackageReference Include="EPPlus" Version="7.7.0" />
+    <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="HandyControl" Version="3.5.1" />
     <PackageReference Include="Haukcode.HighResolutionTimer" Version="1.2.0" />
     <PackageReference Include="MahApps.Metro.IconPacks" Version="6.2.1" />

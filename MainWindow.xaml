@@ -215,7 +215,7 @@
     </Style>
     <Style x:Key="LargeMetricNameStyle" TargetType="TextBlock">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="#101010" />
+      <Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" />
       <Setter Property="FontSize" Value="16" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="Padding" Value="8,0,10,0" />
@@ -470,10 +470,9 @@
                 </StackPanel>
               </Border>
               <!-- real-time readouts -->
-              <Grid Height="234" Margin="0,8,0,0">
+              <Grid Height="204" Margin="0,8,0,0">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="24" />
-                  <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
                   <RowDefinition Height="30" />
@@ -486,7 +485,7 @@
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="运行状态" Style="{StaticResource HomeSidebarSubTitleStyle}" />
-                <Grid Grid.Row="1" Grid.RowSpan="7" Grid.ColumnSpan="2" IsHitTestVisible="False">
+                <Grid Grid.Row="1" Grid.RowSpan="6" Grid.ColumnSpan="2" IsHitTestVisible="False">
                   <Border Style="{StaticResource HomeInnerShadowPanelStyle}" />
                   <Border Height="12" VerticalAlignment="Top">
                     <Border.Background>
@@ -558,19 +557,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="预设冲程压边力" />
+                <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时拉伸速度" />
                 <Border Grid.Row="5" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource MetricValueStyle}" Text="{Binding Path=CurrentValue, Source={x:Static local:MainWindow.PreSetForceVariable}}" />
-                  <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="KN" />
-                </Grid>
-                </Border>
-                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时拉伸速度" />
-                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -580,8 +568,8 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="7" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时压边力" />
-                <Border Grid.Row="7" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="实时压边力" />
+                <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -626,7 +614,7 @@
                   <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="142" />
+                  <ColumnDefinition Width="164" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" Style="{StaticResource HomeSidebarSubTitleStyle}" />
@@ -713,7 +701,7 @@
                   <TextBlock Grid.Column="1" Style="{StaticResource MetricUnitStyle}" Text="mm/s" />
                 </Grid>
                 </Border>
-                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限" />
+                <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource CompactMetricNameStyle}" Text="拉伸位移上限设定" />
                 <Border Grid.Row="6" Grid.Column="1" Style="{StaticResource MetricValueCellStyle}">
                 <Grid>
                   <Grid.ColumnDefinitions>
@@ -734,7 +722,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="260" />
           </Grid.RowDefinitions>
-          <Border Style="{StaticResource OuterShadowBorderStyle}" BorderBrush="#C0C4CC" BorderThickness="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="8">
+          <Border BorderBrush="Transparent" BorderThickness="0" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="8">
             <Grid>
               <sp:WpfPlot x:Name="LoadPlot" Margin="8" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
               <Button x:Name="ChartSettingsButton" Width="31.5" Height="31.5" Margin="0,2.75,45,0" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="20" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="曲线图设置" Click="ChartSettingsButton_Click">
@@ -892,12 +880,15 @@
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <Button Grid.Column="1" Style="{StaticResource ActionButtonStyle}" Click="Reset_Click">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                  <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                </StackPanel>
-              </Button>
+              <StackPanel Grid.Column="1">
+                <Button Style="{StaticResource ActionButtonStyle}" Click="Reset_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  </StackPanel>
+                </Button>
+                <TextBlock Text="按下后序列号自增1" Margin="0,3,0,0" FontSize="14" FontWeight="Normal" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
+              </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="3" Margin="6,3,6,5" VerticalAlignment="Top">
               <Grid.ColumnDefinitions>

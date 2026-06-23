@@ -7,20 +7,21 @@ namespace TensileNeW.Services;
 public sealed class LoadPlotController
 {
     private const bool AutoScrollXAxisEnabled = false;
+    private const float GridLineOpacity = 0.25f;
     private static readonly Color SanaePlotBackgroundColor = Color.FromHex("#E1E2DC");
     private static readonly Color SanaePlotGridLineColor = Color.FromHex("#000000");
     private static readonly Color[] PlotLineColors =
     [
-        Color.FromHex("#1677FF"),
-        Color.FromHex("#52C41A"),
-        Color.FromHex("#FA8C16"),
-        Color.FromHex("#EB2F96"),
-        Color.FromHex("#722ED1"),
-        Color.FromHex("#13C2C2"),
-        Color.FromHex("#F5222D"),
-        Color.FromHex("#A0D911"),
-        Color.FromHex("#2F54EB"),
-        Color.FromHex("#FAAD14")
+        Color.FromHex("#003A8C"),
+        Color.FromHex("#237804"),
+        Color.FromHex("#AD4E00"),
+        Color.FromHex("#9E1068"),
+        Color.FromHex("#391085"),
+        Color.FromHex("#006D75"),
+        Color.FromHex("#A8071A"),
+        Color.FromHex("#5B8C00"),
+        Color.FromHex("#1D39C4"),
+        Color.FromHex("#AD6800")
     ];
 
     private readonly WpfPlot _plotHost;
@@ -118,6 +119,7 @@ public sealed class LoadPlotController
                 series.Scatter.Smooth = true;
                 series.Scatter.LegendText = series.TrialSerialNumber;
                 series.Scatter.Color = series.LineColor;
+                series.Scatter.MarkerSize = 0;
             }
 
             _pointCount++;
@@ -267,8 +269,7 @@ public sealed class LoadPlotController
 
         _plotHost.Plot.FigureBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultFigureBackgroundColor;
         _plotHost.Plot.DataBackground.Color = useSanae ? SanaePlotBackgroundColor : _defaultPlotBackgroundColor;
-        _plotHost.Plot.Grid.MajorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
-        _plotHost.Plot.Grid.MinorLineColor = useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor;
+        ApplyGridLineColor(WithGridLineOpacity(useSanae ? SanaePlotGridLineColor : _defaultPlotMajorGridLineColor));
         foreach (CurveSeries series in _seriesQueue)
         {
             if (series.Scatter != null)
@@ -276,6 +277,21 @@ public sealed class LoadPlotController
                 series.Scatter.Color = series.LineColor;
             }
         }
+    }
+
+    private static Color WithGridLineOpacity(Color color)
+    {
+        return color.WithOpacity(GridLineOpacity);
+    }
+
+    private void ApplyGridLineColor(Color color)
+    {
+        _plotHost.Plot.Grid.MajorLineColor = color;
+        _plotHost.Plot.Grid.MinorLineColor = color;
+        _plotHost.Plot.Grid.XAxisStyle.MajorLineStyle.Color = color;
+        _plotHost.Plot.Grid.XAxisStyle.MinorLineStyle.Color = color;
+        _plotHost.Plot.Grid.YAxisStyle.MajorLineStyle.Color = color;
+        _plotHost.Plot.Grid.YAxisStyle.MinorLineStyle.Color = color;
     }
 
     private CurveSeries CreateSeries(string trialSerialNumber)
