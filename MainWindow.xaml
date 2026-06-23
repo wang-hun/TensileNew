@@ -614,7 +614,7 @@
                   <RowDefinition Height="30" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="142" />
+                  <ColumnDefinition Width="164" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="试验参数" Style="{StaticResource HomeSidebarSubTitleStyle}" />
