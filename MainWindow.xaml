@@ -720,12 +720,31 @@
                 </Grid.RowDefinitions>
                 <Grid Grid.Row="0">
                   <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="24" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="24" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="摄像头画面" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+                  <Button x:Name="OpenCameraPreviewButton"
+                          Grid.Column="0"
+                          Width="24"
+                          Height="24"
+                          Padding="0"
+                          Background="Transparent"
+                          BorderBrush="Transparent"
+                          BorderThickness="0"
+                          ToolTip="弹出摄像头画面"
+                          Click="OpenCameraPreviewButton_Click">
+                    <iconPacks:PackIconMaterial Kind="OpenInNew"
+                                                Width="16"
+                                                Height="16"
+                                                Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+                  </Button>
+                  <TextBlock Grid.Column="1"
+                             Text="摄像头画面"
+                             Style="{StaticResource HomeSidebarSubTitleStyle}"
+                             HorizontalAlignment="Center" />
                   <Button x:Name="RefreshCameraButton"
-                          Grid.Column="1"
+                          Grid.Column="2"
                           Width="24"
                           Height="24"
                           Padding="0"

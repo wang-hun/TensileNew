@@ -26,7 +26,7 @@
             BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="40" />
+                <RowDefinition Height="28" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -35,17 +35,11 @@
                   MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="32" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="摄像头预览"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource AppNavForegroundBrush}"
-                           VerticalAlignment="Center"
-                           Margin="14,0,0,0" />
                 <Button Grid.Column="1"
-                        Width="40"
-                        Height="40"
+                        Width="32"
+                        Height="28"
                         Padding="0"
                         Background="Transparent"
                         BorderBrush="Transparent"
@@ -54,8 +48,8 @@
                         Click="Close_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <iconPacks:PackIconMaterial Kind="Close"
-                                                Width="18"
-                                                Height="18"
+                                                Width="14"
+                                                Height="14"
                                                 Foreground="{DynamicResource AppNavForegroundBrush}" />
                 </Button>
             </Grid>

@@ -791,6 +791,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        OpenCameraPreviewWindow();
+    }
+
+    private void OpenCameraPreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenCameraPreviewWindow();
+    }
+
+    private void OpenCameraPreviewWindow()
+    {
         if (_cameraPreviewWindow is { IsVisible: true })
         {
             _cameraPreviewWindow.Activate();
