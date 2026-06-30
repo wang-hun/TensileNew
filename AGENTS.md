@@ -212,3 +212,20 @@ dotnet build .\TensileNeW.csproj
 - `release` 分支用于保存此前所有发布版本组成的版本链，每个版本应是一个以版本号命名的压缩提交，例如 `V1.1.2.2606`。不要把 `master` 的全部开发提交历史直接 merge 进 `release`，也不要生成包含整条 `master` 历史的 merge commit。
 - 发布新版本到 `release` 时，先确认 `release` 当前最新发布提交与 `master` 对应旧版本提交的文件树一致，再把从该旧版本到当前版本的最终文件树压成一个新提交。新提交必须以 `release` 当前最新发布提交为唯一父提交，确保 `release` 历史继续保留此前所有版本，再追加当前版本。
 - 如果 `release` 的发布版本是由 `master` 旧版本压缩得到，两个分支可能没有共同祖先；这种情况下不要使用 `git merge --allow-unrelated-histories` 把历史硬合进来。应使用等价文件树确认后创建单父压缩提交，并在操作后比较 `release` 与 `master` 当前文件树无差异。
+
+## 摄像头采集和预览
+
+摄像头功能使用 Windows 官方 WinRT API，不引入第三方摄像头库。核心封装在 `Services/CameraCaptureService.cs`：
+
+- 设备枚举使用 `DeviceInformation.FindAllAsync(DeviceClass.VideoCapture)`，配置保存设备 `Id` 和 `Name`。
+- 连接使用 `MediaCapture.InitializeAsync()`，通过 `MediaCaptureInitializationSettings.VideoDeviceId` 指定已选择设备。
+- 帧读取使用 `MediaFrameReader`，帧数据统一转换为 `SoftwareBitmap` 的 `Bgra8/Premultiplied` 格式，再写入 WPF `WriteableBitmap`。
+- WPF 不直接渲染摄像头原始帧；不要绕过 `SoftwareBitmap.Convert` 和 `WriteableBitmap` 这条转换链。
+
+启动阶段在 PLC 连接尝试之后、主窗口创建之前扫描摄像头，并接入 `StartupWaitWindow` 等待提示。首次启动且扫描到摄像头但配置为空时，必须弹出 `CameraSelectionWindow` 让用户选择，并把选择保存到 `Setting.json`。后续启动如果扫描到已保存设备则自动连接；如果保存的设备未扫描到或连接失败，主窗口显示摄像头连接失败弹窗，但不应阻塞 PLC 和主程序启动。
+
+系统设置页的摄像头下拉框绑定启动时扫描到的设备列表，保存时更新 `SettingModel.CameraDeviceId` / `CameraDeviceName` 并按当前选择重连预览。主页左侧试验参数下方显示摄像头预览，双击预览区域打开 `CameraPreviewWindow` 独立预览窗口；独立窗口必须使用当前主题标题栏，并允许拖动和调整大小。主页摄像头预览右侧的刷新按钮只在当前流断开或无画面时异步重连；正常播放时点击不做任何操作，重连结果只通过主窗口 Growl 提示。
+
+首次选择摄像头的 `CameraSelectionWindow` 必须沿用 HandyControl `Dialog.Show` 的弹窗风格，并在下拉框下方提供小预览画面。该预览必须借用主窗口持有的唯一 `CameraCaptureService` 实例，下拉框切换时异步切换同一条连接；用户确认后主窗口直接接管这条已打开连接，不允许释放后再重连，也不允许创建第二个摄像头服务实例与正式预览争用同一个摄像头。
+
+摄像头采集和 UI 刷新必须保持异步，不要在 UI 线程同步等待 `MediaCapture.InitializeAsync()`、`MediaFrameReader.StartAsync()` 或帧读取。摄像头连接失败不能影响 `DataAqc.Refresh()`、PLC 自动重连、曲线刷新和试验数据采集。

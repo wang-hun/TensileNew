@@ -91,6 +91,9 @@ namespace TensileNeW.Models
             {
                 SettingModel.ColorSchemeName = ThemeManager.DefaultSchemeName;
             }
+
+            SettingModel.CameraDeviceId ??= string.Empty;
+            SettingModel.CameraDeviceName ??= string.Empty;
         }
 
         public static BindingList<RecipeModel> GetRuntimeRecipes()

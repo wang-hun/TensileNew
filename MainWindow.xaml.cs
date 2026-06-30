@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media.Imaging;
 using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
 using TensileNeW.Models;
@@ -61,10 +62,16 @@ public partial class MainWindow : Window
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly bool _connectedAtStartup;
+    private readonly CameraStartupResult _cameraStartupResult;
     private readonly MainViewModel _viewModel;
     private VariableWindow? _variableWindow;
     private LoadDataWindow? _loadDataWindow;
     private PlotWindow? _plotWindow;
+    private CameraPreviewWindow? _cameraPreviewWindow;
+    private CameraCaptureService? _cameraCaptureService;
+    private BitmapSource? _currentCameraBitmap;
+    private bool _isClosing;
+    private bool _isCameraReconnectRunning;
     private readonly LoadPlotController _loadPlotController;
     private int _logoClickCount;
     private bool _networkProbeRunning;
@@ -105,10 +112,12 @@ public partial class MainWindow : Window
         new("全部页", true)
     ];
 
-    public MainWindow(bool connectedAtStartup)
+    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult = null)
     {
         _connectedAtStartup = connectedAtStartup;
-        _viewModel = new MainViewModel();
+        _cameraStartupResult = cameraStartupResult ?? new CameraStartupResult([], null, null, null);
+        _cameraCaptureService = _cameraStartupResult.CaptureService;
+        _viewModel = new MainViewModel(_cameraStartupResult.Devices);
         _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
@@ -137,6 +146,7 @@ public partial class MainWindow : Window
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
+        InitializeCameraPreview();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -244,6 +254,13 @@ public partial class MainWindow : Window
                 Dialog.Show(new ManualDocumentUnavailableDialog());
             });
         }
+
+        if (!string.IsNullOrWhiteSpace(_cameraStartupResult.FailureMessage))
+        {
+            Dispatcher.BeginInvoke(() => ShowCameraConnectionError(_cameraStartupResult.FailureMessage));
+        }
+
+        Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
     }
 
     private void LoadHelpDocument()
@@ -537,9 +554,12 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        _isClosing = true;
         _variableWindow?.Close();
         _loadDataWindow?.Close();
         _plotWindow?.Close();
+        _cameraPreviewWindow?.Close();
+        ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _plotAutoscaleTimer.Stop();
@@ -557,6 +577,244 @@ public partial class MainWindow : Window
     private void ResetPlot() => _loadPlotController.Reset();
 
     private void RefreshPlot() => _loadPlotController.Refresh();
+
+    private void InitializeCameraPreview()
+    {
+        if (_cameraCaptureService is null)
+        {
+            SetCameraPreviewSource(null);
+            return;
+        }
+
+        _cameraCaptureService.SetBitmapDispatcher(Dispatcher);
+        _cameraCaptureService.FrameArrived += CameraCaptureService_FrameArrived;
+        _cameraCaptureService.CaptureFailed += CameraCaptureService_CaptureFailed;
+        SetCameraPreviewSource(_cameraCaptureService.CurrentBitmap);
+    }
+
+    private async Task InitializeCameraAfterMainWindowShownAsync()
+    {
+        if (_cameraStartupResult.Devices.Count == 0 || !string.IsNullOrWhiteSpace(_cameraStartupResult.FailureMessage))
+        {
+            return;
+        }
+
+        if (_viewModel.SelectedCameraDevice is null)
+        {
+            ShowCameraSelectionDialog();
+            return;
+        }
+
+        await ApplySelectedCameraAsync();
+    }
+
+    private void ShowCameraSelectionDialog()
+    {
+        CameraCaptureService cameraService = EnsureCameraCaptureService();
+        CameraSelectionWindow dialog = new(_cameraStartupResult.Devices, cameraService);
+        dialog.Confirmed += (_, args) =>
+        {
+            _viewModel.SelectedCameraDevice = args.Device;
+            _viewModel.SaveSettings();
+            AttachActiveCameraService(args.Device);
+        };
+
+        Dialog.Show(dialog);
+    }
+
+    private CameraCaptureService EnsureCameraCaptureService()
+    {
+        _cameraCaptureService ??= new CameraCaptureService();
+        return _cameraCaptureService;
+    }
+
+    private void AttachActiveCameraService(CameraDeviceDescriptor selectedDevice)
+    {
+        if (_cameraCaptureService is null)
+        {
+            return;
+        }
+
+        _cameraCaptureService.FrameArrived -= CameraCaptureService_FrameArrived;
+        _cameraCaptureService.CaptureFailed -= CameraCaptureService_CaptureFailed;
+        _cameraCaptureService.FrameArrived += CameraCaptureService_FrameArrived;
+        _cameraCaptureService.CaptureFailed += CameraCaptureService_CaptureFailed;
+        SetCameraPreviewSource(_cameraCaptureService.CurrentBitmap);
+        ShowSuccess($"摄像头已连接：{selectedDevice.Name}");
+    }
+
+    private void CameraCaptureService_FrameArrived(object? sender, CameraFrameArrivedEventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => CameraCaptureService_FrameArrived(sender, e));
+            return;
+        }
+
+        SetCameraPreviewSource(e.Bitmap);
+    }
+
+    private void CameraCaptureService_CaptureFailed(object? sender, Exception e)
+    {
+        Logger.Error(e);
+    }
+
+    private void SetCameraPreviewSource(BitmapSource? source)
+    {
+        _currentCameraBitmap = source;
+        HomeCameraPreviewImage.Source = source;
+        HomeCameraEmptyTextBlock.Visibility = source is null ? Visibility.Visible : Visibility.Collapsed;
+        _cameraPreviewWindow?.SetPreviewSource(source);
+    }
+
+    private async Task ApplySelectedCameraAsync(bool showErrorDialog = true, bool showSuccessMessage = true)
+    {
+        CameraDeviceDescriptor? selectedDevice = _viewModel.SelectedCameraDevice;
+        if (selectedDevice is null)
+        {
+            if (_cameraCaptureService is not null)
+            {
+                _cameraCaptureService.FrameArrived -= CameraCaptureService_FrameArrived;
+                _cameraCaptureService.CaptureFailed -= CameraCaptureService_CaptureFailed;
+                await _cameraCaptureService.DisposeAsync();
+                _cameraCaptureService = null;
+            }
+
+            SetCameraPreviewSource(null);
+            return;
+        }
+
+        _cameraCaptureService = EnsureCameraCaptureService();
+        _cameraCaptureService.FrameArrived -= CameraCaptureService_FrameArrived;
+        _cameraCaptureService.CaptureFailed -= CameraCaptureService_CaptureFailed;
+        _cameraCaptureService.SetBitmapDispatcher(Dispatcher);
+
+        try
+        {
+            CameraCaptureService cameraCaptureService = _cameraCaptureService;
+            await Task.Run(async () => await cameraCaptureService.StartAsync(selectedDevice.Id, Dispatcher));
+            if (_isClosing)
+            {
+                return;
+            }
+
+            _cameraCaptureService.FrameArrived += CameraCaptureService_FrameArrived;
+            _cameraCaptureService.CaptureFailed += CameraCaptureService_CaptureFailed;
+            if (showSuccessMessage)
+            {
+                ShowSuccess($"摄像头已连接：{selectedDevice.Name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            SetCameraPreviewSource(null);
+            string message = $"{selectedDevice.Name}摄像头连接失败：{ex.Message}";
+            if (showErrorDialog)
+            {
+                ShowCameraConnectionError(message);
+            }
+            else
+            {
+                ShowError(message);
+            }
+        }
+    }
+
+    private async void RefreshCameraButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cameraCaptureService?.IsRunning == true && _currentCameraBitmap is not null)
+        {
+            return;
+        }
+
+        if (_isCameraReconnectRunning)
+        {
+            ShowInfo("摄像头正在重连，请稍后");
+            return;
+        }
+
+        if (_viewModel.SelectedCameraDevice is null)
+        {
+            ShowWarning("请先选择摄像头");
+            return;
+        }
+
+        _isCameraReconnectRunning = true;
+        RefreshCameraButton.IsEnabled = false;
+        try
+        {
+            ShowInfo("正在重新连接摄像头");
+            await ApplySelectedCameraAsync(showErrorDialog: false);
+        }
+        finally
+        {
+            RefreshCameraButton.IsEnabled = true;
+            _isCameraReconnectRunning = false;
+        }
+    }
+
+    private void ShowCameraConnectionError(string message)
+    {
+        ShowError(message);
+        MessageBox.Error(message, "摄像头连接失败");
+    }
+
+    private void ReleaseCameraInBackground()
+    {
+        CameraCaptureService? camera = _cameraCaptureService;
+        _cameraCaptureService = null;
+        if (camera is null)
+        {
+            return;
+        }
+
+        camera.FrameArrived -= CameraCaptureService_FrameArrived;
+        camera.CaptureFailed -= CameraCaptureService_CaptureFailed;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await camera.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+        });
+    }
+
+    private void HomeCameraPreview_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount < 2)
+        {
+            return;
+        }
+
+        OpenCameraPreviewWindow();
+    }
+
+    private void OpenCameraPreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenCameraPreviewWindow();
+    }
+
+    private void OpenCameraPreviewWindow()
+    {
+        if (_cameraPreviewWindow is { IsVisible: true })
+        {
+            _cameraPreviewWindow.Activate();
+            return;
+        }
+
+        _cameraPreviewWindow = new CameraPreviewWindow
+        {
+            Owner = this
+        };
+        _cameraPreviewWindow.Closed += (_, _) => _cameraPreviewWindow = null;
+        _cameraPreviewWindow.SetPreviewSource(_currentCameraBitmap);
+        _cameraPreviewWindow.Show();
+    }
 
     private void OpenPlotWindow()
     {
@@ -1171,9 +1429,10 @@ public partial class MainWindow : Window
         };
         Dialog.Show(dialog);
     }
-    private void SaveSettings_Click(object sender, RoutedEventArgs e)
+    private async void SaveSettings_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.SaveSettingsAndApplyLanguage();
+        await ApplySelectedCameraAsync();
         ShowSuccess("保存成功");
     }
 

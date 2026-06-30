@@ -51,6 +51,20 @@ namespace TensileNeW.Models
             set => SetProperty(ref _Language, value);
         }
 
+        private string _CameraDeviceId = string.Empty;
+        public string CameraDeviceId
+        {
+            get => _CameraDeviceId;
+            set => SetProperty(ref _CameraDeviceId, value);
+        }
+
+        private string _CameraDeviceName = string.Empty;
+        public string CameraDeviceName
+        {
+            get => _CameraDeviceName;
+            set => SetProperty(ref _CameraDeviceName, value);
+        }
+
         private bool _HideChartHintOnStartup;
         public bool HideChartHintOnStartup
         {
