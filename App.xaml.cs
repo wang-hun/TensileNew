@@ -1,11 +1,13 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Newtonsoft.Json.Linq;
 using TensileNeW.Models;
 using TensileNeW.Services;
@@ -54,32 +56,29 @@ public partial class App : Application
             bool needsToGenerateCache = ManualDocumentService.NeedsToGenerateCache();
             waitWindow = new StartupWaitWindow(
                 needsToGenerateCache
-                    ? "正在安装试验说明书，请稍后...."
-                    : "正在加载安装试验说明书，请稍后....");
+                    ? "正在安装试验说明书，请稍后..."
+                    : "正在加载试验说明书，请稍后...");
             waitWindow.SetHintVisibility(isFirstRun);
             waitWindow.Show();
 
             ManualDocumentStartupResult manualStartupResult = await Task.Run(ManualDocumentService.PrepareManualCache);
             await Task.Delay(TimeSpan.FromMilliseconds(300));
 
-            waitWindow.SetWaitText("正在连接控制器，请稍后....");
+            waitWindow.SetWaitText("正在连接控制器，请稍后...");
             Task<FontFamily> sevenSegmentFontTask = Task.Run(SevenSegmentFontHelper.GetFontFamilyOrDefault);
             Task minimumStartupDelayTask = Task.Delay(TimeSpan.FromSeconds(2));
             Task<bool> connectTask = TryConnectWithTimeoutAsync();
             bool connected = await connectTask;
-            if (connected)
-            {
-                waitWindow.SetWaitText("GENBON");
-                await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(500)));
-            }
-            else
-            {
-                await minimumStartupDelayTask;
-            }
 
             Resources["SevenSegmentFontFamily"] = await sevenSegmentFontTask;
 
-            MainWindow mainWindow = new(connected)
+            await waitWindow.SetWaitTextAsync("正在扫描摄像头设备，请稍后...");
+            CameraStartupResult cameraStartupResult = await Task.Run(ScanCameraDevicesAsync);
+
+            await waitWindow.SetWaitTextAsync("GENBON");
+            await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(800)));
+
+            MainWindow mainWindow = new(connected, cameraStartupResult)
             {
                 HasMissingManualOffice = manualStartupResult.HasMissingOffice
             };
@@ -234,6 +233,44 @@ public partial class App : Application
         }
     }
 
+    private static async Task<CameraStartupResult> ScanCameraDevicesAsync()
+    {
+        if (!CameraCaptureService.IsSupported)
+        {
+            return new CameraStartupResult([], null, null, "当前系统不支持摄像头采集。");
+        }
+
+        IReadOnlyList<CameraDeviceDescriptor> devices;
+        try
+        {
+            devices = await CameraCaptureService.FindVideoCaptureDevicesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return new CameraStartupResult([], null, null, $"摄像头扫描失败：{ex.Message}");
+        }
+
+        if (devices.Count == 0)
+        {
+            return new CameraStartupResult(devices, null, null, null);
+        }
+
+        string configuredId = RAM.SettingModel.CameraDeviceId;
+        if (!string.IsNullOrWhiteSpace(configuredId))
+        {
+            bool configuredDeviceExists = devices.Any(device =>
+                string.Equals(device.Id, configuredId, StringComparison.Ordinal));
+            if (!configuredDeviceExists)
+            {
+                string name = string.IsNullOrWhiteSpace(RAM.SettingModel.CameraDeviceName)
+                    ? configuredId
+                    : RAM.SettingModel.CameraDeviceName;
+                return new CameraStartupResult(devices, null, null, $"{name}摄像头连接失败");
+            }
+        }
+
+        return new CameraStartupResult(devices, null, null, null);
+    }
     private static Assembly? ResolveAssemblyFromLib(object? sender, ResolveEventArgs args)
     {
         string? assemblyName = new AssemblyName(args.Name).Name;
@@ -267,3 +304,6 @@ public partial class App : Application
         }
     }
 }
+
+
+

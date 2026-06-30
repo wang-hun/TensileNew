@@ -13,6 +13,15 @@ namespace TensileNeW.Services;
 
 public sealed record CameraDeviceDescriptor(string Id, string Name);
 
+public sealed record CameraStartupResult(
+    IReadOnlyList<CameraDeviceDescriptor> Devices,
+    CameraCaptureService? CaptureService,
+    CameraDeviceDescriptor? SelectedDevice,
+    string? FailureMessage)
+{
+    public bool Connected => CaptureService is not null && SelectedDevice is not null && string.IsNullOrWhiteSpace(FailureMessage);
+}
+
 public sealed record CameraFrameSnapshot(
     int Width,
     int Height,
@@ -138,6 +147,12 @@ public sealed class CameraCaptureService : IAsyncDisposable
         {
             _stateLock.Release();
         }
+    }
+
+    public void SetBitmapDispatcher(Dispatcher? bitmapDispatcher)
+    {
+        _bitmapDispatcher = bitmapDispatcher;
+        _bitmap = null;
     }
 
     public async Task StopAsync()

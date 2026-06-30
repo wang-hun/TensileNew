@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using TensileNeW.Models;
+using TensileNeW.Services;
 using TensileNeW.Tools;
 
 namespace TensileNeW;
@@ -26,13 +27,16 @@ public sealed class MainViewModel : ObservableObject
 
     public event Action<string>? RecipeWritten;
 
-    public MainViewModel()
+    private CameraDeviceDescriptor? _selectedCameraDevice;
+
+    public MainViewModel(IReadOnlyList<CameraDeviceDescriptor>? cameraDevices = null)
     {
         DataAqc.EnsureInitialized();
         RAM.EnsureValidSettings();
 
         _variables = DataAqc.PLCVariables.ToDictionary(x => x.Name);
         Recipes = RAM.GetRuntimeRecipes();
+        CameraDevices = cameraDevices ?? [];
         LoadItems = DataAqc.loadModels;
         PlcVariables = DataAqc.PLCVariables;
         _startupLanguage = RAM.SettingModel.Language;
@@ -46,9 +50,12 @@ public sealed class MainViewModel : ObservableObject
         Recipes.ListChanged += Recipes_ListChanged;
         AttachRecipeHandlers();
         SelectedRecipe = FindStartupRecipe();
+        SelectedCameraDevice = CameraDevices.FirstOrDefault(device =>
+            string.Equals(device.Id, Setting.CameraDeviceId, StringComparison.Ordinal));
     }
 
     public BindingList<RecipeModel> Recipes { get; }
+    public IReadOnlyList<CameraDeviceDescriptor> CameraDevices { get; }
     public BindingList<Loadmodel> LoadItems { get; }
     public BindingList<PLCVariable> PlcVariables { get; }
     public IReadOnlyList<ColorScheme> ColorSchemes => ThemeManager.Schemes;
@@ -130,6 +137,23 @@ public sealed class MainViewModel : ObservableObject
             RAM.ChangedIndex(Recipes.IndexOf(value));
         }
     }
+
+    public CameraDeviceDescriptor? SelectedCameraDevice
+    {
+        get => _selectedCameraDevice;
+        set
+        {
+            if (!SetProperty(ref _selectedCameraDevice, value))
+            {
+                return;
+            }
+
+            Setting.CameraDeviceId = value?.Id ?? string.Empty;
+            Setting.CameraDeviceName = value?.Name ?? string.Empty;
+            OnPropertyChanged(nameof(Setting));
+        }
+    }
+
     public PLCVariable Variable(string name) => _variables[name];
 
     public string ChartPolylinePoints
