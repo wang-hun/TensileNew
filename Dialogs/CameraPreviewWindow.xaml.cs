@@ -27,6 +27,6 @@ public partial class CameraPreviewWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        Close();
+        Close(); 
     }
 }
