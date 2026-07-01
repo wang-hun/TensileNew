@@ -24,6 +24,7 @@
 - `Assets/`：图标、Logo、默认配方和字体资源。
 - `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
+- `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
 
 ## 启动流程
 
@@ -166,6 +167,20 @@
 注意单文件模式下 `System.Reflection.Assembly.Location` 会返回空字符串（编译器 IL3000 警告），涉及程序目录定位的代码必须优先使用 `Environment.ProcessPath` 或 `AppContext.BaseDirectory`，不能依赖 `Assembly.Location`。当前 `ManualDocumentService` 已用 `Environment.ProcessPath` 优先，修改这些路径逻辑时要保持单文件兼容。
 
 调试 builder 时不要把 `outputRoot` 指到仓库根目录：builder 会把 `outputRoot` 的上级目录当成历史发布目录清理，可能误删仓库里的 `NLog.config` 等文件。验证时应使用仓库外的临时目录作为输出根。
+
+## 独立安装器
+
+`installer/Installer` 是独立安装器项目，界面和部署逻辑不应塞进主程序。安装器可以依赖 builder 的发布能力，但只允许在构建安装器时调用 builder：先由 installer 项目的 MSBuild 目标调用 `builder\Builder` 生成绿色版发布目录，再压缩为 `payload.zip` 并作为嵌入资源写入安装器。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
+
+安装器运行时职责：
+
+- 显示写死的安装界面、纯线条 Logo 和部署动画，不读取主程序主题。
+- 允许用户选择部署路径，默认使用当前用户可写路径，尽量避免管理员权限。
+- 可选创建当前用户桌面快捷方式，不写注册表，不注册卸载项。
+- 释放嵌入的绿色版发布包后，静默生成 Word/PPT 说明文件的 XPS 缓存；没有 Office/WPS 或转换失败时必须静默跳过，不弹错误提示。
+- 完成后显示“部署成功”，提供“启动 ECS”和“关闭”。
+
+验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，不是最终安装器。安装器项目每次 Build 后必须自动调用自身 `dotnet publish -c Release`，最终交付物只认 `installer/Installer/bin/<Configuration>/<TargetFramework>/<RuntimeIdentifier>/publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
 
 ## 编码规则
 

@@ -10,7 +10,7 @@
     <ExternalProjectPublishOnBuild Condition="'$(ExternalProjectPublishOnBuild)' == ''">true</ExternalProjectPublishOnBuild>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(ExternalProjectPublishOnBuild)' == 'true'">
     <ProjectReference Include="$(ExternalProjectPath)" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 

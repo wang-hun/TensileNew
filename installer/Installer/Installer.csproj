@@ -1,0 +1,103 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ECS-Installer</AssemblyName>
+    <RootNamespace>EcsInstaller</RootNamespace>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.14393.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>..\..\Assets\logo.ico</ApplicationIcon>
+    <Version>1.1.6.2606</Version>
+    <AssemblyVersion>1.1.6.2606</AssemblyVersion>
+    <FileVersion>1.1.6.2606</FileVersion>
+    <InformationalVersion>V1.1.6.2606</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <BuilderProjectPath Condition="'$(BuilderProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\builder\Builder\Builder.csproj</BuilderProjectPath>
+    <MainProjectPath Condition="'$(MainProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\TensileNeW.csproj</MainProjectPath>
+    <InstallerPayloadWorkRoot>$([System.IO.Path]::Combine($([System.IO.Path]::GetTempPath()), 'EcsInstallerPayload', '$(Configuration)'))</InstallerPayloadWorkRoot>
+    <InstallerPayloadRoot>$(InstallerPayloadWorkRoot)\payload-root</InstallerPayloadRoot>
+    <InstallerPayloadZip>$(InstallerPayloadWorkRoot)\payload.zip</InstallerPayloadZip>
+    <InstallerBuildPayload Condition="'$(InstallerBuildPayload)' == ''">true</InstallerBuildPayload>
+    <InstallerPublishOnBuild Condition="'$(InstallerPublishOnBuild)' == ''">true</InstallerPublishOnBuild>
+    <InstallerPublishConfiguration Condition="'$(InstallerPublishConfiguration)' == ''">Release</InstallerPublishConfiguration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Resource Include="..\..\Assets\logo.ico" Link="Assets\logo.ico" />
+    <None Remove="payload.zip" />
+    <None Remove="payload\**" />
+    <None Remove="payload-root\**" />
+    <Content Remove="payload.zip" />
+    <Content Remove="payload\**" />
+    <Content Remove="payload-root\**" />
+    <EmbeddedResource Remove="payload.zip" />
+    <EmbeddedResource Remove="payload\**" />
+    <EmbeddedResource Remove="payload-root\**" />
+    <Compile Remove="payload-root\**" />
+    <Page Remove="payload-root\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HandyControl" Version="3.5.1" />
+    <PackageReference Include="MahApps.Metro.IconPacks" Version="6.2.1" />
+  </ItemGroup>
+
+  <Target Name="BuildInstallerPayload"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(InstallerBuildPayload)' == 'true' and ('$(InstallerPublishOnBuild)' != 'true' or '$(InstallerPublishFromBuild)' == 'true')">
+    <RemoveDir Directories="$(InstallerPayloadRoot)" />
+    <MakeDir Directories="$(InstallerPayloadRoot)" />
+    <Exec Command="dotnet run --project &quot;$(BuilderProjectPath)&quot; --no-launch-profile -p:ExternalProjectPublishOnBuild=false -- pack &quot;$(MainProjectPath)&quot; &quot;Release&quot; &quot;$(InstallerPayloadRoot)&quot;" />
+    <Delete Files="$(InstallerPayloadZip)" />
+    <ZipDirectory SourceDirectory="$(InstallerPayloadRoot)" DestinationFile="$(InstallerPayloadZip)" Overwrite="true" />
+    <ItemGroup>
+      <EmbeddedResource Include="$(InstallerPayloadZip)" LogicalName="EcsInstaller.Payload.payload.zip" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="ReadInstallerVersionFromMainProject" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo" Condition="Exists('$(MainProjectPath)')">
+    <XmlPeek XmlInputPath="$(MainProjectPath)" Query="/Project/PropertyGroup/Version/text()">
+      <Output TaskParameter="Result" ItemName="_MainProjectVersion" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(MainProjectPath)" Query="/Project/PropertyGroup/InformationalVersion/text()">
+      <Output TaskParameter="Result" ItemName="_MainProjectInformationalVersion" />
+    </XmlPeek>
+    <PropertyGroup Condition="'@(_MainProjectVersion)' != ''">
+      <Version>@(_MainProjectVersion)</Version>
+      <AssemblyVersion>@(_MainProjectVersion)</AssemblyVersion>
+      <FileVersion>@(_MainProjectVersion)</FileVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'@(_MainProjectInformationalVersion)' != ''">
+      <InformationalVersion>@(_MainProjectInformationalVersion)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="PublishSingleFileInstallerAfterBuild"
+          AfterTargets="Build"
+          Condition="'$(InstallerPublishOnBuild)' == 'true' and '$(InstallerPublishFromBuild)' != 'true'">
+    <PropertyGroup>
+      <InstallerPublishOutputDir>$(TargetDir)publish</InstallerPublishOutputDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(InstallerPublishOutputDir)" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c &quot;$(InstallerPublishConfiguration)&quot; -p:InstallerPublishFromBuild=true -p:InstallerPublishOnBuild=false -o &quot;$(InstallerPublishOutputDir)&quot;" />
+    <ItemGroup>
+      <_InstallerPublishDebugFile Include="$(InstallerPublishOutputDir)\*.pdb" />
+      <_InstallerPublishDebugFile Include="$(InstallerPublishOutputDir)\*.xml" />
+      <_InstallerOutputDll Include="$(InstallerPublishOutputDir)\*.dll" />
+    </ItemGroup>
+    <Delete Files="@(_InstallerPublishDebugFile)" />
+    <Error Condition="!Exists('$(InstallerPublishOutputDir)\$(AssemblyName).exe')" Text="Installer publish did not produce $(AssemblyName).exe." />
+    <Error Condition="'@(_InstallerOutputDll)' != ''" Text="Installer publish left loose DLL(s): @(_InstallerOutputDll)." />
+  </Target>
+
+</Project>
