@@ -48,12 +48,15 @@ public sealed class CameraCaptureService : IAsyncDisposable
     public const int MinimumWindowsBuildNumber = 14393;
 
     private readonly SemaphoreSlim _stateLock = new(1, 1);
+    private readonly object _renderLock = new();
 
     private MediaCapture? _mediaCapture;
     private MediaFrameReader? _frameReader;
     private Dispatcher? _bitmapDispatcher;
     private WriteableBitmap? _bitmap;
+    private CameraFrameSnapshot? _latestRenderFrame;
     private bool _isRunning;
+    private bool _renderPending;
 
     public event EventHandler<CameraFrameArrivedEventArgs>? FrameArrived;
 
@@ -152,7 +155,7 @@ public sealed class CameraCaptureService : IAsyncDisposable
     public void SetBitmapDispatcher(Dispatcher? bitmapDispatcher)
     {
         _bitmapDispatcher = bitmapDispatcher;
-        _bitmap = null;
+        ResetRenderState();
     }
 
     public async Task StopAsync()
@@ -218,7 +221,7 @@ public sealed class CameraCaptureService : IAsyncDisposable
         _mediaCapture?.Dispose();
         _mediaCapture = null;
         _bitmapDispatcher = null;
-        _bitmap = null;
+        ResetRenderState();
     }
 
     private void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
@@ -286,17 +289,51 @@ public sealed class CameraCaptureService : IAsyncDisposable
             return;
         }
 
+        lock (_renderLock)
+        {
+            _latestRenderFrame = snapshot;
+            if (_renderPending)
+            {
+                return;
+            }
+
+            _renderPending = true;
+        }
+
         dispatcher.BeginInvoke(() =>
         {
-            WriteableBitmap bitmap = GetOrCreateBitmap(snapshot);
+            CameraFrameSnapshot? latestSnapshot;
+            lock (_renderLock)
+            {
+                latestSnapshot = _latestRenderFrame;
+                _latestRenderFrame = null;
+                _renderPending = false;
+            }
+
+            if (!_isRunning || latestSnapshot is null)
+            {
+                return;
+            }
+
+            WriteableBitmap bitmap = GetOrCreateBitmap(latestSnapshot);
             bitmap.WritePixels(
-                new Int32Rect(0, 0, snapshot.Width, snapshot.Height),
-                snapshot.BgraPixels,
-                snapshot.Stride,
+                new Int32Rect(0, 0, latestSnapshot.Width, latestSnapshot.Height),
+                latestSnapshot.BgraPixels,
+                latestSnapshot.Stride,
                 0);
 
-            FrameArrived?.Invoke(this, new CameraFrameArrivedEventArgs(snapshot, bitmap));
+            FrameArrived?.Invoke(this, new CameraFrameArrivedEventArgs(latestSnapshot, bitmap));
         }, DispatcherPriority.Render);
+    }
+
+    private void ResetRenderState()
+    {
+        lock (_renderLock)
+        {
+            _latestRenderFrame = null;
+            _renderPending = false;
+            _bitmap = null;
+        }
     }
 
     private WriteableBitmap GetOrCreateBitmap(CameraFrameSnapshot snapshot)
