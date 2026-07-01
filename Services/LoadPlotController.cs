@@ -60,6 +60,7 @@ public sealed class LoadPlotController
         }
 
         ApplyLabels();
+        _plotHost.UserInputProcessor.DoubleLeftClickBenchmark(false);
         configureMenu?.Invoke();
         _plotHost.Refresh();
         _initialized = true;

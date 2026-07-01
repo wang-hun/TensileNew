@@ -24,6 +24,7 @@
 - `Assets/`：图标、Logo、默认配方和字体资源。
 - `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
+- `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
 
 ## 启动流程
 
@@ -167,6 +168,20 @@
 
 调试 builder 时不要把 `outputRoot` 指到仓库根目录：builder 会把 `outputRoot` 的上级目录当成历史发布目录清理，可能误删仓库里的 `NLog.config` 等文件。验证时应使用仓库外的临时目录作为输出根。
 
+## 独立安装器
+
+`installer/Installer` 是独立安装器项目，界面和部署逻辑不应塞进主程序。安装器可以依赖 builder 的发布能力，但只允许在构建安装器时调用 builder：先由 installer 项目的 MSBuild 目标调用 `builder\Builder` 生成绿色版发布目录，再压缩为 `payload.zip` 并作为嵌入资源写入安装器。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
+
+安装器运行时职责：
+
+- 显示写死的安装界面、纯线条 Logo 和部署动画，不读取主程序主题。
+- 允许用户选择部署路径，默认使用当前用户可写路径，尽量避免管理员权限。
+- 可选创建当前用户桌面快捷方式，不写注册表，不注册卸载项。
+- 释放嵌入的绿色版发布包后，静默生成 Word/PPT 说明文件的 XPS 缓存；没有 Office/WPS 或转换失败时必须静默跳过，不弹错误提示。
+- 完成后显示“部署成功”，提供“启动 ECS”和“关闭”。
+
+验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，不是最终安装器。安装器项目每次 Build 后必须自动调用自身 `dotnet publish -c Release`，最终交付物只认 `installer/Installer/bin/<Configuration>/<TargetFramework>/<RuntimeIdentifier>/publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
+
 ## 编码规则
 
 - 所有新增或修改的文件必须使用 UTF-8 编码，避免引入乱码。
@@ -177,6 +192,11 @@
 ## 修改约束
 
 - 保持现有 WPF、HandyControl、MahApps、ScottPlot 和 MVVM Toolkit 的使用方式，不为局部修改引入新的 UI 框架或大规模重构。
+- 修改主界面 UI 前必须先确认所在 Grid/Border 的固定宽高、Margin、Padding 和可用空间，新增按钮、图标或文字后要按实际可用宽度核算总宽高，避免折叠、遮挡、显示不全或挤压相邻控件。
+- 主界面按钮应优先复用现有 `ActionButtonStyle`、`IndicatorActionButtonStyle`、`ButtonPrimary`、`ButtonDanger` 等本地样式和动态主题资源；除非确有必要，不要临时手写一套背景色、边框色、字体或高度，避免破坏主题一致性。
+- 在 DataGrid、曲线图、预览区等内容控件上叠放小按钮时，必须给表头文字、滚动条和内容区域预留空间；不能让按钮覆盖关键数据、列标题或交互区域。必要时通过缩小按钮、调整列宽、增加右侧 Padding/Margin 或使用独立工具列解决。
+- 隐藏某个 UI 开关时，不应只隐藏文字和选择框后留下空白承载行；要同时评估承载它的行高、背景块和相邻按钮布局是否还需要保留、压缩或移位。
+- 修改 XAML 布局后，除 `dotnet build .\TensileNeW.csproj` 外，还应人工检查关键窗口在目标尺寸下是否存在裁切、重叠、折叠、显示不全和主题不一致；无法运行界面时必须在回复中明确说明只做了静态尺寸核算和构建验证。
 - 修改 PLC 通信逻辑时，要确认是否影响启动连接、手动重连、自动重连和采集循环。
 - 修改配方逻辑时，要确认内置配方和用户配方的保存边界。`RAM.NormalizeUserRecipes()` 会过滤内置配方，避免把内置配方写入用户配置。
 - 修改试验指导文档逻辑时，要确认 `manuals/` 资源复制、缓存生成、PDF/Word/PPT 内嵌预览和缺少 Office/WPS 时的降级提示。

@@ -951,7 +951,6 @@
                     <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="按下后序列号自增1" Margin="0,3,0,0" FontSize="14" FontWeight="Normal" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
               </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="3" Margin="6,3,6,5" VerticalAlignment="Top">
@@ -977,58 +976,64 @@
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
           <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Button Style="{StaticResource ActionButtonStyle}" Width="240" FontSize="22" Click="SaveDataAndReport_Click">
+            <Grid Width="268" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="220" />
+              </Grid.ColumnDefinitions>
+              <Button Grid.Column="0"
+                      Padding="0"
+                      Style="{StaticResource ActionButtonStyle}"
+                      ToolTip="打开数据保存文件夹"
+                      Click="OpenDataSaveFolder_Click">
+                <iconPacks:PackIconForkAwesome Kind="FolderOpen" Width="20" Height="20" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </Button>
+              <Button Grid.Column="2" Style="{StaticResource ActionButtonStyle}" FontSize="20" Click="SaveDataAndReport_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="24" Height="24" Margin="0,0,6,0" />
-                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="24" Height="24" Margin="0,0,8,0" />
+                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="22" Height="22" Margin="0,0,5,0" />
+                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="22" Height="22" Margin="0,0,7,0" />
                   <TextBlock Text="保存数据和报告" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
-            </StackPanel>
+            </Grid>
           </Grid>
           <Grid Grid.Row="1" Margin="5,0,5,5">
             <Grid.RowDefinitions>
-              <RowDefinition Height="42" />
+              <RowDefinition Height="30" />
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
-              <Grid>
-                <CheckBox x:Name="MainLoadDataAutoScrollCheckBox"
-                          IsChecked="True"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Content="自动滚动到最新行"
-                          ToolTip="自动滚动到最新行" />
-                <Button Width="36"
-                        Height="36"
-                        Margin="0,0,6,0"
-                        Padding="0"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Background="{DynamicResource AppSurfaceBackgroundBrush}"
-                        BorderBrush="#1677FF"
-                        BorderThickness="1"
-                        ToolTip="新窗口打开"
-                        Click="OpenLoadDataWindow_Click">
-                  <iconPacks:PackIconPhosphorIcons Kind="ArrowSquareOutBold" Width="22" Height="22" Foreground="#1677FF" />
-                </Button>
-              </Grid>
+            <CheckBox x:Name="MainLoadDataAutoScrollCheckBox"
+                      IsChecked="True"
+                      Visibility="Collapsed"
+                      Content="自动滚动到最新行" />
+            <Button Width="28"
+                    Height="28"
+                    Margin="0,0,2,2"
+                    Padding="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="0"
+                    ToolTip="新窗口打开"
+                    Click="OpenLoadDataWindow_Click">
+              <iconPacks:PackIconPhosphorIcons Kind="ArrowSquareOutBold" Width="17" Height="17" Foreground="#1677FF" />
+            </Button>
+            <Border Grid.Row="1" Background="{DynamicResource AppSidebarBackgroundBrush}">
+              <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="10" ShadowDepth="2" Direction="270" Opacity="0.16" />
+              </Border.Effect>
+              <DataGrid x:Name="MainLoadDataGrid" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0" BorderThickness="0" Background="{DynamicResource AppSidebarBackgroundBrush}">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="1.5*" />
+                  <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="2*" />
+                  <DataGridTextColumn Header="力(kN)" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="2*" />
+                  <DataGridTextColumn Header="压边(kN)" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="2*" />
+                  <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="2.5*" Visibility="Collapsed" />
+                </DataGrid.Columns>
+              </DataGrid>
             </Border>
-            <DataGrid x:Name="MainLoadDataGrid" Grid.Row="1" ItemsSource="{Binding LoadItems}" AutoGenerateColumns="False" IsReadOnly="True" RowHeaderWidth="0" Background="{DynamicResource AppSidebarBackgroundBrush}">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="序号" Binding="{Binding Index}" Width="1.5*" />
-                <DataGridTextColumn Header="位移(mm)" Binding="{Binding RealDistance, Converter={StaticResource FloatFormat}}" Width="2*" />
-                <DataGridTextColumn Header="力(kN)" Binding="{Binding RealForce, Converter={StaticResource FloatFormat}}" Width="2*" />
-                <DataGridTextColumn Header="压边(kN)" Binding="{Binding RealPress, Converter={StaticResource FloatFormat}}" Width="2*" />
-                <DataGridTextColumn Header="时间(s)" Binding="{Binding Time}" Width="2.5*" Visibility="Collapsed" />
-              </DataGrid.Columns>
-            </DataGrid>
           </Grid>
           </Grid>
         </Border>

@@ -1,0 +1,96 @@
+<UserControl x:Class="EcsInstaller.IntroPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <PathGeometry x:Key="LineLogoGeometry">
+            <PathFigure StartPoint="42.2,9.5" IsClosed="False">
+                <LineSegment Point="11,27.5" />
+                <LineSegment Point="11,72.5" />
+                <LineSegment Point="50,95" />
+                <LineSegment Point="89,72.5" />
+                <LineSegment Point="50,50" />
+                <LineSegment Point="50,45" />
+                <LineSegment Point="50,55" />
+                <LineSegment Point="50,50" />
+                <LineSegment Point="89,27.5" />
+                <LineSegment Point="57.8,9.5" />
+            </PathFigure>
+        </PathGeometry>
+    </UserControl.Resources>
+
+    <Grid Margin="38,30,38,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center">
+            <Grid Width="88" Height="88" Margin="0,0,0,12">
+                <Path Data="{StaticResource LineLogoGeometry}"
+                      Stretch="Uniform"
+                      Stroke="#FF8B4AB8"
+                      StrokeThickness="4"
+                      StrokeStartLineCap="Flat"
+                      StrokeEndLineCap="Flat" />
+            </Grid>
+            <TextBlock Text="ECS"
+                       FontSize="26"
+                       FontWeight="SemiBold"
+                       Foreground="#FF382244"
+                       HorizontalAlignment="Center" />
+            <TextBlock x:Name="VersionTextBlock"
+                       Margin="0,4,0,0"
+                       FontSize="13"
+                       Foreground="#FF715984"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,28,0,0">
+            <TextBlock Text="部署路径"
+                       Foreground="#FF4D3A5B"
+                       FontSize="14"
+                       Margin="0,0,0,8" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="96" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="InstallPathTextBox"
+                         Height="38"
+                         VerticalContentAlignment="Center"
+                         FontSize="14"
+                         Padding="10,0"
+                         BorderBrush="#FFC7A7DA"
+                         Background="#FFFFFFFF"
+                         Foreground="#FF2E2235" />
+                <Button Grid.Column="1"
+                        Height="38"
+                        Margin="10,0,0,0"
+                        Content="选择..."
+                        Click="Browse_Click"
+                        Background="#FF8B4AB8"
+                        Foreground="White"
+                        BorderThickness="0" />
+            </Grid>
+            <CheckBox x:Name="DesktopShortcutCheckBox"
+                      Content="创建桌面快捷方式"
+                      IsChecked="True"
+                      FontSize="14"
+                      Foreground="#FF4D3A5B"
+                      Margin="0,20,0,0" />
+        </StackPanel>
+
+        <Button Grid.Row="2"
+                Width="178"
+                Height="46"
+                HorizontalAlignment="Center"
+                Content="开始部署"
+                Click="Install_Click"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Background="#FF8B4AB8"
+                Foreground="White"
+                BorderThickness="0" />
+    </Grid>
+</UserControl>
