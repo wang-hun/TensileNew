@@ -1188,6 +1188,27 @@ public partial class MainWindow : Window
         _viewModel.SaveDataAs();
     }
 
+    private void OpenDataSaveFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string folderPath = RAM.SettingModel.ExcelFolderPath;
+            Directory.CreateDirectory(folderPath);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{folderPath}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("打开数据保存文件夹失败");
+        }
+    }
+
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
