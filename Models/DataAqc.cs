@@ -117,6 +117,7 @@ namespace TensileNeW.Models
                 PLCVariables.Add(new PLCVariable { Name = "传感器标零状态", Address = "M61", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
                 PLCVariables.Add(new PLCVariable { Name = "弹料", Address = "M70", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
                 PLCVariables.Add(new PLCVariable { Name = "压边", Address = "M80", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
+                PLCVariables.Add(new PLCVariable { Name = "完全复位", Address = "M111", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
 
 
                 PLCVariables.Add(new PLCVariable { Name = "压边线圈", Address = "Y6", DataType = "Boolean", CurrentValue = "False", WriteValue = "False" });
@@ -198,6 +199,7 @@ namespace TensileNeW.Models
                 DateTime exceptionTime = DateTime.Now;
                 bool beginScan = false;
                 bool dataResetFlag = false;
+                bool fullResetFlag = false;
                 DateTime beginScanTime = DateTime.Now;
                 DateTime beginEnqueTime = DateTime.Now;
                 int IndexCount = 0;
@@ -231,6 +233,7 @@ namespace TensileNeW.Models
                             var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
                             var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
                             var mBoolValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
+                            bool fullResetValue = TryReadFullResetValue();
                             var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
 
                             dispatcher.Invoke(() =>
@@ -267,6 +270,7 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "传感器标零状态").CurrentValue = mBoolValue[60].ToString();
                                 PLCVariables.First(t => t.Name == "弹料").CurrentValue = mBoolValue[69].ToString();
                                 PLCVariables.First(t => t.Name == "压边").CurrentValue = mBoolValue[79].ToString();
+                                PLCVariables.First(t => t.Name == "完全复位").CurrentValue = fullResetValue.ToString();
                                 PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = mBoolValue[36].ToString();
 
                                 PLCVariables.First(t => t.Name == "拉伸线圈").CurrentValue = y4Value[0].ToString();
@@ -275,9 +279,20 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = y4Value[3].ToString();
 
                                 #region 数据重置触发
-                                if (mBoolValue[9] && dataResetFlag == false)
+                                bool dataResetTriggered = mBoolValue[9] && dataResetFlag == false;
+                                bool fullResetTriggered = fullResetValue && fullResetFlag == false;
+                                if (dataResetTriggered || fullResetTriggered)
                                 {
-                                    dataResetFlag = true;
+                                    if (dataResetTriggered)
+                                    {
+                                        dataResetFlag = true;
+                                    }
+
+                                    if (fullResetTriggered)
+                                    {
+                                        fullResetFlag = true;
+                                    }
+
                                     ClearQueue();
                                     IndexCount = 0;
                                     loadModels?.Clear();
@@ -287,6 +302,11 @@ namespace TensileNeW.Models
                                 if (dataResetFlag && mBoolValue[9] == false)
                                 {
                                     dataResetFlag = false;
+                                }
+
+                                if (fullResetFlag && fullResetValue == false)
+                                {
+                                    fullResetFlag = false;
                                 }
                                 #endregion
 
@@ -354,6 +374,19 @@ namespace TensileNeW.Models
         }
 
 
+
+        private static bool TryReadFullResetValue()
+        {
+            try
+            {
+                return plc.ReadBool((ushort)ModbusAddressHelper.ConvertToModbusAddresss("M111").HexAddress);
+            }
+            catch (Exception ex)
+            {
+                logger.Debug(ex, "读取完全复位 M111 失败，按未触发处理。");
+                return false;
+            }
+        }
 
         /// <summary>
         /// 新的model 追加到队列尾部
