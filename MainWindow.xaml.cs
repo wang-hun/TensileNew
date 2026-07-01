@@ -1155,7 +1155,6 @@ public partial class MainWindow : Window
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("数据重置");
-        _viewModel.AdvanceTrialSerialNumber();
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
@@ -1185,7 +1184,10 @@ public partial class MainWindow : Window
     private void SaveData_Click(object sender, RoutedEventArgs e)
     {
         using var _ = BeginCurrentTrialPlotScope();
-        _viewModel.SaveDataAs();
+        if (_viewModel.SaveDataAs())
+        {
+            _viewModel.AdvanceTrialSerialNumber();
+        }
     }
 
     private void OpenDataSaveFolder_Click(object sender, RoutedEventArgs e)
@@ -1253,6 +1255,7 @@ public partial class MainWindow : Window
             }
 
             ShowSuccess("数据和试验报告保存成功");
+            _viewModel.AdvanceTrialSerialNumber();
         }
         catch (Exception ex)
         {

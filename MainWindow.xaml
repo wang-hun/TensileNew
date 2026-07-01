@@ -951,7 +951,6 @@
                     <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                   </StackPanel>
                 </Button>
-                <TextBlock Text="按下后序列号自增1" Margin="0,3,0,0" FontSize="14" FontWeight="Normal" Foreground="Black" HorizontalAlignment="Center" TextAlignment="Center" />
               </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="3" Margin="6,3,6,5" VerticalAlignment="Top">

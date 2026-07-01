@@ -330,7 +330,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public void SaveDataAs()
+    public bool SaveDataAs()
     {
         string recipeName = SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
@@ -342,10 +342,11 @@ public sealed class MainViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true)
         {
-            return;
+            return false;
         }
 
         SaveDataToFile(dialog.FileName);
+        return true;
     }
 
     public void SaveDataToFile(string fileName)
