@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using NLog;
@@ -18,6 +19,8 @@ public static class TrialDataStore
     private static bool _started;
     private static bool _disabled;
     private static string? _activeTrialSerialNumber;
+
+    public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
     public static void EnqueuePoint(string trialSerialNumber, Loadmodel source)
     {
@@ -76,6 +79,73 @@ public static class TrialDataStore
         }
         catch
         {
+        }
+    }
+
+    public static IReadOnlyList<TrialCurveSummary> GetRecentCurveSummaries(int count)
+    {
+        if (count <= 0)
+        {
+            return [];
+        }
+
+        string databasePath = GetDatabasePath(createDirectory: false);
+        if (!File.Exists(databasePath))
+        {
+            return [];
+        }
+
+        try
+        {
+            using SqliteConnection connection = new($"Data Source={databasePath}");
+            connection.Open();
+
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Id, TrialSerialNumber, PointIndex, CreatedAtUtc
+                FROM TrialPoints
+                ORDER BY Id;
+                """;
+
+            List<TrialCurveSummary> summaries = [];
+            string? previousTrialSerialNumber = null;
+            int? previousPointIndex = null;
+
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                string trialSerialNumber = reader.GetString(1);
+                int pointIndex = reader.GetInt32(2);
+                string createdAtText = reader.GetString(3);
+
+                bool startsNewCurve =
+                    previousTrialSerialNumber is null ||
+                    !string.Equals(previousTrialSerialNumber, trialSerialNumber, StringComparison.Ordinal) ||
+                    pointIndex <= 1 ||
+                    (previousPointIndex.HasValue && pointIndex <= previousPointIndex.Value);
+
+                if (startsNewCurve &&
+                    DateTime.TryParse(
+                        createdAtText,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out DateTime startedAtUtc))
+                {
+                    summaries.Add(new TrialCurveSummary(trialSerialNumber, startedAtUtc));
+                }
+
+                previousTrialSerialNumber = trialSerialNumber;
+                previousPointIndex = pointIndex;
+            }
+
+            return summaries
+                .TakeLast(count)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "读取试验曲线摘要失败。");
+            return [];
         }
     }
 

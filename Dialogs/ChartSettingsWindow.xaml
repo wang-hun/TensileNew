@@ -43,8 +43,7 @@
     </Window.Resources>
     <Grid>
         <Border Background="{DynamicResource AppSurfaceBackgroundBrush}"
-                BorderBrush="{DynamicResource AppLayoutBorderBrush}"
-                BorderThickness="1"
+                BorderThickness="0"
                 CornerRadius="4">
             <Grid Margin="22,42">
                 <Grid.RowDefinitions>

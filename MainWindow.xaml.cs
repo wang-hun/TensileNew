@@ -571,7 +571,10 @@ public partial class MainWindow : Window
 
     private void InitializePlot()
     {
-        _loadPlotController.Initialize(() => _loadPlotController.LocalizeContextMenu(OpenPlotWindow));
+        _loadPlotController.Initialize(() => _loadPlotController.LocalizeContextMenu(
+            OpenPlotWindow,
+            () => ShowCurveFilterDialog(_loadPlotController),
+            () => ShowClearPlotConfirmDialog(_loadPlotController)));
     }
 
     private void ResetPlot() => _loadPlotController.Reset();
@@ -833,6 +836,39 @@ public partial class MainWindow : Window
         };
         _plotWindow.Closed += (_, _) => _plotWindow = null;
         _plotWindow.Show();
+    }
+
+    private void ShowCurveFilterDialog(LoadPlotController plotController)
+    {
+        IReadOnlyList<LoadPlotController.CurveFilterEntry> entries = plotController.GetCurveFilterEntries();
+        if (entries.Count == 0)
+        {
+            ShowWarning("当前没有可筛选的曲线。");
+            return;
+        }
+
+        var dialog = new CurveFilterWindow(entries)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            plotController.ApplyCurveFilter(dialog.GetSelections());
+        }
+    }
+
+    private void ShowClearPlotConfirmDialog(LoadPlotController plotController)
+    {
+        if (!plotController.HasCurves)
+        {
+            ShowWarning("当前曲线图没有可清空的曲线。");
+            return;
+        }
+
+        var dialog = new ClearPlotConfirmDialog();
+        dialog.Confirmed += (_, _) => plotController.ClearCurrentPlotCurves();
+        Dialog.Show(dialog);
     }
 
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";

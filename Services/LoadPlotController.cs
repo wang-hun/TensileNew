@@ -38,7 +38,12 @@ public sealed class LoadPlotController
     private CurveSeries? _currentSeries;
     private int _pointCount;
     private int _nextColorIndex;
+    private int _nextCurveId;
     private bool _initialized;
+
+    public sealed record CurveFilterEntry(int CurveId, string TrialSerialNumber, DateTime? StartedAtUtc, bool IsVisible);
+
+    public sealed record CurveFilterSelection(int CurveId, bool IsVisible);
 
     public LoadPlotController(WpfPlot plotHost, Func<bool> autoTrackLatestPoint, Func<bool> showLegend, Func<bool> keepPlotOnReset, int tickLabelFontSize)
     {
@@ -121,6 +126,7 @@ public sealed class LoadPlotController
                 series.Scatter.LegendText = series.TrialSerialNumber;
                 series.Scatter.Color = series.LineColor;
                 series.Scatter.MarkerSize = 0;
+                series.Scatter.IsVisible = series.IsVisible;
             }
 
             _pointCount++;
@@ -187,7 +193,7 @@ public sealed class LoadPlotController
         {
             if (series.Scatter != null)
             {
-                series.Scatter.IsVisible = true;
+                series.Scatter.IsVisible = series.IsVisible;
             }
         }
 
@@ -195,7 +201,76 @@ public sealed class LoadPlotController
         _plotHost.Refresh();
     }
 
-    public void LocalizeContextMenu(Action? openInNewWindow = null)
+    public IReadOnlyList<CurveFilterEntry> GetCurveFilterEntries()
+    {
+        CurveSeries[] series = _seriesQueue.ToArray();
+        IReadOnlyList<TrialDataStore.TrialCurveSummary> summaries = TrialDataStore.GetRecentCurveSummaries(series.Length);
+        int summaryOffset = Math.Max(0, summaries.Count - series.Length);
+
+        List<CurveFilterEntry> entries = [];
+        for (int i = 0; i < series.Length; i++)
+        {
+            TrialDataStore.TrialCurveSummary? summary =
+                i + summaryOffset < summaries.Count
+                    ? summaries[i + summaryOffset]
+                    : null;
+
+            entries.Add(new CurveFilterEntry(
+                series[i].CurveId,
+                summary?.TrialSerialNumber ?? series[i].TrialSerialNumber,
+                summary?.StartedAtUtc,
+                series[i].IsVisible));
+        }
+
+        entries.Reverse();
+        return entries;
+    }
+
+    public void ApplyCurveFilter(IEnumerable<CurveFilterSelection> selections)
+    {
+        Dictionary<int, bool> visibilityByCurveId = selections.ToDictionary(x => x.CurveId, x => x.IsVisible);
+        foreach (CurveSeries series in _seriesQueue)
+        {
+            if (!visibilityByCurveId.TryGetValue(series.CurveId, out bool isVisible))
+            {
+                continue;
+            }
+
+            series.IsVisible = isVisible;
+            if (series.Scatter != null)
+            {
+                series.Scatter.IsVisible = isVisible;
+            }
+        }
+
+        _plotHost.Refresh();
+    }
+
+    public bool HasCurves => _seriesQueue.Count > 0;
+
+    public void ClearCurrentPlotCurves()
+    {
+        if (!HasCurves)
+        {
+            return;
+        }
+
+        if (IsDataCollecting() && _currentSeries != null)
+        {
+            RemoveCurvesExceptCurrent();
+            ApplyLabels();
+            _plotHost.Refresh();
+            return;
+        }
+
+        ClearAllCurvesFromPlot();
+        _pointCount = DataAqc.loadModels?.Count ?? 0;
+        _nextColorIndex = 0;
+        ApplyLabels();
+        _plotHost.Refresh();
+    }
+
+    public void LocalizeContextMenu(Action? openInNewWindow = null, Action? filterCurves = null, Action? clearCurrentPlot = null)
     {
         var menu = _plotHost.Menu;
         if (menu == null)
@@ -236,6 +311,24 @@ public sealed class LoadPlotController
                     }
                     break;
             }
+        }
+
+        if (filterCurves != null && !items.Any(x => x.Label is "Filter Curves" or "筛选曲线"))
+        {
+            items.Add(new ContextMenuItem
+            {
+                Label = isEn ? "Filter Curves" : "筛选曲线",
+                OnInvoke = _ => filterCurves()
+            });
+        }
+
+        if (clearCurrentPlot != null && !items.Any(x => x.Label is "Clear Current Plot" or "清空当前曲线图"))
+        {
+            items.Add(new ContextMenuItem
+            {
+                Label = isEn ? "Clear Current Plot" : "清空当前曲线图",
+                OnInvoke = _ => clearCurrentPlot()
+            });
         }
     }
 
@@ -298,6 +391,7 @@ public sealed class LoadPlotController
     private CurveSeries CreateSeries(string trialSerialNumber)
     {
         var series = new CurveSeries(
+            ++_nextCurveId,
             trialSerialNumber,
             PlotLineColors[_nextColorIndex % PlotLineColors.Length]);
         _nextColorIndex++;
@@ -318,6 +412,38 @@ public sealed class LoadPlotController
         return series;
     }
 
+    private void RemoveCurvesExceptCurrent()
+    {
+        CurveSeries current = _currentSeries!;
+        foreach (CurveSeries series in _seriesQueue)
+        {
+            if (series == current)
+            {
+                continue;
+            }
+
+            if (series.Scatter != null)
+            {
+                _plotHost.Plot.Remove(series.Scatter);
+            }
+        }
+
+        _seriesQueue.Clear();
+        _visibleTrialSerialNumbers.Clear();
+        _temporarilyHiddenSeries.Clear();
+        _seriesQueue.Enqueue(current);
+        _visibleTrialSerialNumbers.Enqueue(current.TrialSerialNumber);
+    }
+
+    private void ClearAllCurvesFromPlot()
+    {
+        _plotHost.Plot.Clear();
+        _seriesQueue.Clear();
+        _visibleTrialSerialNumbers.Clear();
+        _temporarilyHiddenSeries.Clear();
+        _currentSeries = null;
+    }
+
     private static bool IsDataCollecting()
     {
         DataAqc.EnsureInitialized();
@@ -325,10 +451,12 @@ public sealed class LoadPlotController
         return bool.TryParse(variable.CurrentValue, out bool value) && value;
     }
 
-    private sealed class CurveSeries(string trialSerialNumber, Color lineColor)
+    private sealed class CurveSeries(int curveId, string trialSerialNumber, Color lineColor)
     {
+        public int CurveId { get; } = curveId;
         public string TrialSerialNumber { get; } = trialSerialNumber;
         public Color LineColor { get; } = lineColor;
+        public bool IsVisible { get; set; } = true;
         public List<double> Xs { get; } = [];
         public List<double> Ys { get; } = [];
         public ScottPlot.Plottables.Scatter? Scatter { get; set; }
