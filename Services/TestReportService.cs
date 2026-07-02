@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Resources;
+using NPOI.OpenXmlFormats.Wordprocessing;
 using NPOI.Util;
 using NPOI.WP.UserModel;
 using NPOI.XWPF.UserModel;
@@ -11,6 +12,14 @@ namespace TensileNeW.Services;
 
 public static class TestReportService
 {
+    private const ulong A4WidthTwips = 11906;
+    private const ulong A4HeightTwips = 16838;
+    private const ulong PageHorizontalMarginTwips = 900;
+    private const ulong PageTopMarginTwips = 720;
+    private const ulong PageBottomMarginTwips = 540;
+    private const int ParameterTableWidthTwips = 7600;
+    private const int ReportBodyIndentTwips = 353;
+
     public static void Save(
         string fileName,
         string imagePath,
@@ -22,6 +31,7 @@ public static class TestReportService
         RecipeModel? recipe)
     {
         using var document = new XWPFDocument();
+        ConfigurePage(document);
         AddLogoHeader(document);
 
         AddParagraph(document, "试验报告", 18, bold: true, ParagraphAlignment.CENTER);
@@ -32,16 +42,39 @@ public static class TestReportService
             bold: false,
             ParagraphAlignment.CENTER);
 
-        AddPictureParagraph(document, imagePath, maxWidth: 500, maxHeight: 330, ParagraphAlignment.CENTER);
+        AddPictureParagraph(document, imagePath, maxWidth: 470, maxHeight: 285, ParagraphAlignment.CENTER);
 
-        AddParagraph(document, "试验结果", 14, bold: true);
-        AddParagraph(document, $"最大拉伸力：{WithUnit(maxForce, "KN")}", 12);
-        AddParagraph(document, $"有效拉伸位移：{WithUnit(validDistance, "mm")}", 12);
+        AddParagraph(document, "试验结果", 14, bold: true, indentationLeft: ReportBodyIndentTwips);
+        AddParagraph(document, $"最大拉伸力：{WithUnit(maxForce, "KN")}", 12, indentationLeft: ReportBodyIndentTwips);
+        AddParagraph(document, $"有效拉伸位移：{WithUnit(validDistance, "mm")}", 12, indentationLeft: ReportBodyIndentTwips);
 
         AddParameterSection(document, recipe);
 
         using var stream = File.Create(fileName);
         document.Write(stream);
+    }
+
+    private static void ConfigurePage(XWPFDocument document)
+    {
+        CT_SectPr section = document.Document.body.sectPr ?? new CT_SectPr();
+        document.Document.body.sectPr = section;
+
+        section.pgSz = new CT_PageSz
+        {
+            w = A4WidthTwips,
+            h = A4HeightTwips
+        };
+
+        section.pgMar = new CT_PageMar
+        {
+            left = PageHorizontalMarginTwips,
+            right = PageHorizontalMarginTwips,
+            top = PageTopMarginTwips,
+            bottom = PageBottomMarginTwips,
+            header = 360,
+            footer = 360,
+            gutter = 0
+        };
     }
 
     public static string SaveClipboardImageToTempFile()
@@ -104,7 +137,7 @@ public static class TestReportService
 
     private static void AddParameterSection(XWPFDocument document, RecipeModel? recipe)
     {
-        AddParagraph(document, "参数设置", 14, bold: true);
+        AddParagraph(document, "参数设置", 14, bold: true, indentationLeft: ReportBodyIndentTwips);
 
         List<(string Name, string Value)> parameters =
         [
@@ -118,6 +151,7 @@ public static class TestReportService
         ];
 
         var table = document.CreateTable(parameters.Count + 1, 2);
+        ConfigureParameterTable(table);
         SetCellText(table.GetRow(0).GetCell(0), "参数", bold: true);
         SetCellText(table.GetRow(0).GetCell(1), "值", bold: true);
 
@@ -133,10 +167,18 @@ public static class TestReportService
         string text,
         int fontSize,
         bool bold = false,
-        ParagraphAlignment alignment = ParagraphAlignment.LEFT)
+        ParagraphAlignment alignment = ParagraphAlignment.LEFT,
+        int? indentationLeft = null)
     {
         var paragraph = document.CreateParagraph();
         paragraph.Alignment = alignment;
+        paragraph.SpacingBefore = 0;
+        paragraph.SpacingAfter = 60;
+        if (indentationLeft.HasValue)
+        {
+            paragraph.IndentationLeft = indentationLeft.Value;
+        }
+
         var run = paragraph.CreateRun();
         run.FontSize = fontSize;
         run.IsBold = bold;
@@ -152,6 +194,8 @@ public static class TestReportService
     {
         var paragraph = document.CreateParagraph();
         paragraph.Alignment = alignment;
+        paragraph.SpacingBefore = 0;
+        paragraph.SpacingAfter = 60;
         var run = paragraph.CreateRun();
 
         using var stream = File.OpenRead(imagePath);
@@ -168,9 +212,29 @@ public static class TestReportService
     private static void SetCellText(XWPFTableCell cell, string text, bool bold = false)
     {
         var paragraph = cell.Paragraphs.Count > 0 ? cell.Paragraphs[0] : cell.AddParagraph();
+        paragraph.SpacingBefore = 0;
+        paragraph.SpacingAfter = 0;
         var run = paragraph.CreateRun();
         run.IsBold = bold;
         run.SetText(text);
+    }
+
+    private static void ConfigureParameterTable(XWPFTable table)
+    {
+        table.Width = ParameterTableWidthTwips;
+
+        CT_TblPr tableProperties = table.GetCTTbl().tblPr ?? new CT_TblPr();
+        table.GetCTTbl().tblPr = tableProperties;
+        tableProperties.tblW = new CT_TblWidth
+        {
+            type = ST_TblWidth.dxa,
+            typeSpecified = true,
+            w = ParameterTableWidthTwips.ToString()
+        };
+        tableProperties.jc = new CT_Jc
+        {
+            val = ST_Jc.center
+        };
     }
 
     private static string FormatValue(float? value) => value?.ToString("0.###") ?? string.Empty;
