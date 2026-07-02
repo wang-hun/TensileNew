@@ -977,6 +977,10 @@
           </Grid.RowDefinitions>
           <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
             <Grid Width="268" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="24" />
+              </Grid.RowDefinitions>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40" />
                 <ColumnDefinition Width="8" />
@@ -996,6 +1000,15 @@
                   <TextBlock Text="保存数据和报告" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
+              <CheckBox x:Name="AlgorithmIntegratedDataCheckBox"
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        IsChecked="True"
+                        Content="额外保存算法整合数据"
+                        FontSize="12"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
             </Grid>
           </Grid>
           <Grid Grid.Row="1" Margin="5,0,5,5">

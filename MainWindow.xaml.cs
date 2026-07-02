@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -1264,12 +1265,17 @@ public partial class MainWindow : Window
 
             Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
+            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
             string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string trialSerialNumber = SNModel.GetSn();
             DateTime generatedAt = DateTime.Now;
             string maxForce = MaxForceVariable.CurrentValue;
             string validDistance = ValidDistanceVariable.CurrentValue;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
+            bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
+            var algorithmIntegratedDataSnapshot = DataAqc.loadModels.ToList();
+            double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
+                ResolveAlgorithmSpeed(recipe));
 
             using (BeginCurrentTrialPlotScope())
             {
@@ -1278,6 +1284,14 @@ public partial class MainWindow : Window
                 await Task.Run(() =>
                 {
                     _viewModel.SaveDataToFile(excelPath);
+                    if (saveAlgorithmIntegratedData)
+                    {
+                        DisplacementResamplingService.SaveResampledDataToFile(
+                            algorithmIntegratedDataPath,
+                            algorithmIntegratedDataSnapshot,
+                            algorithmDisplacementStep);
+                    }
+
                     SaveTestReportDocumentToFile(
                         reportPath,
                         tempImagePath,
@@ -1308,6 +1322,31 @@ public partial class MainWindow : Window
             waitWindow.Close();
             IsEnabled = true;
         }
+    }
+
+    private static double ResolveAlgorithmSpeed(RecipeModel? recipe)
+    {
+        if (double.TryParse(
+                SpeedVariable.CurrentValue,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out double speedFromVariable) &&
+            speedFromVariable > 0)
+        {
+            return speedFromVariable;
+        }
+
+        if (double.TryParse(
+                SpeedVariable.CurrentValue,
+                NumberStyles.Float,
+                CultureInfo.CurrentCulture,
+                out speedFromVariable) &&
+            speedFromVariable > 0)
+        {
+            return speedFromVariable;
+        }
+
+        return recipe?.Speed > 0 ? recipe.Speed : DisplacementResamplingService.DefaultSpeed;
     }
 
     private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
