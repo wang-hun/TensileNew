@@ -70,8 +70,8 @@ public static class DisplacementResamplingService
             ];
         }
 
-        double start = Math.Ceiling(points[0].RealDistance / displacementStep) * displacementStep;
-        double end = Math.Floor(points[^1].RealDistance / displacementStep) * displacementStep;
+        double start = Math.Floor(points[0].RealDistance / displacementStep) * displacementStep;
+        double end = Math.Ceiling(points[^1].RealDistance / displacementStep) * displacementStep;
         if (start > end)
         {
             return [];
@@ -83,16 +83,26 @@ public static class DisplacementResamplingService
 
         for (double distance = start; distance <= end + displacementStep * 0.5d; distance += displacementStep)
         {
-            while (segmentIndex < points.Count - 2 &&
-                   points[segmentIndex + 1].RealDistance < distance)
+            if (distance <= points[0].RealDistance)
             {
-                segmentIndex++;
+                segmentIndex = 0;
+            }
+            else if (distance >= points[^1].RealDistance)
+            {
+                segmentIndex = points.Count - 2;
+            }
+            else
+            {
+                while (segmentIndex < points.Count - 2 &&
+                       points[segmentIndex + 1].RealDistance < distance)
+                {
+                    segmentIndex++;
+                }
             }
 
             SourcePoint left = points[segmentIndex];
             SourcePoint right = points[segmentIndex + 1];
             double ratio = (distance - left.RealDistance) / (right.RealDistance - left.RealDistance);
-            ratio = Math.Clamp(ratio, 0d, 1d);
 
             result.Add(new ResampledLoadPoint(
                 outputIndex++,
