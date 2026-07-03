@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TensileNeW.Services;
 
 namespace TensileNeW.Models
 { 
@@ -44,6 +45,10 @@ namespace TensileNeW.Models
             }
 
             EnsureValidSettings();
+            TrialDataStore.InitializeRecipes(
+                BuiltInRecipes,
+                SettingModel.RecipeModelS ?? new System.ComponentModel.BindingList<RecipeModel>(),
+                SettingModel.CurRecipeModel);
              
             logger.Info("加载配方参数");
 

@@ -1205,6 +1205,7 @@ public partial class MainWindow : Window
         bool ok = await _viewModel.WriteRecipeAsync();
         if (ok)
         {
+            TrialDataStore.RecordRecipeVersion(_viewModel.SelectedRecipe);
             string name = _viewModel.SelectedRecipe?.RecipeName ?? string.Empty;
             ShowSuccess($"已写入配置参数：{name}");
         }

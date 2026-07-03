@@ -123,6 +123,7 @@ public sealed class MainViewModel : ObservableObject
 
             if (value == null)
             {
+                TrialDataStore.SetCurrentRecipe(null);
                 OnPropertyChanged(nameof(IsSelectedRecipeEditable));
                 OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
                 OnPropertyChanged(nameof(SelectedRecipeEditHint));
@@ -130,6 +131,7 @@ public sealed class MainViewModel : ObservableObject
             }
 
             RAM.SettingModel.CurRecipeModel = value;
+            TrialDataStore.SetCurrentRecipe(value);
             OnPropertyChanged(nameof(Setting));
             OnPropertyChanged(nameof(IsSelectedRecipeEditable));
             OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
@@ -281,6 +283,7 @@ public sealed class MainViewModel : ObservableObject
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
         SaveSettings();
+        TrialDataStore.RecordRecipeVersion(recipe);
         return true;
     }
     public void DeleteRecipe()
@@ -297,7 +300,9 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        RecipeModel deletedRecipe = SelectedRecipe;
         Recipes.RemoveAt(selectedIndex);
+        TrialDataStore.RecordRecipeDeleted(deletedRecipe);
 
         if (Recipes.Count == 0)
         {
@@ -323,6 +328,7 @@ public sealed class MainViewModel : ObservableObject
     public void SaveSettingsAndApplyLanguage()
     {
         SaveSettings();
+        TrialDataStore.RecordRecipeVersion(SelectedRecipe);
         if (!string.Equals(_startupLanguage, Setting.Language, StringComparison.OrdinalIgnoreCase))
         {
             MessageBox.Show("语言已切换，软件即将关闭 !", "TensileNeW");
