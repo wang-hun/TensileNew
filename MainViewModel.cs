@@ -63,6 +63,12 @@ public sealed class MainViewModel : ObservableObject
     public bool IsEnglish => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase);
     public string[] Languages { get; } = ["CN", "EN"];
     public string[] LanguageDisplayItems { get; } = ["中文", "英语"];
+    public string[] RuntimeDataSavePolicyItems { get; } =
+    [
+        SettingModel.RuntimeDataSaveAlwaysYes,
+        SettingModel.RuntimeDataSaveAskEveryTime,
+        SettingModel.RuntimeDataSaveAlwaysNo
+    ];
 
     public string SelectedLanguageDisplay
     {

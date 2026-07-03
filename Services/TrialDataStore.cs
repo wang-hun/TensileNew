@@ -165,6 +165,71 @@ public static class TrialDataStore
         }
     }
 
+    public static bool HasAnyTrialData()
+    {
+        try
+        {
+            if (!FlushPendingWork(TimeSpan.FromSeconds(3)))
+            {
+                return false;
+            }
+
+            string databasePath = GetDatabasePath(createDirectory: false);
+            if (!File.Exists(databasePath))
+            {
+                return false;
+            }
+
+            using SqliteConnection connection = new($"Data Source={databasePath}");
+            connection.Open();
+
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT EXISTS(SELECT 1 FROM TrialPoints LIMIT 1);";
+            object? result = command.ExecuteScalar();
+            return Convert.ToInt32(result, CultureInfo.InvariantCulture) == 1;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "检查运行数据库是否存在试验数据失败。");
+            return false;
+        }
+    }
+
+    public static string? ExportDatabaseCopy(string destinationDirectory)
+    {
+        try
+        {
+            if (!FlushPendingWork(TimeSpan.FromSeconds(3)))
+            {
+                return null;
+            }
+
+            string databasePath = GetDatabasePath(createDirectory: false);
+            if (!File.Exists(databasePath) || !HasAnyTrialData())
+            {
+                return null;
+            }
+
+            Directory.CreateDirectory(destinationDirectory);
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+            string destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}.sqlite");
+            int duplicateIndex = 1;
+            while (File.Exists(destinationPath))
+            {
+                destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}-{duplicateIndex}.sqlite");
+                duplicateIndex++;
+            }
+
+            File.Copy(databasePath, destinationPath);
+            return destinationPath;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "导出运行数据库失败。");
+            return null;
+        }
+    }
+
     public static IReadOnlyList<TrialCurveSummary> GetRecentCurveSummaries(int count)
     {
         if (count <= 0)
@@ -234,6 +299,25 @@ public static class TrialDataStore
 
             _writerTask = Task.Run(ProcessQueue);
             _started = true;
+        }
+    }
+
+    private static bool FlushPendingWork(TimeSpan timeout)
+    {
+        if (!_started || PendingWork.IsAddingCompleted)
+        {
+            return true;
+        }
+
+        TaskCompletionSource<bool> flushed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            PendingWork.Add(new FlushWork(flushed));
+            return flushed.Task.Wait(timeout);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -539,6 +623,14 @@ public static class TrialDataStore
         {
             MarkRecipeDeleted(connection, Recipe);
             state.ActiveRecipeIds.Remove(Recipe.Key);
+        }
+    }
+
+    private sealed record FlushWork(TaskCompletionSource<bool> Flushed) : IDatabaseWork
+    {
+        public void Execute(SqliteConnection connection, WriterState state)
+        {
+            Flushed.TrySetResult(true);
         }
     }
 

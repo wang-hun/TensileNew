@@ -72,6 +72,10 @@ public partial class MainWindow : Window
     private CameraCaptureService? _cameraCaptureService;
     private BitmapSource? _currentCameraBitmap;
     private bool _isClosing;
+    private bool _shutdownCleanupStarted;
+    private bool _runtimeDataSavePromptHandled;
+    private bool _runtimeDataSavePromptOpen;
+    private bool _runtimeDataSavePromptShouldSave;
     private bool _isCameraReconnectRunning;
     private readonly LoadPlotController _loadPlotController;
     private int _logoClickCount;
@@ -555,6 +559,24 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        if (!_runtimeDataSavePromptHandled && ShouldPromptRuntimeDataSaveOnExit())
+        {
+            e.Cancel = true;
+            ShowRuntimeDataSavePrompt();
+            return;
+        }
+
+        RunShutdownCleanup();
+    }
+
+    private void RunShutdownCleanup()
+    {
+        if (_shutdownCleanupStarted)
+        {
+            return;
+        }
+
+        _shutdownCleanupStarted = true;
         _isClosing = true;
         _variableWindow?.Close();
         _loadDataWindow?.Close();
@@ -566,8 +588,88 @@ public partial class MainWindow : Window
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
+        HandleRuntimeDataSaveOnExit();
         TrialDataStore.TryDeleteDatabaseFile();
         Logger.Info("关闭程序");
+    }
+
+    private bool ShouldPromptRuntimeDataSaveOnExit()
+    {
+        return !_runtimeDataSavePromptOpen
+            && string.Equals(_viewModel.Setting.RuntimeDataSavePolicy, SettingModel.RuntimeDataSaveAskEveryTime, StringComparison.Ordinal)
+            && TrialDataStore.HasAnyTrialData();
+    }
+
+    private void ShowRuntimeDataSavePrompt()
+    {
+        if (_runtimeDataSavePromptOpen)
+        {
+            return;
+        }
+
+        _runtimeDataSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow
+        {
+            Owner = this
+        };
+
+        dialog.Closed += (_, _) =>
+        {
+            _runtimeDataSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            _runtimeDataSavePromptHandled = true;
+            _runtimeDataSavePromptShouldSave = dialog.ShouldSave;
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.RuntimeDataSavePolicy = dialog.ShouldSave
+                    ? SettingModel.RuntimeDataSaveAlwaysYes
+                    : SettingModel.RuntimeDataSaveAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            Close();
+        };
+
+        dialog.ShowDialog();
+    }
+
+    private void HandleRuntimeDataSaveOnExit()
+    {
+        try
+        {
+            if (!TrialDataStore.HasAnyTrialData())
+            {
+                return;
+            }
+
+            string policy = _viewModel.Setting.RuntimeDataSavePolicy;
+            bool shouldSave = policy == SettingModel.RuntimeDataSaveAlwaysYes ||
+                (_runtimeDataSavePromptHandled && _runtimeDataSavePromptShouldSave);
+
+            if (!shouldSave)
+            {
+                return;
+            }
+
+            string? exportedPath = TrialDataStore.ExportDatabaseCopy(_viewModel.Setting.ExcelFolderPath);
+            if (string.IsNullOrWhiteSpace(exportedPath))
+            {
+                MessageBox.Error("运行数据保存失败。", "保存运行数据");
+                return;
+            }
+
+            Logger.Info($"运行数据已保存到：{exportedPath}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "程序退出时保存运行数据失败。");
+            MessageBox.Error("运行数据保存失败。", "保存运行数据");
+        }
     }
 
     private void InitializePlot()

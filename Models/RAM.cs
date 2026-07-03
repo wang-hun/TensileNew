@@ -99,6 +99,12 @@ namespace TensileNeW.Models
 
             SettingModel.CameraDeviceId ??= string.Empty;
             SettingModel.CameraDeviceName ??= string.Empty;
+            if (SettingModel.RuntimeDataSavePolicy is not SettingModel.RuntimeDataSaveAlwaysYes
+                and not SettingModel.RuntimeDataSaveAskEveryTime
+                and not SettingModel.RuntimeDataSaveAlwaysNo)
+            {
+                SettingModel.RuntimeDataSavePolicy = SettingModel.RuntimeDataSaveAlwaysNo;
+            }
         }
 
         public static BindingList<RecipeModel> GetRuntimeRecipes()
