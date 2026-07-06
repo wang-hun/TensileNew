@@ -1267,7 +1267,46 @@ public partial class MainWindow : Window
             ColorSchemesButton.Visibility = Visibility.Visible;
             _viewModel.CurrentPage = "ColorSchemes";
         };
+        dialog.DebugAlgorithmDataRequested += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(new Action(async () => await RunDebugAlgorithmDataImportAsync()));
+        };
         dialog.ShowDialog();
+    }
+
+    private async Task RunDebugAlgorithmDataImportAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "选择原始数据 Excel",
+            Filter = "Excel 文件 (*.xlsx;*.xls)|*.xlsx;*.xls",
+            Multiselect = false
+        };
+
+        if (Directory.Exists(RAM.SettingModel.ExcelFolderPath))
+        {
+            dialog.InitialDirectory = RAM.SettingModel.ExcelFolderPath;
+        }
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            double displacementStep = DisplacementResamplingService.GetDisplacementStep(
+                ResolveAlgorithmSpeed(_viewModel.SelectedRecipe));
+            string outputFileName = await Task.Run(() =>
+                DebugAlgorithmExcelService.CreateDebugIntegratedDataFile(dialog.FileName, displacementStep));
+
+            ShowSuccess($"整合数据已生成：{Path.GetFileName(outputFileName)}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("原始数据整合处理失败");
+        }
     }
 
     private void ApplyColorScheme_Click(object sender, RoutedEventArgs e)

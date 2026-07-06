@@ -146,6 +146,8 @@
 
 算法实现位于 `Services/DisplacementResamplingService.cs`。位移间隔按 `速度设定 / 20` 计算，速度为 `1mm/s` 时对应 `0.05mm`；速度解析失败时才回退到 `0.05mm`。横轴使用 `Loadmodel.RealDistance`，力值使用相邻原始点线性插值得到，压边力和时间字段作为辅助列同步插值或透传。导出范围需要覆盖原始位移范围外侧的整间隔边界：起点向下取整、终点向上取整，边界点使用首尾相邻两点做线性外推，不能只保留内部插值点。保存事件中应先对 `DataAqc.loadModels` 做快照，再在线程池中生成额外文件，避免 UI 线程卡顿，也避免计算过程中实时采集列表继续变化影响本次算法数据。
 
+隐藏调试入口：管理员密码窗口输入 `datai` 时，主窗口会弹出原始数据 Excel 文件选择框，选择 `.xlsx` / `.xls` 后由 `Services/DebugAlgorithmExcelService.cs` 读取第一张表并复用 `DisplacementResamplingService.SaveResampledDataToFile()` 生成同目录 `{原文件名}_整合数据_debug.xlsx`。该入口只用于离线验证算法整合数据，不应改变正常“保存数据和报告”流程，不应写入 `Setting.json`，也不应直接读写实时采集队列。
+
 修改配置模型时，需要同时考虑旧 `Setting.json` 的兼容性，避免空值导致启动失败。
 
 ## 版本管理
