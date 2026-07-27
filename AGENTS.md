@@ -13,6 +13,14 @@
 
 主窗口和主要交互在 `MainWindow.xaml`、`MainWindow.xaml.cs` 和 `MainViewModel.cs` 中。应用启动入口在 `App.xaml.cs`。
 
+## Demo 工程隔离
+
+`demo/` 是与产品程序并列的独立 WPF 示例工程，项目文件为 `demo/Demo.csproj`，程序集名为 `demo`。它用于演示可扩展的设备连接、采集接口、曲线、摄像头、PDF 和导出框架，不是 `ECS` 产品程序的一部分。
+
+- 产品构建、发布、绿色版打包和安装器只以 `TensileNeW.csproj` / `ECS` 为目标；不得把 `demo/` 编入产品项目、builder、installer 或产品发布包。
+- 修改 `demo/` 时必须遵守 `demo/AGENTS.md`；其中的空采集映射、示例数据、PDF-only 阅读边界和 demo 标识不得回流到产品程序。
+- 修改产品代码时不要以 demo 页面、配置或示例曲线作为产品行为依据。需要验证 demo 时单独运行 `dotnet build .\demo\Demo.csproj`，并把 demo 的 `bin/`、`obj/` 和运行数据视为独立验证产物。
+
 ## 目录职责
 
 - `Models/`：运行状态、配置、配方、PLC 变量、试验数据等模型。`RAM.cs` 负责加载和保存 `Setting.json`，`DataAqc.cs` 负责 PLC 变量初始化、连接、采集循环和数据队列。
@@ -23,6 +31,7 @@
 - `Themes/`：颜色方案和主题资源。
 - `Assets/`：图标、Logo、默认配方和字体资源。
 - `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
+- `demo/`：独立示例工程，不参与本产品项目编译、发布或安装器打包；其维护规则见 `demo/AGENTS.md`。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
 - `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
 
