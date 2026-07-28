@@ -239,7 +239,12 @@ namespace TensileNeW.Models
                             var d46FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D46").HexAddress), 11);
                             var d249FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D249").HexAddress));
                             var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
-                            var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
+                            float[]? d362FValue = null;
+                            if (!mBoolValue[36])
+                            {
+                                d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
+                            }
+
                             bool fullResetValue = TryReadFullResetValue();
                             var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
 
@@ -266,8 +271,11 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "实时拉伸位移").CurrentValue = d260FValue.ToString("F3");
 
 
-                                PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
-                                PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
+                                if (d362FValue is not null)
+                                {
+                                    PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
+                                    PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
+                                }
 
                                 PLCVariables.First(t => t.Name == "压边释放").CurrentValue = mBoolValue[0].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸").CurrentValue = mBoolValue[49].ToString();
