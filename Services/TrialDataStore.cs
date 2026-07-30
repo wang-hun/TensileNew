@@ -24,6 +24,13 @@ public static class TrialDataStore
 
     public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
+    public sealed record TrialPlaybackSummary(long TrialGroupId, string TrialSerialNumber, DateTime StartedAtUtc);
+
+    public sealed record TrialPlaybackData(
+        TrialPlaybackSummary Summary,
+        RecipeModel? Recipe,
+        IReadOnlyList<Loadmodel> Points);
+
     public static void InitializeRecipes(
         IEnumerable<RecipeModel> builtInRecipes,
         IEnumerable<RecipeModel> userRecipes,
@@ -280,6 +287,140 @@ public static class TrialDataStore
         {
             Logger.Error(ex, "读取试验曲线摘要失败。");
             return [];
+        }
+    }
+
+    public static IReadOnlyList<TrialPlaybackSummary> GetTrialPlaybackSummaries()
+    {
+        try
+        {
+            if (!FlushPendingWork(TimeSpan.FromSeconds(3)))
+            {
+                return [];
+            }
+
+            string databasePath = GetDatabasePath(createDirectory: false);
+            if (!File.Exists(databasePath))
+            {
+                return [];
+            }
+
+            using SqliteConnection connection = new($"Data Source={databasePath}");
+            connection.Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Id, TrialSerialNumber, StartedAtUtc
+                FROM TrialGroups
+                WHERE EXISTS (SELECT 1 FROM TrialPoints WHERE TrialGroupId = TrialGroups.Id)
+                ORDER BY Id DESC;
+                """;
+
+            List<TrialPlaybackSummary> summaries = [];
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!DateTime.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime startedAtUtc))
+                {
+                    continue;
+                }
+
+                summaries.Add(new TrialPlaybackSummary(reader.GetInt64(0), reader.GetString(1), startedAtUtc));
+            }
+
+            return summaries;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "读取试验回放列表失败。");
+            return [];
+        }
+    }
+
+    public static TrialPlaybackData? GetTrialPlaybackData(long trialGroupId)
+    {
+        try
+        {
+            if (!FlushPendingWork(TimeSpan.FromSeconds(3)))
+            {
+                return null;
+            }
+
+            string databasePath = GetDatabasePath(createDirectory: false);
+            if (!File.Exists(databasePath))
+            {
+                return null;
+            }
+
+            using SqliteConnection connection = new($"Data Source={databasePath}");
+            connection.Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT
+                    groups.TrialSerialNumber,
+                    groups.StartedAtUtc,
+                    recipes.RecipeName,
+                    recipes.StrokeStampingForce,
+                    recipes.ClosedLoopStampingForce,
+                    recipes.ShutdownDelay,
+                    recipes.ShutdownRatio,
+                    recipes.Speed,
+                    recipes.TensileDistanceLimit
+                FROM TrialGroups AS groups
+                LEFT JOIN Recipes AS recipes ON recipes.Id = groups.RecipeId
+                WHERE groups.Id = @trialGroupId;
+                """;
+            command.Parameters.AddWithValue("@trialGroupId", trialGroupId);
+
+            using SqliteDataReader reader = command.ExecuteReader();
+            if (!reader.Read() || !DateTime.TryParse(reader.GetString(1), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime startedAtUtc))
+            {
+                return null;
+            }
+
+            RecipeModel? recipe = reader.IsDBNull(2)
+                ? null
+                : new RecipeModel
+                {
+                    RecipeName = reader.GetString(2),
+                    StrokeStampingForce = reader.GetFloat(3),
+                    ClosedLoopStampingForce = reader.GetFloat(4),
+                    ShutdownDelay = Convert.ToUInt16(reader.GetInt32(5), CultureInfo.InvariantCulture),
+                    ShutdownRatio = reader.GetFloat(6),
+                    Speed = reader.GetFloat(7),
+                    TensileDistanceLimit = reader.GetFloat(8)
+                };
+
+            TrialPlaybackSummary summary = new(trialGroupId, reader.GetString(0), startedAtUtc);
+            reader.Close();
+
+            using SqliteCommand pointsCommand = connection.CreateCommand();
+            pointsCommand.CommandText = """
+                SELECT PointIndex, RealPress, RealDistance, RealForce, Time
+                FROM TrialPoints
+                WHERE TrialGroupId = @trialGroupId
+                ORDER BY Id;
+                """;
+            pointsCommand.Parameters.AddWithValue("@trialGroupId", trialGroupId);
+            List<Loadmodel> points = [];
+            using SqliteDataReader pointsReader = pointsCommand.ExecuteReader();
+            while (pointsReader.Read())
+            {
+                points.Add(new Loadmodel
+                {
+                    Index = pointsReader.GetInt32(0),
+                    RealPress = pointsReader.GetFloat(1),
+                    RealDistance = pointsReader.GetFloat(2),
+                    RealForce = pointsReader.GetFloat(3),
+                    Time = pointsReader.GetString(4)
+                });
+            }
+
+            return new TrialPlaybackData(summary, recipe, points);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "读取试验回放数据失败，试验组 ID：{0}", trialGroupId);
+            return null;
         }
     }
 

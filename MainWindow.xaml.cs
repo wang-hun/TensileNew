@@ -17,6 +17,7 @@ using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
 using TensileNeW.Models;
 using TensileNeW.Services;
+using TensileNeW.Tools;
 using Dialog = HandyControl.Controls.Dialog;
 using Growl = HandyControl.Controls.Growl;
 using MessageBox = HandyControl.Controls.MessageBox;
@@ -78,6 +79,8 @@ public partial class MainWindow : Window
     private bool _runtimeDataSavePromptShouldSave;
     private bool _isCameraReconnectRunning;
     private readonly LoadPlotController _loadPlotController;
+    private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
+    private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
     private bool _networkProbeRunning;
     private bool _autoTrackLatestPoint = true;
@@ -977,6 +980,11 @@ public partial class MainWindow : Window
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Help_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Help";
+    private async void Playback_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.CurrentPage = "Playback";
+        await RefreshPlaybackTrialsAsync();
+    }
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
     private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
 
@@ -1388,6 +1396,234 @@ public partial class MainWindow : Window
             Logger.Error(ex);
             ShowError("打开数据保存文件夹失败");
         }
+    }
+
+    private async void RefreshPlayback_Click(object sender, RoutedEventArgs e) => await RefreshPlaybackTrialsAsync();
+
+    private async Task RefreshPlaybackTrialsAsync()
+    {
+        long? selectedId = (PlaybackTrialListBox.SelectedItem as TrialDataStore.TrialPlaybackSummary)?.TrialGroupId;
+        IReadOnlyList<TrialDataStore.TrialPlaybackSummary> summaries = await Task.Run(TrialDataStore.GetTrialPlaybackSummaries);
+        PlaybackTrialListBox.ItemsSource = summaries;
+
+        TrialDataStore.TrialPlaybackSummary? selected = summaries.FirstOrDefault(item => item.TrialGroupId == selectedId);
+        if (selected != null)
+        {
+            PlaybackTrialListBox.SelectedItem = selected;
+        }
+        else if (summaries.Count > 0)
+        {
+            PlaybackTrialListBox.SelectedIndex = 0;
+        }
+        else
+        {
+            ClearPlaybackDisplay();
+        }
+    }
+
+    private async void PlaybackTrialListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (PlaybackTrialListBox.SelectedItem is not TrialDataStore.TrialPlaybackSummary summary)
+        {
+            ClearPlaybackDisplay();
+            return;
+        }
+
+        _pendingPlaybackTrialGroupId = summary.TrialGroupId;
+        TrialDataStore.TrialPlaybackData? data = await Task.Run(() => TrialDataStore.GetTrialPlaybackData(summary.TrialGroupId));
+        if (_pendingPlaybackTrialGroupId != summary.TrialGroupId)
+        {
+            return;
+        }
+
+        if (data == null)
+        {
+            ClearPlaybackDisplay();
+            ShowWarning("读取该次试验数据失败。");
+            return;
+        }
+
+        _selectedPlaybackData = data;
+        RenderPlayback(data);
+    }
+
+    private void ClearPlaybackDisplay()
+    {
+        _selectedPlaybackData = null;
+        _pendingPlaybackTrialGroupId = null;
+        PlaybackPlot.Plot.Clear();
+        PlaybackPlot.Refresh();
+        PlaybackTrialTitleTextBlock.Text = string.Empty;
+        PlaybackRecipeNameTextBlock.Text = "-";
+        PlaybackMaxForceTextBlock.Text = "-";
+        PlaybackStrokePressTextBlock.Text = "-";
+        PlaybackMaxDistanceTextBlock.Text = "-";
+        PlaybackClosedLoopTextBlock.Text = "-";
+        PlaybackSpeedTextBlock.Text = "-";
+        PlaybackShutdownTextBlock.Text = "-";
+        PlaybackDistanceLimitTextBlock.Text = "-";
+    }
+
+    private void RenderPlayback(TrialDataStore.TrialPlaybackData data)
+    {
+        PlaybackPlot.Plot.Clear();
+        if (data.Points.Count > 0)
+        {
+            var scatter = PlaybackPlot.Plot.Add.Scatter(
+                data.Points.Select(point => (double)point.RealDistance).ToArray(),
+                data.Points.Select(point => (double)point.RealForce).ToArray());
+            scatter.Smooth = true;
+            scatter.MarkerSize = 0;
+            scatter.Color = ScottPlot.Color.FromHex("#003A8C");
+            PlaybackPlot.Plot.Axes.AutoScale();
+        }
+
+        PlaybackPlot.Plot.Title("力位移数据", 15);
+        PlaybackPlot.Plot.XLabel("位移（mm）", 15);
+        PlaybackPlot.Plot.YLabel("力（KN）", 15);
+        PlaybackPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 11;
+        PlaybackPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 11;
+        PlaybackPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Refresh();
+
+        RecipeModel? recipe = data.Recipe;
+        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
+        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
+        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
+        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
+        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
+        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
+        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
+        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
+        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
+        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
+    }
+
+    private async void SavePlaybackData_Click(object sender, RoutedEventArgs e)
+    {
+        TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
+        if (data == null || data.Points.Count == 0)
+        {
+            ShowWarning("请先选择一条包含数据的历史试验。");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Excel (*.xlsx)|*.xlsx",
+            InitialDirectory = RAM.SettingModel.ExcelFolderPath,
+            FileName = BuildPlaybackBaseFileName(data)
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            bool saveIntegratedData = PlaybackAlgorithmIntegratedDataCheckBox.IsChecked == true;
+            string integratedPath = Path.Combine(
+                Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
+                $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_算法整合数据.xlsx");
+            double displacementStep = DisplacementResamplingService.GetDisplacementStep(
+                data.Recipe?.Speed > 0 ? data.Recipe.Speed : DisplacementResamplingService.DefaultSpeed);
+
+            await Task.Run(() =>
+            {
+                SavePlaybackDataToFile(dialog.FileName, data.Points);
+                if (saveIntegratedData)
+                {
+                    DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
+                }
+            });
+            ShowSuccess("回放数据表格保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "保存回放数据表格失败。");
+            ShowError("回放数据表格保存失败");
+        }
+    }
+
+    private async void SavePlaybackReport_Click(object sender, RoutedEventArgs e)
+    {
+        TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
+        if (data == null || data.Points.Count == 0)
+        {
+            ShowWarning("请先选择一条包含数据的历史试验。");
+            return;
+        }
+
+        string? tempImagePath = null;
+        var waitWindow = new StartupWaitWindow("正在保存回放试验报告，请稍后。");
+        try
+        {
+            IsEnabled = false;
+            waitWindow.Show();
+            await Task.Yield();
+
+            string folderPath = RAM.SettingModel.ExcelFolderPath;
+            Directory.CreateDirectory(folderPath);
+            string baseFileName = BuildPlaybackBaseFileName(data);
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
+            tempImagePath = CapturePlaybackPlotImageToTempFile();
+            double maxForce = data.Points.Max(point => point.RealForce);
+            double maxDistance = data.Points.Max(point => point.RealDistance);
+
+            await Task.Run(() =>
+            {
+                SaveTestReportDocumentToFile(
+                    reportPath,
+                    tempImagePath,
+                    data.Recipe?.RecipeName ?? "NoRecipe",
+                    data.Summary.TrialSerialNumber,
+                    data.Summary.StartedAtUtc.ToLocalTime(),
+                    maxForce.ToString("F3", CultureInfo.InvariantCulture),
+                    maxDistance.ToString("F3", CultureInfo.InvariantCulture),
+                    data.Recipe);
+            });
+
+            ShowSuccess("回放试验报告保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "保存回放试验报告失败。");
+            ShowError("回放试验报告保存失败");
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
+            {
+                File.Delete(tempImagePath);
+            }
+
+            waitWindow.Close();
+            IsEnabled = true;
+        }
+    }
+
+    private static string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
+    {
+        string recipeName = string.IsNullOrWhiteSpace(data.Recipe?.RecipeName) ? "NoRecipe" : data.Recipe.RecipeName;
+        return $"{recipeName}_{data.Summary.TrialSerialNumber}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
+    }
+
+    private static void SavePlaybackDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
+    {
+        using var exporter = new ExcelExporter_EPPlus();
+        exporter.CreateSheet("Orders")
+            .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
+            .AddData(points, point => new object[] { point.Index, point.RealPress, point.RealDistance, point.RealForce, point.Time })
+            .SaveToFile(fileName);
+    }
+
+    private string CapturePlaybackPlotImageToTempFile()
+    {
+        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensilePlaybackReport_{Guid.NewGuid():N}.png");
+        PlaybackPlot.Plot.SavePng(tempImagePath, 1200, 700);
+        return tempImagePath;
     }
 
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
