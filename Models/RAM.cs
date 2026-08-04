@@ -19,6 +19,8 @@ namespace TensileNeW.Models
         public const string SettingFileName = "Setting.json";
         public const string DefaultRecipeFileName = "DefaultRecipe.json";
         public static bool IsTrial { get; set; }
+        public static int TrialStartupCount { get; private set; }
+        public static int TrialDataSaveCount { get; private set; }
         public static int SaveIndex=1;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
@@ -27,6 +29,13 @@ namespace TensileNeW.Models
         /// </summary>
         public static SettingModel SettingModel { get; set; }
         public static BindingList<RecipeModel> BuiltInRecipes { get; private set; } = new();
+
+        public static void SetTrialPackageState(TrialPackageState state)
+        {
+            IsTrial = state.IsTrial;
+            TrialStartupCount = state.StartupCount;
+            TrialDataSaveCount = state.DataSaveCount;
+        }
 
         public static void Init()
         {

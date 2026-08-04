@@ -52,7 +52,7 @@ public partial class App : Application
              * 程序启动时只读取一次试用状态，并保存到全局 RAM 配置。
              * ====================================================================
              */
-            RAM.IsTrial = TrialPackageConfiguration.ReadStartupTrialState(AppContext.BaseDirectory);
+            RAM.SetTrialPackageState(TrialPackageConfiguration.ReadStartupTrialState(AppContext.BaseDirectory));
             /*
              * ====================================================================
              * 一次性试用状态读取结束。

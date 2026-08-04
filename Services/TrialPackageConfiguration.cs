@@ -8,6 +8,8 @@ namespace TensileNeW.Services;
 public static class TrialPackageConfiguration
 {
     public const string FileName = "package.config";
+    private const string ApplicationDataDirectoryName = "ECS";
+    private const byte ConfigurationVersion = 2;
 
     private static readonly byte[] EncryptionKey = SHA256.HashData(
         Encoding.UTF8.GetBytes("ECS package configuration v1"));
@@ -15,40 +17,73 @@ public static class TrialPackageConfiguration
     private static readonly byte[] InitializationVector = SHA256.HashData(
         Encoding.UTF8.GetBytes("ECS package configuration IV v1"))[..16];
 
-    /*
-     * ========================================================================
-     * 仅在程序启动阶段读取试用状态。
-     * 调用方将结果保存到全局 RAM 配置中。
-     * ========================================================================
-     */
-    public static bool ReadStartupTrialState(string directoryPath)
+    public static TrialPackageState ReadStartupTrialState(string directoryPath)
     {
         if (Debugger.IsAttached)
         {
-            // 调试器附加时不访问外置文件，仍按当前编译配置确定版本类型。
 #if DEBUG
-            return false;
+            return TrialPackageState.Full;
 #else
-            return true;
+            return TrialPackageState.Trial;
 #endif
         }
 
-        string filePath = Path.Combine(directoryPath, FileName);
-        if (!File.Exists(filePath))
+        string runtimeFilePath = Path.Combine(directoryPath, FileName);
+        string managedFilePath = GetManagedFilePath();
+
+        if (File.Exists(runtimeFilePath))
         {
-            Write(filePath, isTrial: true);
+            TrialPackageState runtimeFullState = Read(runtimeFilePath);
+            if (!runtimeFullState.IsTrial)
+            {
+                if (!TryRead(managedFilePath, out TrialPackageState managedFullState) || managedFullState.IsTrial)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(managedFilePath)!);
+                    File.Copy(runtimeFilePath, managedFilePath, overwrite: true);
+                    return runtimeFullState;
+                }
+
+                if (!FilesAreEqual(runtimeFilePath, managedFilePath))
+                {
+                    File.Copy(managedFilePath, runtimeFilePath, overwrite: true);
+                }
+
+                return managedFullState;
+            }
         }
 
-        return Read(filePath);
+        if (File.Exists(managedFilePath))
+        {
+            TrialPackageState managedState = Read(managedFilePath);
+            if (!File.Exists(runtimeFilePath) || !FilesAreEqual(runtimeFilePath, managedFilePath))
+            {
+                File.Copy(managedFilePath, runtimeFilePath, overwrite: true);
+            }
+
+            return managedState;
+        }
+
+        if (!File.Exists(runtimeFilePath))
+        {
+            Write(runtimeFilePath, TrialPackageState.Trial);
+        }
+
+        TrialPackageState runtimeState = Read(runtimeFilePath);
+        if (runtimeState.IsTrial)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(managedFilePath)!);
+            File.Copy(runtimeFilePath, managedFilePath, overwrite: false);
+        }
+
+        return runtimeState;
     }
 
-    /*
-     * ========================================================================
-     * 启动阶段试用状态读取结束。
-     * ========================================================================
-     */
-
     public static void Write(string filePath, bool isTrial)
+    {
+        Write(filePath, new TrialPackageState(isTrial, StartupCount: 0, DataSaveCount: 0));
+    }
+
+    public static void Write(string filePath, TrialPackageState state)
     {
         using Aes aes = Aes.Create();
         aes.Key = EncryptionKey;
@@ -56,11 +91,14 @@ public static class TrialPackageConfiguration
 
         using FileStream output = new(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
         using CryptoStream cryptoStream = new(output, aes.CreateEncryptor(), CryptoStreamMode.Write);
-        cryptoStream.WriteByte(1);
-        cryptoStream.WriteByte(isTrial ? (byte)1 : (byte)0);
+        using BinaryWriter writer = new(cryptoStream, Encoding.UTF8, leaveOpen: true);
+        writer.Write(ConfigurationVersion);
+        writer.Write(state.IsTrial);
+        writer.Write(state.StartupCount);
+        writer.Write(state.DataSaveCount);
     }
 
-    private static bool Read(string filePath)
+    private static TrialPackageState Read(string filePath)
     {
         using Aes aes = Aes.Create();
         aes.Key = EncryptionKey;
@@ -68,18 +106,101 @@ public static class TrialPackageConfiguration
 
         using FileStream input = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         using CryptoStream cryptoStream = new(input, aes.CreateDecryptor(), CryptoStreamMode.Read);
+        using BinaryReader reader = new(cryptoStream, Encoding.UTF8, leaveOpen: true);
 
-        if (cryptoStream.ReadByte() != 1)
+        if (reader.ReadByte() != ConfigurationVersion)
         {
             throw new InvalidDataException("试用配置文件无效。");
         }
 
-        int trialFlag = cryptoStream.ReadByte();
+        byte trialFlag = reader.ReadByte();
         if (trialFlag is not 0 and not 1)
         {
             throw new InvalidDataException("试用配置文件无效。");
         }
 
-        return trialFlag == 1;
+        bool isTrial = trialFlag == 1;
+        int startupCount = reader.ReadInt32();
+        int dataSaveCount = reader.ReadInt32();
+        if (startupCount < 0 || dataSaveCount < 0)
+        {
+            throw new InvalidDataException("试用配置文件无效。");
+        }
+
+        return new TrialPackageState(isTrial, startupCount, dataSaveCount);
     }
+
+    private static bool TryRead(string filePath, out TrialPackageState state)
+    {
+        state = TrialPackageState.Full;
+        if (!File.Exists(filePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            state = Read(filePath);
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+        catch (EndOfStreamException)
+        {
+            return false;
+        }
+    }
+
+    public static string GetManagedFilePath()
+    {
+        string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localApplicationData, ApplicationDataDirectoryName, FileName);
+    }
+
+    private static bool FilesAreEqual(string firstPath, string secondPath)
+    {
+        FileInfo firstFile = new(firstPath);
+        FileInfo secondFile = new(secondPath);
+        if (firstFile.Length != secondFile.Length)
+        {
+            return false;
+        }
+
+        const int bufferSize = 81920;
+        byte[] firstBuffer = new byte[bufferSize];
+        byte[] secondBuffer = new byte[bufferSize];
+        using FileStream firstStream = new(firstPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using FileStream secondStream = new(secondPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        while (true)
+        {
+            int firstRead = firstStream.Read(firstBuffer, 0, firstBuffer.Length);
+            int secondRead = secondStream.Read(secondBuffer, 0, secondBuffer.Length);
+            if (firstRead != secondRead)
+            {
+                return false;
+            }
+
+            if (firstRead == 0)
+            {
+                return true;
+            }
+
+            if (!firstBuffer.AsSpan(0, firstRead).SequenceEqual(secondBuffer.AsSpan(0, secondRead)))
+            {
+                return false;
+            }
+        }
+    }
+}
+
+public sealed record TrialPackageState(bool IsTrial, int StartupCount, int DataSaveCount)
+{
+    public static TrialPackageState Trial { get; } = new(true, StartupCount: 0, DataSaveCount: 0);
+    public static TrialPackageState Full { get; } = new(false, StartupCount: 0, DataSaveCount: 0);
 }

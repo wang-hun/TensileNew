@@ -22,6 +22,7 @@ public static class ManualDocumentService
     private const string ManualsDirectoryName = "manuals";
     private const string CacheDirectoryName = "manual-cache";
     private const string CacheManifestName = "manual-cache.json";
+    private const string ApplicationDataDirectoryName = "ECS";
 
     private static readonly string[] WordExtensions = [".doc", ".docx"];
     private static readonly string[] PowerPointExtensions = [".ppt", ".pptx"];
@@ -73,14 +74,22 @@ public static class ManualDocumentService
     public static ManualDocumentStartupResult PrepareManualCache()
     {
         IReadOnlyList<string> manualFiles = EnumerateManualFiles();
-        bool hasOfficeDocuments = manualFiles.Any(ShouldPrecacheXps);
-        if (hasOfficeDocuments && !HasAnyOfficeProvider)
+        IReadOnlyList<string> officeManualFiles = manualFiles.Where(ShouldPrecacheXps).ToList();
+        if (!HasAnyOfficeProvider)
         {
-            return new ManualDocumentStartupResult(true, MissingOfficeMessage, false);
+            foreach (string manualFile in officeManualFiles)
+            {
+                if (!TryGetCachedXps(manualFile).Success)
+                {
+                    return new ManualDocumentStartupResult(true, MissingOfficeMessage, false);
+                }
+            }
+
+            return new ManualDocumentStartupResult(false, null, false);
         }
 
         bool generatedCache = false;
-        foreach (string manualFile in manualFiles.Where(ShouldPrecacheXps))
+        foreach (string manualFile in officeManualFiles)
         {
             ManualDocumentConvertResult result = ConvertToXpsFile(manualFile);
             if (result.Success)
@@ -132,21 +141,12 @@ public static class ManualDocumentService
                 return ManualDocumentConvertResult.Fail("说明书文件不存在。");
             }
 
-            CacheManifest manifest = LoadManifest();
             FileSignature signature = FileSignature.Create(sourcePath);
-            CacheEntry? entry = manifest.Entries.FirstOrDefault(item =>
-                string.Equals(item.SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase)
-                && item.Signature == signature.Signature
-                && item.LastWriteTimeUtcTicks == signature.LastWriteTimeUtcTicks
-                && item.Length == signature.Length);
-
-            if (entry is not null)
+            string cacheFileName = GetCacheFileName(sourcePath, signature);
+            ManualDocumentConvertResult cached = TryGetCachedXps(sourcePath, signature, cacheFileName);
+            if (cached.Success)
             {
-                string cachedPath = Path.Combine(GetCacheDirectory(), entry.CacheFileName);
-                if (File.Exists(cachedPath) && new FileInfo(cachedPath).Length > 0)
-                {
-                    return ManualDocumentConvertResult.Ok(cachedPath);
-                }
+                return cached;
             }
 
             if (!HasAnyOfficeProvider)
@@ -154,8 +154,7 @@ public static class ManualDocumentService
                 return ManualDocumentConvertResult.Fail(MissingOfficeMessage);
             }
 
-            string cacheFileName = $"{Path.GetFileNameWithoutExtension(sourcePath)}_{signature.Signature[..16]}.xps";
-            string xpsPath = Path.Combine(GetCacheDirectory(), cacheFileName);
+            string xpsPath = Path.Combine(GetManagedCacheDirectory(), cacheFileName);
             string extension = Path.GetExtension(sourcePath);
 
             ConversionResult conversionResult;
@@ -182,6 +181,7 @@ public static class ManualDocumentService
                 return ManualDocumentConvertResult.Fail("说明书转换 XPS 失败，未生成有效文件。");
             }
 
+            CacheManifest manifest = LoadManifest();
             manifest.Entries.RemoveAll(item => string.Equals(item.SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase));
             manifest.Entries.Add(new CacheEntry
             {
@@ -194,7 +194,7 @@ public static class ManualDocumentService
             SaveManifest(manifest);
             _lastConversionGeneratedCache = true;
 
-            return ManualDocumentConvertResult.Ok(xpsPath);
+            return ManualDocumentConvertResult.Ok(CopyToRuntimeCache(xpsPath, cacheFileName));
         }
         catch (Exception ex)
         {
@@ -236,22 +236,28 @@ public static class ManualDocumentService
             return ManualDocumentConvertResult.Fail("说明书文件不存在。");
         }
 
-        CacheManifest manifest = LoadManifest();
         FileSignature signature = FileSignature.Create(sourcePath);
-        CacheEntry? entry = manifest.Entries.FirstOrDefault(item =>
-            string.Equals(item.SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase)
-            && item.Signature == signature.Signature
-            && item.LastWriteTimeUtcTicks == signature.LastWriteTimeUtcTicks
-            && item.Length == signature.Length);
-        if (entry is null)
+        return TryGetCachedXps(sourcePath, signature, GetCacheFileName(sourcePath, signature));
+    }
+
+    private static ManualDocumentConvertResult TryGetCachedXps(
+        string sourcePath,
+        FileSignature signature,
+        string cacheFileName)
+    {
+        string runtimeCachePath = Path.Combine(GetRuntimeCacheDirectory(), cacheFileName);
+        if (IsUsableCacheFile(runtimeCachePath))
+        {
+            return ManualDocumentConvertResult.Ok(runtimeCachePath);
+        }
+
+        string managedCachePath = Path.Combine(GetManagedCacheDirectoryPath(), cacheFileName);
+        if (!IsUsableCacheFile(managedCachePath))
         {
             return ManualDocumentConvertResult.Fail("说明书缓存不存在。");
         }
 
-        string cachedPath = Path.Combine(GetCacheDirectory(), entry.CacheFileName);
-        return File.Exists(cachedPath) && new FileInfo(cachedPath).Length > 0
-            ? ManualDocumentConvertResult.Ok(cachedPath)
-            : ManualDocumentConvertResult.Fail("说明书缓存不存在。");
+        return ManualDocumentConvertResult.Ok(CopyToRuntimeCache(managedCachePath, cacheFileName));
     }
 
     private static IReadOnlyList<string> EnumerateManualFiles()
@@ -480,14 +486,45 @@ public static class ManualDocumentService
 
     private static string GetManualsDirectory() => Path.Combine(GetBaseDirectory(), ManualsDirectoryName);
 
+    private static string GetRuntimeCacheDirectory() => Path.Combine(GetBaseDirectory(), CacheDirectoryName);
+
     private static string GetCacheDirectory()
     {
-        string cacheDirectory = Path.Combine(GetBaseDirectory(), CacheDirectoryName);
+        string cacheDirectory = GetRuntimeCacheDirectory();
         Directory.CreateDirectory(cacheDirectory);
         return cacheDirectory;
     }
 
-    private static string GetManifestPath() => Path.Combine(GetCacheDirectory(), CacheManifestName);
+    private static string GetManagedCacheDirectoryPath()
+    {
+        string localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localApplicationData, ApplicationDataDirectoryName, CacheDirectoryName);
+    }
+
+    private static string GetManagedCacheDirectory()
+    {
+        string cacheDirectory = GetManagedCacheDirectoryPath();
+        Directory.CreateDirectory(cacheDirectory);
+        return cacheDirectory;
+    }
+
+    private static string GetManifestPath() => Path.Combine(GetManagedCacheDirectory(), CacheManifestName);
+
+    private static string GetCacheFileName(string sourcePath, FileSignature signature) =>
+        $"{Path.GetFileNameWithoutExtension(sourcePath)}_{signature.Signature[..16]}.xps";
+
+    private static bool IsUsableCacheFile(string path) => File.Exists(path) && new FileInfo(path).Length > 0;
+
+    private static string CopyToRuntimeCache(string sourcePath, string cacheFileName)
+    {
+        string destinationPath = Path.Combine(GetCacheDirectory(), cacheFileName);
+        if (!string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+
+        return destinationPath;
+    }
 
     private static CacheManifest LoadManifest()
     {

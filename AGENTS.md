@@ -30,7 +30,7 @@
 - `Controls/`：复用控件，例如说明文档查看器；文档预览只保留 PDF、Word、PPT 内嵌显示，不再引入 WebView/WebView2 这类内嵌浏览器依赖。
 - `Themes/`：颜色方案和主题资源。
 - `Assets/`：图标、Logo、默认配方和字体资源。
-- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
+- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。Word/PPT 的 XPS 权威缓存位于 `%LocalAppData%\ECS\manual-cache`；启动和按需转换时优先按说明书文件名及内容签名命中该目录，命中后复制到运行目录的 `manual-cache`，未命中才生成并写入 AppData 后复制到运行目录。
 - `demo/`：独立示例工程，不参与本产品项目编译、发布或安装器打包；其维护规则见 `demo/AGENTS.md`。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
 - `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
@@ -145,7 +145,7 @@
 ## 配置和运行数据
 
 - `Setting.json`：运行时配置文件，由 `RAM.Init()` 在程序目录读取或创建。
-- `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。程序启动时只读取一次并保存到 `RAM.IsTrial`：附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用；未附加调试器时读取文件，缺失则在程序目录创建并读取试用标记。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
+- `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。配置包含试用标记、启动次数和数据保存次数；后两项当前只读取到 `RAM.TrialStartupCount` / `RAM.TrialDataSaveCount`，不递增也不参与业务逻辑。非调试启动时，试用包以 `%LocalAppData%\ECS\package.config` 为权威副本：该副本存在则覆盖修复运行目录中缺失或内容不一致的文件；副本不存在时，试用包会将运行目录文件复制到该处，运行目录文件也不存在时先创建新的试用文件。运行目录自带完整版文件时，先检查 AppData 是否同为有效完整版：不是则由运行目录文件覆盖 AppData；是则由 AppData 文件覆盖修复运行目录。附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
 - builder 生成试用包时，仅在输出目录名末尾追加 `-试用版`；`ECS.exe`、启动脚本和安装器主程序名保持不变。
 - 安装器生成 payload 时由安装器自己的可见 UTF-8 控制台通过 `Y/N` 选择试用或完整版，再将结果作为参数传给 builder；builder 在收到该参数后不得再次询问。
 - `Assets/DefaultRecipe.json`：内置默认配方资源，构建时复制到输出目录。
