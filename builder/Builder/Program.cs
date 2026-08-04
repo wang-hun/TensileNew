@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Xml.Linq;
 using System.Text;
+using System.Runtime.InteropServices;
 using TensileNeW.Services;
 
 namespace Builder;
@@ -13,8 +14,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        Console.InputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-        Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        ConfigureConsoleEncoding();
 
         try
         {
@@ -24,7 +24,8 @@ internal static class Program
                 string defaultConfiguration = "Release";
                 string defaultOutputRoot = Path.Combine(AppContext.BaseDirectory, "publish");
 
-                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot);
+                bool isTrialPackage = AskWhetherTrialPackage();
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, isTrialPackage);
                 return 0;
             }
 
@@ -36,7 +37,8 @@ internal static class Program
                     return 1;
                 }
 
-                PackageExternalProject(args[1], args[2], args[3]);
+                bool isTrialPackage = AskWhetherTrialPackage();
+                PackageExternalProject(args[1], args[2], args[3], isTrialPackage);
                 return 0;
             }
 
@@ -50,7 +52,7 @@ internal static class Program
         }
     }
 
-    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot)
+    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, bool isTrialPackage)
     {
         projectPath = Path.GetFullPath(projectPath);
         outputRoot = Path.GetFullPath(outputRoot);
@@ -60,10 +62,9 @@ internal static class Program
             throw new FileNotFoundException("External project was not found.", projectPath);
         }
 
-        bool isTrialPackage = AskWhetherTrialPackage();
         ProjectMetadata projectMetadata = GetProjectMetadata(projectPath);
         string assemblyName = projectMetadata.AssemblyName;
-        string packageDirectory = Path.Combine(outputRoot, GetPackageDirectoryName(projectMetadata));
+        string packageDirectory = Path.Combine(outputRoot, GetPackageDirectoryName(projectMetadata, isTrialPackage));
         string projectName = Path.GetFileNameWithoutExtension(projectPath);
         string? builderOutputDirectory = Directory.GetParent(outputRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))?.FullName;
 
@@ -123,6 +124,23 @@ internal static class Program
             Console.WriteLine("请输入 Y 或 N。");
         }
     }
+
+    private static void ConfigureConsoleEncoding()
+    {
+        const uint Utf8CodePage = 65001;
+        SetConsoleCP(Utf8CodePage);
+        SetConsoleOutputCP(Utf8CodePage);
+
+        Encoding utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        Console.InputEncoding = utf8;
+        Console.OutputEncoding = utf8;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleCP(uint codePage);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleOutputCP(uint codePage);
 
     private static void EnsureSingleFileLayout(string packageDirectory, string assemblyName)
     {
@@ -255,11 +273,13 @@ internal static class Program
             version);
     }
 
-    private static string GetPackageDirectoryName(ProjectMetadata projectMetadata)
+    private static string GetPackageDirectoryName(ProjectMetadata projectMetadata, bool isTrialPackage)
     {
-        return string.IsNullOrWhiteSpace(projectMetadata.InformationalVersion)
+        string packageDirectoryName = string.IsNullOrWhiteSpace(projectMetadata.InformationalVersion)
             ? projectMetadata.AssemblyName
             : $"{projectMetadata.AssemblyName} {projectMetadata.InformationalVersion}";
+
+        return isTrialPackage ? $"{packageDirectoryName}-试用版" : packageDirectoryName;
     }
 
     private static void DeleteUnneededPublishArtifacts(string packageDirectory)

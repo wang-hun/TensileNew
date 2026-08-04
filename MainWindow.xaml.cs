@@ -57,9 +57,10 @@ public partial class MainWindow : Window
         string assemblyName = assembly.GetName().Name ?? "ECS";
         string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-        return string.IsNullOrWhiteSpace(version)
+        string title = string.IsNullOrWhiteSpace(version)
             ? assemblyName
             : $"{assemblyName} {version}";
+        return RAM.IsTrial ? $"{title}-试用版" : title;
     }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

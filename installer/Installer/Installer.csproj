@@ -57,7 +57,7 @@
           Condition="'$(InstallerBuildPayload)' == 'true' and ('$(InstallerPublishOnBuild)' != 'true' or '$(InstallerPublishFromBuild)' == 'true')">
     <RemoveDir Directories="$(InstallerPayloadRoot)" />
     <MakeDir Directories="$(InstallerPayloadRoot)" />
-    <Exec Command="dotnet run --project &quot;$(BuilderProjectPath)&quot; --no-launch-profile -p:ExternalProjectPublishOnBuild=false -- pack &quot;$(MainProjectPath)&quot; &quot;Release&quot; &quot;$(InstallerPayloadRoot)&quot;" />
+    <Exec Command="dotnet run --project &quot;$(BuilderProjectPath)&quot; --no-launch-profile -- pack &quot;$(MainProjectPath)&quot; &quot;Release&quot; &quot;$(InstallerPayloadRoot)&quot;" />
     <Delete Files="$(InstallerPayloadZip)" />
     <ZipDirectory SourceDirectory="$(InstallerPayloadRoot)" DestinationFile="$(InstallerPayloadZip)" Overwrite="true" />
     <ItemGroup>

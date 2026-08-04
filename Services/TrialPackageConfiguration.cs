@@ -25,7 +25,12 @@ public static class TrialPackageConfiguration
     {
         if (Debugger.IsAttached)
         {
+            // 调试器附加时不访问外置文件，仍按当前编译配置确定版本类型。
+#if DEBUG
             return false;
+#else
+            return true;
+#endif
         }
 
         string filePath = Path.Combine(directoryPath, FileName);
