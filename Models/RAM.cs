@@ -18,6 +18,7 @@ namespace TensileNeW.Models
     {
         public const string SettingFileName = "Setting.json";
         public const string DefaultRecipeFileName = "DefaultRecipe.json";
+        public static bool IsTrial { get; set; }
         public static int SaveIndex=1;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
