@@ -25,10 +25,10 @@
                        Margin="0,12,0,24" />
             <Button Grid.Row="2"
                     Style="{StaticResource ButtonPrimary}"
-                    Content="确认"
+                    Content="知道了"
                     Width="96"
                     Height="36"
-                    HorizontalAlignment="Right"
+                    HorizontalAlignment="Center"
                     Click="Confirm_Click" />
         </Grid>
     </Border>
