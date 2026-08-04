@@ -147,6 +147,7 @@
 - `Setting.json`：运行时配置文件，由 `RAM.Init()` 在程序目录读取或创建。
 - `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。程序启动时只读取一次并保存到 `RAM.IsTrial`：附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用；未附加调试器时读取文件，缺失则在程序目录创建并读取试用标记。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
 - builder 生成试用包时，仅在输出目录名末尾追加 `-试用版`；`ECS.exe`、启动脚本和安装器主程序名保持不变。
+- 安装器生成 payload 时由安装器自己的可见 UTF-8 控制台通过 `Y/N` 选择试用或完整版，再将结果作为参数传给 builder；builder 在收到该参数后不得再次询问。
 - `Assets/DefaultRecipe.json`：内置默认配方资源，构建时复制到输出目录。
 - `NLog.config`：日志配置，构建时复制到输出目录。
 - `TrialDataStore` 相关数据、日志、临时数据库等属于运行或验证产物，不应留在仓库中。
@@ -190,7 +191,7 @@
 
 ## 独立安装器
 
-`installer/Installer` 是独立安装器项目，界面和部署逻辑不应塞进主程序。安装器可以依赖 builder 的发布能力，但只允许在构建安装器时调用 builder：先由 installer 项目的 MSBuild 目标调用 `builder\Builder` 生成绿色版发布目录，再压缩为 `payload.zip` 并作为嵌入资源写入安装器。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
+`installer/Installer` 是独立安装器项目，`installer/InstallerBuilder` 是独立控制台打包程序。界面和部署逻辑不应塞进主程序。InstallerBuilder 在运行时询问试用版本，调用 `builder/Builder` 生成绿色版 payload、压缩为临时 `payload.zip`、再发布安装器到自身运行目录的 `publish/`；WPF 安装器项目本身不得在 MSBuild 目标中自动生成 payload 或 publish。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
 
 安装器运行时职责：
 

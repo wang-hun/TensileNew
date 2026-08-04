@@ -33,11 +33,13 @@ internal static class Program
             {
                 if (args.Length < 4)
                 {
-                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root>");
+                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N]");
                     return 1;
                 }
 
-                bool isTrialPackage = AskWhetherTrialPackage();
+                bool isTrialPackage = args.Length >= 5
+                    ? ParseTrialPackageChoice(args[4])
+                    : AskWhetherTrialPackage();
                 PackageExternalProject(args[1], args[2], args[3], isTrialPackage);
                 return 0;
             }
@@ -123,6 +125,21 @@ internal static class Program
 
             Console.WriteLine("请输入 Y 或 N。");
         }
+    }
+
+    private static bool ParseTrialPackageChoice(string choice)
+    {
+        if (string.Equals(choice, "Y", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(choice, "N", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        throw new ArgumentException("试用版配置选择必须是 Y 或 N。", nameof(choice));
     }
 
     private static void ConfigureConsoleEncoding()

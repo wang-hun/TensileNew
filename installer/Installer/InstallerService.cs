@@ -15,6 +15,9 @@ internal static class InstallerService
     private const string AppExeName = "ECS.exe";
     private const string FallbackPackageDirectoryName = "ECS";
 
+    public static bool IsTrialPackage => GetPayloadPackageDirectoryName()
+        .EndsWith("-试用版", StringComparison.Ordinal);
+
     public static string Install(InstallerOptions options, Action<string> reportProgress)
     {
         string installPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(options.InstallPath));
