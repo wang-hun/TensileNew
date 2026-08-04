@@ -1539,6 +1539,8 @@ public partial class MainWindow : Window
                     DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
                 }
             });
+            RAM.RecordTrialDataAndReportSaved();
+            _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("回放数据表格保存成功");
         }
         catch (Exception ex)
@@ -1683,6 +1685,8 @@ public partial class MainWindow : Window
                 });
             }
 
+            RAM.RecordTrialDataAndReportSaved();
+            _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("数据和试验报告保存成功");
             _viewModel.AdvanceTrialSerialNumber();
         }

@@ -98,6 +98,39 @@ public static class TrialPackageConfiguration
         writer.Write(state.DataSaveCount);
     }
 
+    public static TrialPackageState UpdateTrialCounts(
+        string directoryPath,
+        TrialPackageState currentState,
+        bool incrementStartupCount,
+        bool incrementDataSaveCount)
+    {
+        if (!currentState.IsTrial)
+        {
+            return currentState;
+        }
+
+        TrialPackageState updatedState = new(
+            IsTrial: true,
+            StartupCount: incrementStartupCount
+                ? checked(currentState.StartupCount + 1)
+                : currentState.StartupCount,
+            DataSaveCount: incrementDataSaveCount
+                ? checked(currentState.DataSaveCount + 1)
+                : currentState.DataSaveCount);
+
+        string managedFilePath = GetManagedFilePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(managedFilePath)!);
+        Write(managedFilePath, updatedState);
+
+        string runtimeFilePath = Path.Combine(directoryPath, FileName);
+        if (!string.Equals(runtimeFilePath, managedFilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(managedFilePath, runtimeFilePath, overwrite: true);
+        }
+
+        return updatedState;
+    }
+
     private static TrialPackageState Read(string filePath)
     {
         using Aes aes = Aes.Create();

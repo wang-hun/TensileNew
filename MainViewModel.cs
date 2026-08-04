@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -61,6 +62,21 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<ColorScheme> ColorSchemes => ThemeManager.Schemes;
     public SettingModel Setting => RAM.SettingModel;
     public bool IsEnglish => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase);
+    public bool IsTrialPackage => RAM.IsTrial;
+    public int TrialStartupCount => RAM.TrialStartupCount;
+    public int TrialDataSaveCount => RAM.TrialDataSaveCount;
+    public string TrialPackageVersionText
+    {
+        get
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            string assemblyName = assembly.GetName().Name ?? "ECS";
+            string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? assembly.GetName().Version?.ToString()
+                ?? string.Empty;
+            return $"当前版本：{assemblyName} {version}{(RAM.IsTrial ? "-试用版" : string.Empty)}";
+        }
+    }
     public string[] Languages { get; } = ["CN", "EN"];
     public string[] LanguageDisplayItems { get; } = ["中文", "英语"];
     public string[] RuntimeDataSavePolicyItems { get; } =
@@ -69,6 +85,12 @@ public sealed class MainViewModel : ObservableObject
         SettingModel.RuntimeDataSaveAskEveryTime,
         SettingModel.RuntimeDataSaveAlwaysNo
     ];
+
+    public void RefreshTrialPackageInfo()
+    {
+        OnPropertyChanged(nameof(TrialStartupCount));
+        OnPropertyChanged(nameof(TrialDataSaveCount));
+    }
 
     public string SelectedLanguageDisplay
     {

@@ -53,6 +53,7 @@ public partial class App : Application
              * ====================================================================
              */
             RAM.SetTrialPackageState(TrialPackageConfiguration.ReadStartupTrialState(AppContext.BaseDirectory));
+            RAM.RecordTrialStartup();
             /*
              * ====================================================================
              * 一次性试用状态读取结束。

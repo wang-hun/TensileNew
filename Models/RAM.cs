@@ -37,6 +37,39 @@ namespace TensileNeW.Models
             TrialDataSaveCount = state.DataSaveCount;
         }
 
+        public static void RecordTrialStartup()
+        {
+            UpdateTrialCounts(incrementStartupCount: true, incrementDataSaveCount: false);
+        }
+
+        public static void RecordTrialDataAndReportSaved()
+        {
+            UpdateTrialCounts(incrementStartupCount: false, incrementDataSaveCount: true);
+        }
+
+        private static void UpdateTrialCounts(bool incrementStartupCount, bool incrementDataSaveCount)
+        {
+            if (!IsTrial)
+            {
+                return;
+            }
+
+            try
+            {
+                TrialPackageState updatedState = TrialPackageConfiguration.UpdateTrialCounts(
+                    AppContext.BaseDirectory,
+                    new TrialPackageState(IsTrial, TrialStartupCount, TrialDataSaveCount),
+                    incrementStartupCount,
+                    incrementDataSaveCount);
+                TrialStartupCount = updatedState.StartupCount;
+                TrialDataSaveCount = updatedState.DataSaveCount;
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Failed to update trial package counters.");
+            }
+        }
+
         public static void Init()
         {
             BuiltInRecipes = LoadBuiltInRecipes();

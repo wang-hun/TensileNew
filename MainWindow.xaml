@@ -1347,8 +1347,8 @@
         <!-- Right: settings content -->
         <Grid Grid.Column="1" Margin="1">
           <Grid.RowDefinitions>
-            <RowDefinition Height="4*" />
             <RowDefinition Height="5*" />
+            <RowDefinition Height="4*" />
             <RowDefinition Height="3*" />
           </Grid.RowDefinitions>
           <!-- 系统设置 -->
@@ -1368,8 +1368,10 @@
                   <RowDefinition Height="42" />
                   <RowDefinition Height="14" />
                   <RowDefinition Height="42" />
-                  <RowDefinition Height="*" />
+                  <RowDefinition Height="10" />
                   <RowDefinition Height="Auto" />
+                  <RowDefinition Height="28" />
+                  <RowDefinition Height="28" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="200" />
@@ -1400,6 +1402,23 @@
                     <TextBlock Text="保存系统参数" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
+                <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="6" Text="{Binding TrialPackageVersionText}" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsTrialPackage}" Value="True">
+                          <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <TextBlock Text="启动次数：" FontSize="15" />
+                  <TextBlock Text="{Binding TrialStartupCount}" FontSize="15" FontWeight="SemiBold" />
+                  <TextBlock Text="保存数据次数：" FontSize="15" Margin="28,0,0,0" />
+                  <TextBlock Text="{Binding TrialDataSaveCount}" FontSize="15" FontWeight="SemiBold" />
+                </StackPanel>
               </Grid>
             </Grid>
           </Border>
