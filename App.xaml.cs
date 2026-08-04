@@ -47,6 +47,7 @@ public partial class App : Application
 
         try
         {
+            TrialPackageConfiguration.EnsureTrialConfiguration(AppContext.BaseDirectory);
             RAM.Init();
             ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;

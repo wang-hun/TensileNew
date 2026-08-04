@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Xml.Linq;
+using System.Text;
+using TensileNeW.Services;
 
 namespace Builder;
 
@@ -11,6 +13,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        Console.InputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
         try
         {
             if (args.Length == 0)
@@ -55,6 +60,7 @@ internal static class Program
             throw new FileNotFoundException("External project was not found.", projectPath);
         }
 
+        bool isTrialPackage = AskWhetherTrialPackage();
         ProjectMetadata projectMetadata = GetProjectMetadata(projectPath);
         string assemblyName = projectMetadata.AssemblyName;
         string packageDirectory = Path.Combine(outputRoot, GetPackageDirectoryName(projectMetadata));
@@ -91,8 +97,31 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
+        TrialPackageConfiguration.Write(
+            Path.Combine(packageDirectory, TrialPackageConfiguration.FileName),
+            isTrialPackage);
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
+    }
+
+    private static bool AskWhetherTrialPackage()
+    {
+        while (true)
+        {
+            Console.Write("是否生成试用版配置文件？(Y/N): ");
+            string? answer = Console.ReadLine();
+            if (string.Equals(answer?.Trim(), "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(answer?.Trim(), "N", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            Console.WriteLine("请输入 Y 或 N。");
+        }
     }
 
     private static void EnsureSingleFileLayout(string packageDirectory, string assemblyName)

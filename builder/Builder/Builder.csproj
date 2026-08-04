@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\Services\TrialPackageConfiguration.cs" Link="TrialPackageConfiguration.cs" />
     <Compile Remove="manuals\**" />
     <EmbeddedResource Remove="manuals\**" />
     <None Remove="manuals\**" />
