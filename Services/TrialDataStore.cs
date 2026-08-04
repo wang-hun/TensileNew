@@ -20,7 +20,8 @@ public static class TrialDataStore
     private static bool _started;
     private static bool _disabled;
     private static RecipeSnapshot? _currentRecipe;
-    private static bool _startNewGroupOnNextPoint = true;
+    private static Guid? _activeCaptureSessionId;
+    private static bool _newCapturePending = true;
 
     public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
@@ -45,6 +46,8 @@ public static class TrialDataStore
 
             EnsureStarted();
             SetCurrentRecipe(currentRecipe);
+            DataAqc.ChartCleared -= OnChartCleared;
+            DataAqc.ChartCleared += OnChartCleared;
             PendingWork.Add(new SyncRecipesWork(
                 builtInRecipes.Select(recipe => RecipeSnapshot.From(recipe, true)).ToList(),
                 userRecipes.Select(recipe => RecipeSnapshot.From(recipe, false)).ToList()));
@@ -103,14 +106,6 @@ public static class TrialDataStore
         }
     }
 
-    public static void BeginNewTrialOnNextPoint()
-    {
-        lock (StateLock)
-        {
-            _startNewGroupOnNextPoint = true;
-        }
-    }
-
     public static void EnqueuePoint(string trialSerialNumber, Loadmodel source)
     {
         try
@@ -122,22 +117,20 @@ public static class TrialDataStore
 
             EnsureStarted();
 
-            RecipeSnapshot? recipe;
-            bool forceNewGroup;
+            Guid captureSessionId;
             lock (StateLock)
             {
-                recipe = _currentRecipe;
-                forceNewGroup = _startNewGroupOnNextPoint;
-                if (forceNewGroup)
+                if (_newCapturePending || !_activeCaptureSessionId.HasValue)
                 {
-                    _startNewGroupOnNextPoint = false;
+                    StartCaptureSessionLocked(trialSerialNumber, _currentRecipe);
                 }
+
+                captureSessionId = _activeCaptureSessionId
+                    ?? throw new InvalidOperationException("采集会话未创建，无法写入原始数据。");
             }
 
             PendingWork.Add(new InsertPointWork(
-                trialSerialNumber,
-                recipe,
-                forceNewGroup,
+                captureSessionId,
                 source.Index,
                 source.RealPress,
                 source.RealDistance,
@@ -336,6 +329,23 @@ public static class TrialDataStore
         }
     }
 
+    private static void StartCaptureSessionLocked(string trialSerialNumber, RecipeSnapshot? recipe)
+    {
+        Guid captureSessionId = Guid.NewGuid();
+        _activeCaptureSessionId = captureSessionId;
+        _newCapturePending = false;
+        PendingWork.Add(new BeginTrialWork(captureSessionId, trialSerialNumber, recipe, DateTime.UtcNow));
+    }
+
+    private static void OnChartCleared()
+    {
+        lock (StateLock)
+        {
+            _activeCaptureSessionId = null;
+            _newCapturePending = true;
+        }
+    }
+
     public static TrialPlaybackData? GetTrialPlaybackData(long trialGroupId)
     {
         try
@@ -469,6 +479,11 @@ public static class TrialDataStore
             string databasePath = GetDatabasePath();
             using SqliteConnection connection = new($"Data Source={databasePath}");
             connection.Open();
+            using (SqliteCommand foreignKeyCommand = connection.CreateCommand())
+            {
+                foreignKeyCommand.CommandText = "PRAGMA foreign_keys = ON;";
+                foreignKeyCommand.ExecuteNonQuery();
+            }
             EnsureSchema(connection);
 
             WriterState state = new();
@@ -704,8 +719,7 @@ public static class TrialDataStore
     private sealed class WriterState
     {
         public Dictionary<string, long> ActiveRecipeIds { get; } = [];
-        public long? CurrentTrialGroupId { get; set; }
-        public int? PreviousPointIndex { get; set; }
+        public Dictionary<Guid, long> TrialGroupIdsByCaptureSession { get; } = [];
     }
 
     private sealed record RecipeSnapshot(
@@ -775,10 +789,18 @@ public static class TrialDataStore
         }
     }
 
+    private sealed record BeginTrialWork(Guid CaptureSessionId, string TrialSerialNumber, RecipeSnapshot? Recipe, DateTime StartedAtUtc) : IDatabaseWork
+    {
+        public void Execute(SqliteConnection connection, WriterState state)
+        {
+            long? recipeId = Recipe == null ? null : EnsureActiveRecipe(connection, state, Recipe);
+            long trialGroupId = CreateTrialGroup(connection, TrialSerialNumber, recipeId, StartedAtUtc);
+            state.TrialGroupIdsByCaptureSession.Add(CaptureSessionId, trialGroupId);
+        }
+    }
+
     private sealed record InsertPointWork(
-        string TrialSerialNumber,
-        RecipeSnapshot? Recipe,
-        bool ForceNewGroup,
+        Guid CaptureSessionId,
         int PointIndex,
         float RealPress,
         float RealDistance,
@@ -788,27 +810,12 @@ public static class TrialDataStore
     {
         public void Execute(SqliteConnection connection, WriterState state)
         {
-            bool startsNewGroup =
-                ForceNewGroup ||
-                state.CurrentTrialGroupId is null ||
-                PointIndex <= 1 ||
-                (state.PreviousPointIndex.HasValue && PointIndex <= state.PreviousPointIndex.Value);
-
-            if (startsNewGroup)
+            if (!state.TrialGroupIdsByCaptureSession.TryGetValue(CaptureSessionId, out long trialGroupId))
             {
-                long? recipeId = Recipe == null
-                    ? null
-                    : EnsureActiveRecipe(connection, state, Recipe);
-                state.CurrentTrialGroupId = CreateTrialGroup(connection, TrialSerialNumber, recipeId, CreatedAtUtc);
+                throw new InvalidOperationException("采集会话未创建，无法写入原始数据。");
             }
 
-            if (!state.CurrentTrialGroupId.HasValue)
-            {
-                throw new InvalidOperationException("试验组别未创建，无法写入原始数据。");
-            }
-
-            InsertPoint(connection, state.CurrentTrialGroupId.Value, this);
-            state.PreviousPointIndex = PointIndex;
+            InsertPoint(connection, trialGroupId, this);
         }
     }
 }

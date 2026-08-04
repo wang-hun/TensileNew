@@ -379,16 +379,16 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        SaveDataToFile(dialog.FileName);
+        SaveDataToFile(dialog.FileName, DataAqc.loadModels.ToList());
         return true;
     }
 
-    public void SaveDataToFile(string fileName)
+    public void SaveDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
     {
         using var exporter = new ExcelExporter_EPPlus();
         exporter.CreateSheet("Orders")
-            .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
-            .AddData(DataAqc.loadModels, o => new object[] { o.Index, o.RealPress, o.RealDistance, o.RealForce, o.Time })
+            .SetHeader(new[] { "序号", "位移(mm)", "力(kN)", "压边(kN)", "时间(s)" })
+            .AddData(points, o => new object[] { o.Index, o.RealDistance, o.RealForce, o.RealPress, o.Time })
             .SaveToFile(fileName);
     }
 

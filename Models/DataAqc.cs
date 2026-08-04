@@ -313,7 +313,6 @@ namespace TensileNeW.Models
                                     ClearQueue();
                                     IndexCount = 0;
                                     loadModels?.Clear();
-                                    TrialDataStore.BeginNewTrialOnNextPoint();
                                     ChartCleared?.Invoke();
                                 }
 

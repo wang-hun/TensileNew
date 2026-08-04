@@ -1617,8 +1617,8 @@ public partial class MainWindow : Window
     {
         using var exporter = new ExcelExporter_EPPlus();
         exporter.CreateSheet("Orders")
-            .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
-            .AddData(points, point => new object[] { point.Index, point.RealPress, point.RealDistance, point.RealForce, point.Time })
+            .SetHeader(new[] { "序号", "位移(mm)", "力(kN)", "压边(kN)", "时间(s)" })
+            .AddData(points, point => new object[] { point.Index, point.RealDistance, point.RealForce, point.RealPress, point.Time })
             .SaveToFile(fileName);
     }
 
@@ -1650,11 +1650,11 @@ public partial class MainWindow : Window
             string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string trialSerialNumber = SNModel.GetSn();
             DateTime generatedAt = DateTime.Now;
-            string maxForce = MaxForceVariable.CurrentValue;
-            string validDistance = ValidDistanceVariable.CurrentValue;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
-            var algorithmIntegratedDataSnapshot = DataAqc.loadModels.ToList();
+            var dataSnapshot = DataAqc.loadModels.ToList();
+            string maxForce = GetMaxForceText(dataSnapshot);
+            string validDistance = GetMaxDistanceText(dataSnapshot);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
@@ -1664,12 +1664,12 @@ public partial class MainWindow : Window
 
                 await Task.Run(() =>
                 {
-                    _viewModel.SaveDataToFile(excelPath);
+                    _viewModel.SaveDataToFile(excelPath, dataSnapshot);
                     if (saveAlgorithmIntegratedData)
                     {
                         DisplacementResamplingService.SaveResampledDataToFile(
                             algorithmIntegratedDataPath,
-                            algorithmIntegratedDataSnapshot,
+                            dataSnapshot,
                             algorithmDisplacementStep);
                     }
 
@@ -1767,6 +1767,7 @@ public partial class MainWindow : Window
         string? tempImagePath = null;
         try
         {
+            var dataSnapshot = DataAqc.loadModels.ToList();
             tempImagePath = CaptureReportImageToTempFile();
             SaveTestReportDocumentToFile(
                 fileName,
@@ -1774,8 +1775,8 @@ public partial class MainWindow : Window
                 recipeName,
                 SNModel.GetSn(),
                 DateTime.Now,
-                MaxForceVariable.CurrentValue,
-                ValidDistanceVariable.CurrentValue,
+                GetMaxForceText(dataSnapshot),
+                GetMaxDistanceText(dataSnapshot),
                 _viewModel.SelectedRecipe);
         }
         finally
@@ -1785,6 +1786,20 @@ public partial class MainWindow : Window
                 File.Delete(tempImagePath);
             }
         }
+    }
+
+    private static string GetMaxForceText(IReadOnlyList<Loadmodel> points)
+    {
+        return points.Count == 0
+            ? "0.000"
+            : points.Max(point => point.RealForce).ToString("F3", CultureInfo.InvariantCulture);
+    }
+
+    private static string GetMaxDistanceText(IReadOnlyList<Loadmodel> points)
+    {
+        return points.Count == 0
+            ? "0.000"
+            : points.Max(point => point.RealDistance).ToString("F3", CultureInfo.InvariantCulture);
     }
 
     private string CaptureReportImageToTempFile()
