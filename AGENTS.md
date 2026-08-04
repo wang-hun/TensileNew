@@ -196,12 +196,13 @@
 安装器运行时职责：
 
 - 显示写死的安装界面、纯线条 Logo 和部署动画，不读取主程序主题。
+- 欢迎页标题中的 `ECS` 保持原有居中布局；仅试用安装包在其右侧显示不参与标题布局的紫色“试用版”悬浮气泡。完整版不显示该气泡。
 - 允许用户选择部署路径，默认使用当前用户可写路径，尽量避免管理员权限。
 - 可选创建当前用户桌面快捷方式，不写注册表，不注册卸载项。
 - 释放嵌入的绿色版发布包后，静默生成 Word/PPT 说明文件的 XPS 缓存；没有 Office/WPS 或转换失败时必须静默跳过，不弹错误提示。
 - 完成后显示“部署成功”，提供“启动 ECS”和“关闭”。
 
-验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，不是最终安装器。安装器项目每次 Build 后必须自动调用自身 `dotnet publish -c Release`，最终交付物只认 `installer/Installer/bin/<Configuration>/<TargetFramework>/<RuntimeIdentifier>/publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
+验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，也不会内嵌 payload，不是最终安装器。最终交付物由 `InstallerBuilder` 运行并发布到其运行目录下的 `publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
 
 ## 编码规则
 
