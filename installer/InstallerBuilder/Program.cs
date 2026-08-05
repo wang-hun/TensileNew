@@ -17,8 +17,8 @@ internal static class Program
         try
         {
             string repositoryRoot = FindRepositoryRoot();
-            bool isTrialPackage = AskWhetherTrialPackage();
-            PackageInstaller(repositoryRoot, isTrialPackage);
+            PackageMode packageMode = AskPackageMode();
+            PackageInstaller(repositoryRoot, packageMode);
             return 0;
         }
         catch (Exception ex)
@@ -28,7 +28,7 @@ internal static class Program
         }
     }
 
-    private static void PackageInstaller(string repositoryRoot, bool isTrialPackage)
+    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode)
     {
         string mainProjectPath = Path.Combine(repositoryRoot, "TensileNeW.csproj");
         string builderProjectPath = Path.Combine(repositoryRoot, "builder", "Builder", "Builder.csproj");
@@ -49,7 +49,7 @@ internal static class Program
             Console.WriteLine("正在生成安装器内容物...");
             RunDotnet(
                 $"run --project {Quote(builderProjectPath)} --no-launch-profile -- pack " +
-                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {(isTrialPackage ? "Y" : "N")}");
+                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)}");
 
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
 
@@ -75,7 +75,7 @@ internal static class Program
         }
     }
 
-    private static bool AskWhetherTrialPackage()
+    private static PackageMode AskPackageMode()
     {
         while (true)
         {
@@ -83,16 +83,51 @@ internal static class Program
             string? answer = Console.ReadLine();
             if (string.Equals(answer?.Trim(), "Y", StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                return PackageMode.Trial;
             }
 
             if (string.Equals(answer?.Trim(), "N", StringComparison.OrdinalIgnoreCase))
             {
-                return false;
+                return AskNonTrialPackageMode();
             }
 
             Console.WriteLine("请输入 Y 或 N。");
         }
+    }
+
+    private static PackageMode AskNonTrialPackageMode()
+    {
+        while (true)
+        {
+            Console.Write("请选择非试用版模式：1. 带完整版权限配置文件 2. 不带完整版权限配置文件 (1/2): ");
+            string? answer = Console.ReadLine();
+            if (answer?.Trim() is "1")
+            {
+                return PackageMode.Full;
+            }
+
+            if (answer?.Trim() is "2")
+            {
+                return PackageMode.WithoutFullPermissionConfiguration;
+            }
+
+            Console.WriteLine("请输入 1 或 2。");
+        }
+    }
+
+    private static string GetBuilderPackageArguments(PackageMode packageMode) => packageMode switch
+    {
+        PackageMode.Trial => "Y",
+        PackageMode.Full => "N 1",
+        PackageMode.WithoutFullPermissionConfiguration => "N 2",
+        _ => throw new ArgumentOutOfRangeException(nameof(packageMode))
+    };
+
+    private enum PackageMode
+    {
+        Trial,
+        Full,
+        WithoutFullPermissionConfiguration
     }
 
     private static void EnsureSingleFileInstaller(string publishDirectory)

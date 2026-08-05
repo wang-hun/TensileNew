@@ -29,28 +29,35 @@ public static class TrialPackageConfiguration
         }
 
         string runtimeFilePath = Path.Combine(directoryPath, FileName);
-        string managedFilePath = GetManagedFilePath();
 
         if (File.Exists(runtimeFilePath))
         {
             TrialPackageState runtimeFullState = Read(runtimeFilePath);
+            if (runtimeFullState.SkipPermissionFileSynchronization)
+            {
+                return runtimeFullState;
+            }
+
             if (!runtimeFullState.IsTrial)
             {
-                if (!TryRead(managedFilePath, out TrialPackageState managedFullState) || managedFullState.IsTrial)
+                string managedFullFilePath = GetManagedFilePath();
+                if (!TryRead(managedFullFilePath, out TrialPackageState managedFullState) || managedFullState.IsTrial)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(managedFilePath)!);
-                    File.Copy(runtimeFilePath, managedFilePath, overwrite: true);
+                    Directory.CreateDirectory(Path.GetDirectoryName(managedFullFilePath)!);
+                    File.Copy(runtimeFilePath, managedFullFilePath, overwrite: true);
                     return runtimeFullState;
                 }
 
-                if (!FilesAreEqual(runtimeFilePath, managedFilePath))
+                if (!FilesAreEqual(runtimeFilePath, managedFullFilePath))
                 {
-                    File.Copy(managedFilePath, runtimeFilePath, overwrite: true);
+                    File.Copy(managedFullFilePath, runtimeFilePath, overwrite: true);
                 }
 
                 return managedFullState;
             }
         }
+
+        string managedFilePath = GetManagedFilePath();
 
         if (File.Exists(managedFilePath))
         {
@@ -80,7 +87,7 @@ public static class TrialPackageConfiguration
 
     public static void Write(string filePath, bool isTrial)
     {
-        Write(filePath, new TrialPackageState(isTrial, StartupCount: 0, DataSaveCount: 0));
+        Write(filePath, isTrial ? TrialPackageState.Trial : TrialPackageState.Full);
     }
 
     public static void Write(string filePath, TrialPackageState state)
@@ -96,6 +103,7 @@ public static class TrialPackageConfiguration
         writer.Write(state.IsTrial);
         writer.Write(state.StartupCount);
         writer.Write(state.DataSaveCount);
+        writer.Write(state.SkipPermissionFileSynchronization);
     }
 
     public static TrialPackageState UpdateTrialCounts(
@@ -160,7 +168,17 @@ public static class TrialPackageConfiguration
             throw new InvalidDataException("试用配置文件无效。");
         }
 
-        return new TrialPackageState(isTrial, startupCount, dataSaveCount);
+        bool skipPermissionFileSynchronization = false;
+        try
+        {
+            skipPermissionFileSynchronization = reader.ReadBoolean();
+        }
+        catch (EndOfStreamException)
+        {
+            // Existing files have no trailing synchronization marker.
+        }
+
+        return new TrialPackageState(isTrial, startupCount, dataSaveCount, skipPermissionFileSynchronization);
     }
 
     private static bool TryRead(string filePath, out TrialPackageState state)
@@ -232,8 +250,13 @@ public static class TrialPackageConfiguration
     }
 }
 
-public sealed record TrialPackageState(bool IsTrial, int StartupCount, int DataSaveCount)
+public sealed record TrialPackageState(bool IsTrial, int StartupCount, int DataSaveCount, bool SkipPermissionFileSynchronization = false)
 {
     public static TrialPackageState Trial { get; } = new(true, StartupCount: 0, DataSaveCount: 0);
     public static TrialPackageState Full { get; } = new(false, StartupCount: 0, DataSaveCount: 0);
+    public static TrialPackageState FullWithoutPermissionFileSynchronization { get; } = new(
+        false,
+        StartupCount: 0,
+        DataSaveCount: 0,
+        SkipPermissionFileSynchronization: true);
 }
