@@ -18,6 +18,7 @@ namespace TensileNeW.Models
     {
         public const string SettingFileName = "Setting.json";
         public const string DefaultRecipeFileName = "DefaultRecipe.json";
+        public const int TrialDataSaveLimit = TrialPackageConfiguration.TrialDataSaveLimit;
         public static bool IsTrial { get; set; }
         public static int TrialStartupCount { get; private set; }
         public static int TrialDataSaveCount { get; private set; }
@@ -46,6 +47,9 @@ namespace TensileNeW.Models
         {
             UpdateTrialCounts(incrementStartupCount: false, incrementDataSaveCount: true);
         }
+
+        public static bool CanSaveTrialDataAndReport() =>
+            !IsTrial || TrialDataSaveCount < TrialDataSaveLimit;
 
         private static void UpdateTrialCounts(bool incrementStartupCount, bool incrementDataSaveCount)
         {

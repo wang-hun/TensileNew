@@ -51,6 +51,25 @@ public partial class MainWindow : Window
     private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
     private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
 
+    private static bool EnsureTrialDataSaveAvailable()
+    {
+        if (RAM.CanSaveTrialDataAndReport())
+        {
+            return true;
+        }
+
+        Dialog.Show(new TrialStartupNoticeDialog(RAM.TrialDataSaveCount, isDataSaveNotice: true));
+        return false;
+    }
+
+    private static void ShowTrialDataSaveNotice(bool shouldShow)
+    {
+        if (shouldShow)
+        {
+            Dialog.Show(new TrialStartupNoticeDialog(RAM.TrialDataSaveCount, isDataSaveNotice: true));
+        }
+    }
+
     private static string GetWindowTitle()
     {
         Assembly assembly = Assembly.GetExecutingAssembly();
@@ -1504,6 +1523,13 @@ public partial class MainWindow : Window
 
     private async void SavePlaybackData_Click(object sender, RoutedEventArgs e)
     {
+        if (!EnsureTrialDataSaveAvailable())
+        {
+            return;
+        }
+
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool saved = false;
         TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
         if (data == null || data.Points.Count == 0)
         {
@@ -1542,11 +1568,17 @@ public partial class MainWindow : Window
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("回放数据表格保存成功");
+            saved = true;
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "保存回放数据表格失败。");
             ShowError("回放数据表格保存失败");
+        }
+
+        if (saved)
+        {
+            ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
         }
     }
 
@@ -1631,12 +1663,19 @@ public partial class MainWindow : Window
 
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
+        if (!EnsureTrialDataSaveAvailable())
+        {
+            return;
+        }
+
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
         var waitWindow = new StartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
+        bool saved = false;
 
         try
         {
@@ -1688,6 +1727,7 @@ public partial class MainWindow : Window
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("数据和试验报告保存成功");
+            saved = true;
             _viewModel.AdvanceTrialSerialNumber();
         }
         catch (Exception ex)
@@ -1704,6 +1744,11 @@ public partial class MainWindow : Window
 
             waitWindow.Close();
             IsEnabled = true;
+        }
+
+        if (saved)
+        {
+            ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
         }
     }
 

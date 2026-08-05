@@ -8,6 +8,7 @@ namespace TensileNeW.Services;
 public static class TrialPackageConfiguration
 {
     public const string FileName = "package.config";
+    public const int TrialDataSaveLimit = 50;
     private const string ApplicationDataDirectoryName = "ECS";
     private const byte ConfigurationVersion = 2;
 
@@ -113,6 +114,11 @@ public static class TrialPackageConfiguration
         bool incrementDataSaveCount)
     {
         if (!currentState.IsTrial)
+        {
+            return currentState;
+        }
+
+        if (incrementDataSaveCount && currentState.DataSaveCount >= TrialDataSaveLimit)
         {
             return currentState;
         }

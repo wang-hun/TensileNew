@@ -65,6 +65,7 @@ public sealed class MainViewModel : ObservableObject
     public bool IsTrialPackage => RAM.IsTrial;
     public int TrialStartupCount => RAM.TrialStartupCount;
     public int TrialDataSaveCount => RAM.TrialDataSaveCount;
+    public string TrialDataSaveCountText => $"{RAM.TrialDataSaveCount}/{RAM.TrialDataSaveLimit}";
     public string TrialPackageVersionText
     {
         get
@@ -90,6 +91,7 @@ public sealed class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(TrialStartupCount));
         OnPropertyChanged(nameof(TrialDataSaveCount));
+        OnPropertyChanged(nameof(TrialDataSaveCountText));
     }
 
     public string SelectedLanguageDisplay
