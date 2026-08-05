@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 using TensileNeW.Models;
 using TensileNeW.Services;
 using HandyMessageBox = HandyControl.Controls.MessageBox;
+using HandyDialog = HandyControl.Controls.Dialog;
 
 namespace TensileNeW;
 
@@ -47,6 +48,18 @@ public partial class App : Application
 
         try
         {
+            /*
+             * ====================================================================
+             * 程序启动时只读取一次试用状态，并保存到全局 RAM 配置。
+             * ====================================================================
+             */
+            RAM.SetTrialPackageState(TrialPackageConfiguration.ReadStartupTrialState(AppContext.BaseDirectory));
+            RAM.RecordTrialStartup();
+            /*
+             * ====================================================================
+             * 一次性试用状态读取结束。
+             * ====================================================================
+             */
             RAM.Init();
             ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
@@ -89,6 +102,11 @@ public partial class App : Application
 
             mainWindow.Show();
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+            if (ShouldShowTrialStartupNotice())
+            {
+                HandyDialog.Show(new TrialStartupNoticeDialog(RAM.TrialStartupCount));
+            }
         }
         catch (Exception ex)
         {
@@ -127,6 +145,11 @@ public partial class App : Application
         singleInstanceMutex.Dispose();
         singleInstanceMutex = null;
         return false;
+    }
+
+    private static bool ShouldShowTrialStartupNotice()
+    {
+        return RAM.IsTrial && RAM.TrialStartupCount is 5 or 20 or 50 or 100;
     }
 
     private static void ReleaseSingleInstanceMutex()

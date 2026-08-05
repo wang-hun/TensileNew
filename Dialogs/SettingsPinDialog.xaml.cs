@@ -10,9 +10,11 @@ public partial class SettingsPinDialog : UserControl
 {
     private const string SettingsPassword = "GB123";
     private const string ColorPassword = "COLOR";
+    private const string DebugAlgorithmDataPassword = "DATAI";
 
     public event EventHandler? Unlocked;
     public event EventHandler? ColorUnlocked;
+    public event EventHandler? DebugAlgorithmDataRequested;
 
     public SettingsPinDialog()
     {
@@ -32,6 +34,13 @@ public partial class SettingsPinDialog : UserControl
         if (string.Equals(PinBox.UnsafePassword, ColorPassword, StringComparison.OrdinalIgnoreCase))
         {
             ColorUnlocked?.Invoke(this, EventArgs.Empty);
+            CloseDialog();
+            return;
+        }
+
+        if (string.Equals(PinBox.UnsafePassword, DebugAlgorithmDataPassword, StringComparison.OrdinalIgnoreCase))
+        {
+            DebugAlgorithmDataRequested?.Invoke(this, EventArgs.Empty);
             CloseDialog();
         }
     }

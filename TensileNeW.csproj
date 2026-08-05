@@ -10,10 +10,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>1.1.7.2607</Version>
-    <AssemblyVersion>1.1.7.2607</AssemblyVersion>
-    <FileVersion>1.1.7.2607</FileVersion>
-    <InformationalVersion>V1.1.7.2607</InformationalVersion>
+    <Version>2.0.2.2608</Version>
+    <AssemblyVersion>2.0.2.2608</AssemblyVersion>
+    <FileVersion>2.0.2.2608</FileVersion>
+    <InformationalVersion>V2.0.2.2608</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -26,24 +26,28 @@
     <Compile Remove="builder\**" />
     <Compile Remove="bin\**" />
     <Compile Remove="codex_obj\**" />
+    <Compile Remove="demo\**" />
     <Compile Remove="helper\**" />
     <Compile Remove="installer\**" />
     <Compile Remove="obj\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
     <EmbeddedResource Remove="codex_obj\**" />
+    <EmbeddedResource Remove="demo\**" />
     <EmbeddedResource Remove="helper\**" />
     <EmbeddedResource Remove="installer\**" />
     <EmbeddedResource Remove="obj\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
     <None Remove="codex_obj\**" />
+    <None Remove="demo\**" />
     <None Remove="helper\**" />
     <None Remove="installer\**" />
     <None Remove="obj\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
     <Page Remove="codex_obj\**" />
+    <Page Remove="demo\**" />
     <Page Remove="helper\**" />
     <Page Remove="installer\**" />
     <Page Remove="obj\**" />

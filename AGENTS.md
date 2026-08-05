@@ -13,6 +13,14 @@
 
 主窗口和主要交互在 `MainWindow.xaml`、`MainWindow.xaml.cs` 和 `MainViewModel.cs` 中。应用启动入口在 `App.xaml.cs`。
 
+## Demo 工程隔离
+
+`demo/` 是与产品程序并列的独立 WPF 示例工程，项目文件为 `demo/Demo.csproj`，程序集名为 `demo`。它用于演示可扩展的设备连接、采集接口、曲线、摄像头、PDF 和导出框架，不是 `ECS` 产品程序的一部分。
+
+- 产品构建、发布、绿色版打包和安装器只以 `TensileNeW.csproj` / `ECS` 为目标；不得把 `demo/` 编入产品项目、builder、installer 或产品发布包。
+- 修改 `demo/` 时必须遵守 `demo/AGENTS.md`；其中的空采集映射、示例数据、PDF-only 阅读边界和 demo 标识不得回流到产品程序。
+- 修改产品代码时不要以 demo 页面、配置或示例曲线作为产品行为依据。需要验证 demo 时单独运行 `dotnet build .\demo\Demo.csproj`，并把 demo 的 `bin/`、`obj/` 和运行数据视为独立验证产物。
+
 ## 目录职责
 
 - `Models/`：运行状态、配置、配方、PLC 变量、试验数据等模型。`RAM.cs` 负责加载和保存 `Setting.json`，`DataAqc.cs` 负责 PLC 变量初始化、连接、采集循环和数据队列。
@@ -22,7 +30,8 @@
 - `Controls/`：复用控件，例如说明文档查看器；文档预览只保留 PDF、Word、PPT 内嵌显示，不再引入 WebView/WebView2 这类内嵌浏览器依赖。
 - `Themes/`：颜色方案和主题资源。
 - `Assets/`：图标、Logo、默认配方和字体资源。
-- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。
+- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。Word/PPT 的 XPS 权威缓存位于 `%LocalAppData%\ECS\manual-cache`；启动和按需转换时优先按说明书文件名及内容签名命中该目录，命中后复制到运行目录的 `manual-cache`，未命中才生成并写入 AppData 后复制到运行目录。
+- `demo/`：独立示例工程，不参与本产品项目编译、发布或安装器打包；其维护规则见 `demo/AGENTS.md`。
 - `builder/`：打包/发布辅助项目，不参与主项目编译。
 - `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
 
@@ -64,6 +73,7 @@
 - 只允许在设备未连接时生成调试数据。只要 `DataAqc.plc?.Client.Connected == true` 且 `DataAqc.plc.ConnectState` 能解析为 `true`，启动时必须跳过，运行中必须立即停止。
 - 不允许修改 `DataAqc.Refresh()`、`DeltaPLC2`、PLC 连接、重连、自动重连、采集周期或 PLC 读写逻辑。唯一允许在 `DataAqc` 增加的是不进入采集循环的公共调试清空入口，用于复用现有 `ChartCleared` 事件。
 - 不允许在采集循环里增加调试判断，以免影响真实采集周期精度。
+- `DataAqc.Refresh()` 中现有 `M111`“完全复位”读取和触发逻辑属于真实设备重置链路，会与 `M10`“数据重置”一样清空队列、清空 `loadModels` 并触发 `ChartCleared`。恢复或调整正弦曲线调试时不要删除、绕过或改写这条 M111 逻辑；调试功能只在主窗口“数据重置”按钮路径上额外拦截运行中的本地调试重置。
 - 不允许直接改曲线控制器、直接写 `DataAqc.loadModels`、直接触发 `LoadDataChanged` 或直接写 `TrialDataStore`。
 - 调试数据必须走 `DataAqc.Enqueue(loadModel)`。这样会自然进入 `TrialDataStore.EnqueuePoint()`、消费者队列、主窗口数据表格、主窗口曲线和独立曲线窗口。
 - 自动播放曲线图不能通过手动调用 `AutoScale()` 实现。调试功能必须在启动时把 PLC 变量表中的 `数据采集标志` 设为 `True`，停止时设为 `False`，让 `LoadPlotController.AutoScaleWhileCollecting()` 的现有判断自然通过。
@@ -135,9 +145,22 @@
 ## 配置和运行数据
 
 - `Setting.json`：运行时配置文件，由 `RAM.Init()` 在程序目录读取或创建。
+- `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。配置包含试用标记、启动次数和数据保存次数；仅试用版会在启动后递增启动次数，并在“保存数据和报告”或回放页“保存数据表格”完成后递增数据保存次数，完整版不读写这些计数。试用版的启动次数恰为 5、20、50、100 时，主窗口显示后弹出一次购买完整版提示，不执行其他操作。系统设置页始终显示当前版本，只有试用版显示这两项计数。非调试启动时，试用包以 `%LocalAppData%\ECS\package.config` 为权威副本：该副本存在则覆盖修复运行目录中缺失或内容不一致的文件；副本不存在时，试用包会将运行目录文件复制到该处，运行目录文件也不存在时先创建新的试用文件。运行目录自带完整版文件时，先检查 AppData 是否同为有效完整版：不是则由运行目录文件覆盖 AppData；是则由 AppData 文件覆盖修复运行目录。附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
+- `package.config` 的试用标记、计数后允许追加权限文件同步跳过标记；旧文件没有该字段时按原有同步逻辑处理。携带该标记的非试用包只读取运行目录中的标记，完全跳过 `%LocalAppData%\ECS\package.config` 的读取、写入、复制、同步和覆盖；说明书缓存仍与权限文件无关，保持原有缓存逻辑。
+- builder 生成试用包时，仅在输出目录名末尾追加 `-试用版`；非试用包保持原有目录名。builder 首先通过 `Y/N` 选择是否试用，回答 `N` 后再选择 `1`（带完整版权限配置文件）或 `2`（不带完整版权限配置文件）。
+- 安装器生成 payload 时由安装器自己的可见 UTF-8 控制台执行与 builder 相同的两步选择，并将两个选择作为参数传给 builder；builder 收到完整参数后不得再次询问。
+- 试用包最多保存 50 次数据。系统设置页保存次数显示为 `当前次数/50`；主窗口“保存数据和报告”和回放页“保存数据表格”必须在写文件前拒绝第 51 次及之后的保存。第 10、25、40 次成功保存后复用试用提示弹窗，明确说明试用版只能保存 50 次。
 - `Assets/DefaultRecipe.json`：内置默认配方资源，构建时复制到输出目录。
 - `NLog.config`：日志配置，构建时复制到输出目录。
 - `TrialDataStore` 相关数据、日志、临时数据库等属于运行或验证产物，不应留在仓库中。
+
+## 算法整合数据导出
+
+主窗口“保存数据和报告”按钮下方提供“额外保存算法整合数据”复选框，默认勾选。勾选时，保存流程在原始数据 Excel 和试验报告之外，额外生成一个独立 Excel 文件，命名为 `{原基础文件名}_算法整合数据.xlsx`；不要把算法整合结果插入原始 Excel，也不要改变报告中的原始曲线截图。
+
+算法实现位于 `Services/DisplacementResamplingService.cs`。位移间隔按 `速度设定 / 20` 计算，速度为 `1mm/s` 时对应 `0.05mm`；速度解析失败时才回退到 `0.05mm`。横轴使用 `Loadmodel.RealDistance`，力值使用相邻原始点线性插值得到，压边力和时间字段作为辅助列同步插值或透传。导出范围需要覆盖原始位移范围外侧的整间隔边界：起点向下取整、终点向上取整，边界点使用首尾相邻两点做线性外推，不能只保留内部插值点。保存事件中应先对 `DataAqc.loadModels` 做快照，再在线程池中生成额外文件，避免 UI 线程卡顿，也避免计算过程中实时采集列表继续变化影响本次算法数据。
+
+隐藏调试入口：管理员密码窗口输入 `datai` 时，主窗口会弹出原始数据 Excel 文件选择框，选择 `.xlsx` / `.xls` 后由 `Services/DebugAlgorithmExcelService.cs` 读取第一张表并复用 `DisplacementResamplingService.SaveResampledDataToFile()` 生成同目录 `{原文件名}_整合数据_debug.xlsx`。该入口只用于离线验证算法整合数据，不应改变正常“保存数据和报告”流程，不应写入 `Setting.json`，也不应直接读写实时采集队列。
 
 修改配置模型时，需要同时考虑旧 `Setting.json` 的兼容性，避免空值导致启动失败。
 
@@ -170,17 +193,18 @@
 
 ## 独立安装器
 
-`installer/Installer` 是独立安装器项目，界面和部署逻辑不应塞进主程序。安装器可以依赖 builder 的发布能力，但只允许在构建安装器时调用 builder：先由 installer 项目的 MSBuild 目标调用 `builder\Builder` 生成绿色版发布目录，再压缩为 `payload.zip` 并作为嵌入资源写入安装器。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
+`installer/Installer` 是独立安装器项目，`installer/InstallerBuilder` 是独立控制台打包程序。界面和部署逻辑不应塞进主程序。InstallerBuilder 在运行时询问试用版本，调用 `builder/Builder` 生成绿色版 payload、压缩为临时 `payload.zip`、再发布安装器到自身运行目录的 `publish/`；WPF 安装器项目本身不得在 MSBuild 目标中自动生成 payload 或 publish。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
 
 安装器运行时职责：
 
 - 显示写死的安装界面、纯线条 Logo 和部署动画，不读取主程序主题。
+- 欢迎页标题中的 `ECS` 保持原有居中布局；仅试用安装包在其右侧显示不参与标题布局的紫色“试用版”悬浮气泡。完整版不显示该气泡。
 - 允许用户选择部署路径，默认使用当前用户可写路径，尽量避免管理员权限。
 - 可选创建当前用户桌面快捷方式，不写注册表，不注册卸载项。
 - 释放嵌入的绿色版发布包后，静默生成 Word/PPT 说明文件的 XPS 缓存；没有 Office/WPS 或转换失败时必须静默跳过，不弹错误提示。
 - 完成后显示“部署成功”，提供“启动 ECS”和“关闭”。
 
-验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，不是最终安装器。安装器项目每次 Build 后必须自动调用自身 `dotnet publish -c Release`，最终交付物只认 `installer/Installer/bin/<Configuration>/<TargetFramework>/<RuntimeIdentifier>/publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
+验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，也不会内嵌 payload，不是最终安装器。最终交付物由 `InstallerBuilder` 运行并发布到其运行目录下的 `publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
 
 ## 编码规则
 
@@ -193,6 +217,7 @@
 
 - 保持现有 WPF、HandyControl、MahApps、ScottPlot 和 MVVM Toolkit 的使用方式，不为局部修改引入新的 UI 框架或大规模重构。
 - 修改主界面 UI 前必须先确认所在 Grid/Border 的固定宽高、Margin、Padding 和可用空间，新增按钮、图标或文字后要按实际可用宽度核算总宽高，避免折叠、遮挡、显示不全或挤压相邻控件。
+- 新增弹窗、列表和局部面板时，默认不要添加装饰性外框或边框，尤其不要把 `AppLayoutBorderBrush`、`AppStartupWaitBorderBrush` 等主题强调色当作普通容器边框使用；只有现有控件模板或明确设计需要边界时才保留必要分隔线。
 - 主界面按钮应优先复用现有 `ActionButtonStyle`、`IndicatorActionButtonStyle`、`ButtonPrimary`、`ButtonDanger` 等本地样式和动态主题资源；除非确有必要，不要临时手写一套背景色、边框色、字体或高度，避免破坏主题一致性。
 - 在 DataGrid、曲线图、预览区等内容控件上叠放小按钮时，必须给表头文字、滚动条和内容区域预留空间；不能让按钮覆盖关键数据、列标题或交互区域。必要时通过缩小按钮、调整列宽、增加右侧 Padding/Margin 或使用独立工具列解决。
 - 隐藏某个 UI 开关时，不应只隐藏文字和选择框后留下空白承载行；要同时评估承载它的行高、背景块和相邻按钮布局是否还需要保留、压缩或移位。

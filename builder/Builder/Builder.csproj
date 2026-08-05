@@ -6,24 +6,13 @@
     <SupportedOSPlatformVersion>10.0.14393.0</SupportedOSPlatformVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ExternalProjectPath Condition="'$(ExternalProjectPath)' == ''">$(MSBuildThisFileDirectory)..\..\TensileNeW.csproj</ExternalProjectPath>
-    <ExternalProjectPublishOnBuild Condition="'$(ExternalProjectPublishOnBuild)' == ''">true</ExternalProjectPublishOnBuild>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(ExternalProjectPublishOnBuild)' == 'true'">
-    <ProjectReference Include="$(ExternalProjectPath)" ReferenceOutputAssembly="false" PrivateAssets="all" />
-  </ItemGroup>
-
   <ItemGroup>
+    <Compile Include="..\..\Services\TrialPackageConfiguration.cs" Link="TrialPackageConfiguration.cs" />
     <Compile Remove="manuals\**" />
     <EmbeddedResource Remove="manuals\**" />
     <None Remove="manuals\**" />
     <Content Remove="manuals\**" />
   </ItemGroup>
-
-  <Target Name="PublishExternalProjectToBuilderOutput" AfterTargets="Build" Condition="'$(ExternalProjectPublishOnBuild)' == 'true'">
-    <Message Importance="high" Text="Packaging external project '$(ExternalProjectPath)' to '$(TargetDir)publish'." />
-    <Exec Command="dotnet &quot;$(TargetPath)&quot; pack &quot;$(ExternalProjectPath)&quot; &quot;Release&quot; &quot;$(TargetDir)publish&quot;" />
-  </Target>
-
 </Project>

@@ -11,6 +11,10 @@ namespace TensileNeW.Models
 {
     public class SettingModel: ObservableObject
     { 
+        public const string RuntimeDataSaveAlwaysYes = "始终是";
+        public const string RuntimeDataSaveAskEveryTime = "每次询问";
+        public const string RuntimeDataSaveAlwaysNo = "始终否";
+
         /// <summary>
         /// 配方列表
         /// </summary>
@@ -98,6 +102,13 @@ namespace TensileNeW.Models
         {
             get => _ColorSchemeName;
             set => SetProperty(ref _ColorSchemeName, value);
+        }
+
+        private string _RuntimeDataSavePolicy = RuntimeDataSaveAlwaysNo;
+        public string RuntimeDataSavePolicy
+        {
+            get => _RuntimeDataSavePolicy;
+            set => SetProperty(ref _RuntimeDataSavePolicy, value);
         }
 
     }

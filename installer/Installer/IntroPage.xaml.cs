@@ -13,6 +13,9 @@ public sealed partial class IntroPage : UserControl
     {
         InitializeComponent();
         VersionTextBlock.Text = GetDisplayVersion();
+        TrialShield.Visibility = InstallerService.IsTrialPackage
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         InstallPathTextBox.Text = InstallerService.GetDefaultInstallPath();
     }
 

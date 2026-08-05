@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TensileNeW.Services;
 
 namespace TensileNeW.Models
 { 
@@ -17,6 +18,10 @@ namespace TensileNeW.Models
     {
         public const string SettingFileName = "Setting.json";
         public const string DefaultRecipeFileName = "DefaultRecipe.json";
+        public const int TrialDataSaveLimit = TrialPackageConfiguration.TrialDataSaveLimit;
+        public static bool IsTrial { get; set; }
+        public static int TrialStartupCount { get; private set; }
+        public static int TrialDataSaveCount { get; private set; }
         public static int SaveIndex=1;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
@@ -25,6 +30,49 @@ namespace TensileNeW.Models
         /// </summary>
         public static SettingModel SettingModel { get; set; }
         public static BindingList<RecipeModel> BuiltInRecipes { get; private set; } = new();
+
+        public static void SetTrialPackageState(TrialPackageState state)
+        {
+            IsTrial = state.IsTrial;
+            TrialStartupCount = state.StartupCount;
+            TrialDataSaveCount = state.DataSaveCount;
+        }
+
+        public static void RecordTrialStartup()
+        {
+            UpdateTrialCounts(incrementStartupCount: true, incrementDataSaveCount: false);
+        }
+
+        public static void RecordTrialDataAndReportSaved()
+        {
+            UpdateTrialCounts(incrementStartupCount: false, incrementDataSaveCount: true);
+        }
+
+        public static bool CanSaveTrialDataAndReport() =>
+            !IsTrial || TrialDataSaveCount < TrialDataSaveLimit;
+
+        private static void UpdateTrialCounts(bool incrementStartupCount, bool incrementDataSaveCount)
+        {
+            if (!IsTrial)
+            {
+                return;
+            }
+
+            try
+            {
+                TrialPackageState updatedState = TrialPackageConfiguration.UpdateTrialCounts(
+                    AppContext.BaseDirectory,
+                    new TrialPackageState(IsTrial, TrialStartupCount, TrialDataSaveCount),
+                    incrementStartupCount,
+                    incrementDataSaveCount);
+                TrialStartupCount = updatedState.StartupCount;
+                TrialDataSaveCount = updatedState.DataSaveCount;
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Failed to update trial package counters.");
+            }
+        }
 
         public static void Init()
         {
@@ -44,6 +92,10 @@ namespace TensileNeW.Models
             }
 
             EnsureValidSettings();
+            TrialDataStore.InitializeRecipes(
+                BuiltInRecipes,
+                SettingModel.RecipeModelS ?? new System.ComponentModel.BindingList<RecipeModel>(),
+                SettingModel.CurRecipeModel);
              
             logger.Info("加载配方参数");
 
@@ -94,6 +146,12 @@ namespace TensileNeW.Models
 
             SettingModel.CameraDeviceId ??= string.Empty;
             SettingModel.CameraDeviceName ??= string.Empty;
+            if (SettingModel.RuntimeDataSavePolicy is not SettingModel.RuntimeDataSaveAlwaysYes
+                and not SettingModel.RuntimeDataSaveAskEveryTime
+                and not SettingModel.RuntimeDataSaveAlwaysNo)
+            {
+                SettingModel.RuntimeDataSavePolicy = SettingModel.RuntimeDataSaveAlwaysNo;
+            }
         }
 
         public static BindingList<RecipeModel> GetRuntimeRecipes()

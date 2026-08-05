@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using NLog;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,6 +17,7 @@ using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
 using TensileNeW.Models;
 using TensileNeW.Services;
+using TensileNeW.Tools;
 using Dialog = HandyControl.Controls.Dialog;
 using Growl = HandyControl.Controls.Growl;
 using MessageBox = HandyControl.Controls.MessageBox;
@@ -49,15 +51,35 @@ public partial class MainWindow : Window
     private static void ShowWarning(string msg) => Growl.Warning(MakeInfo(msg));
     private static void ShowError(string msg) => Growl.Error(MakeInfo(msg));
 
+    private static bool EnsureTrialDataSaveAvailable()
+    {
+        if (RAM.CanSaveTrialDataAndReport())
+        {
+            return true;
+        }
+
+        Dialog.Show(new TrialStartupNoticeDialog(RAM.TrialDataSaveCount, isDataSaveNotice: true));
+        return false;
+    }
+
+    private static void ShowTrialDataSaveNotice(bool shouldShow)
+    {
+        if (shouldShow)
+        {
+            Dialog.Show(new TrialStartupNoticeDialog(RAM.TrialDataSaveCount, isDataSaveNotice: true));
+        }
+    }
+
     private static string GetWindowTitle()
     {
         Assembly assembly = Assembly.GetExecutingAssembly();
         string assemblyName = assembly.GetName().Name ?? "ECS";
         string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-        return string.IsNullOrWhiteSpace(version)
+        string title = string.IsNullOrWhiteSpace(version)
             ? assemblyName
             : $"{assemblyName} {version}";
+        return RAM.IsTrial ? $"{title}-试用版" : title;
     }
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -71,8 +93,14 @@ public partial class MainWindow : Window
     private CameraCaptureService? _cameraCaptureService;
     private BitmapSource? _currentCameraBitmap;
     private bool _isClosing;
+    private bool _shutdownCleanupStarted;
+    private bool _runtimeDataSavePromptHandled;
+    private bool _runtimeDataSavePromptOpen;
+    private bool _runtimeDataSavePromptShouldSave;
     private bool _isCameraReconnectRunning;
     private readonly LoadPlotController _loadPlotController;
+    private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
+    private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
     private bool _networkProbeRunning;
     private bool _autoTrackLatestPoint = true;
@@ -554,6 +582,24 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
+        if (!_runtimeDataSavePromptHandled && ShouldPromptRuntimeDataSaveOnExit())
+        {
+            e.Cancel = true;
+            ShowRuntimeDataSavePrompt();
+            return;
+        }
+
+        RunShutdownCleanup();
+    }
+
+    private void RunShutdownCleanup()
+    {
+        if (_shutdownCleanupStarted)
+        {
+            return;
+        }
+
+        _shutdownCleanupStarted = true;
         _isClosing = true;
         _variableWindow?.Close();
         _loadDataWindow?.Close();
@@ -565,13 +611,96 @@ public partial class MainWindow : Window
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
+        HandleRuntimeDataSaveOnExit();
         TrialDataStore.TryDeleteDatabaseFile();
         Logger.Info("关闭程序");
     }
 
+    private bool ShouldPromptRuntimeDataSaveOnExit()
+    {
+        return !_runtimeDataSavePromptOpen
+            && string.Equals(_viewModel.Setting.RuntimeDataSavePolicy, SettingModel.RuntimeDataSaveAskEveryTime, StringComparison.Ordinal)
+            && TrialDataStore.HasAnyTrialData();
+    }
+
+    private void ShowRuntimeDataSavePrompt()
+    {
+        if (_runtimeDataSavePromptOpen)
+        {
+            return;
+        }
+
+        _runtimeDataSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow
+        {
+            Owner = this
+        };
+
+        dialog.Closed += (_, _) =>
+        {
+            _runtimeDataSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            _runtimeDataSavePromptHandled = true;
+            _runtimeDataSavePromptShouldSave = dialog.ShouldSave;
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.RuntimeDataSavePolicy = dialog.ShouldSave
+                    ? SettingModel.RuntimeDataSaveAlwaysYes
+                    : SettingModel.RuntimeDataSaveAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            Close();
+        };
+
+        dialog.ShowDialog();
+    }
+
+    private void HandleRuntimeDataSaveOnExit()
+    {
+        try
+        {
+            if (!TrialDataStore.HasAnyTrialData())
+            {
+                return;
+            }
+
+            string policy = _viewModel.Setting.RuntimeDataSavePolicy;
+            bool shouldSave = policy == SettingModel.RuntimeDataSaveAlwaysYes ||
+                (_runtimeDataSavePromptHandled && _runtimeDataSavePromptShouldSave);
+
+            if (!shouldSave)
+            {
+                return;
+            }
+
+            string? exportedPath = TrialDataStore.ExportDatabaseCopy(_viewModel.Setting.ExcelFolderPath);
+            if (string.IsNullOrWhiteSpace(exportedPath))
+            {
+                MessageBox.Error("运行数据保存失败。", "保存运行数据");
+                return;
+            }
+
+            Logger.Info($"运行数据已保存到：{exportedPath}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "程序退出时保存运行数据失败。");
+            MessageBox.Error("运行数据保存失败。", "保存运行数据");
+        }
+    }
+
     private void InitializePlot()
     {
-        _loadPlotController.Initialize(() => _loadPlotController.LocalizeContextMenu(OpenPlotWindow));
+        _loadPlotController.Initialize(() => _loadPlotController.LocalizeContextMenu(
+            OpenPlotWindow,
+            () => ShowCurveFilterDialog(_loadPlotController),
+            () => ShowClearPlotConfirmDialog(_loadPlotController)));
     }
 
     private void ResetPlot() => _loadPlotController.Reset();
@@ -835,9 +964,47 @@ public partial class MainWindow : Window
         _plotWindow.Show();
     }
 
+    private void ShowCurveFilterDialog(LoadPlotController plotController)
+    {
+        IReadOnlyList<LoadPlotController.CurveFilterEntry> entries = plotController.GetCurveFilterEntries();
+        if (entries.Count == 0)
+        {
+            ShowWarning("当前没有可筛选的曲线。");
+            return;
+        }
+
+        var dialog = new CurveFilterWindow(entries)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            plotController.ApplyCurveFilter(dialog.GetSelections());
+        }
+    }
+
+    private void ShowClearPlotConfirmDialog(LoadPlotController plotController)
+    {
+        if (!plotController.HasCurves)
+        {
+            ShowWarning("当前曲线图没有可清空的曲线。");
+            return;
+        }
+
+        var dialog = new ClearPlotConfirmDialog();
+        dialog.Confirmed += (_, _) => plotController.ClearCurrentPlotCurves();
+        Dialog.Show(dialog);
+    }
+
     private void Home_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Home";
     private void Settings_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Settings";
     private void Help_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Help";
+    private async void Playback_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.CurrentPage = "Playback";
+        await RefreshPlaybackTrialsAsync();
+    }
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
     private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
 
@@ -1128,7 +1295,46 @@ public partial class MainWindow : Window
             ColorSchemesButton.Visibility = Visibility.Visible;
             _viewModel.CurrentPage = "ColorSchemes";
         };
+        dialog.DebugAlgorithmDataRequested += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(new Action(async () => await RunDebugAlgorithmDataImportAsync()));
+        };
         dialog.ShowDialog();
+    }
+
+    private async Task RunDebugAlgorithmDataImportAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "选择原始数据 Excel",
+            Filter = "Excel 文件 (*.xlsx;*.xls)|*.xlsx;*.xls",
+            Multiselect = false
+        };
+
+        if (Directory.Exists(RAM.SettingModel.ExcelFolderPath))
+        {
+            dialog.InitialDirectory = RAM.SettingModel.ExcelFolderPath;
+        }
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            double displacementStep = DisplacementResamplingService.GetDisplacementStep(
+                ResolveAlgorithmSpeed(_viewModel.SelectedRecipe));
+            string outputFileName = await Task.Run(() =>
+                DebugAlgorithmExcelService.CreateDebugIntegratedDataFile(dialog.FileName, displacementStep));
+
+            ShowSuccess($"整合数据已生成：{Path.GetFileName(outputFileName)}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            ShowError("原始数据整合处理失败");
+        }
     }
 
     private void ApplyColorScheme_Click(object sender, RoutedEventArgs e)
@@ -1168,6 +1374,7 @@ public partial class MainWindow : Window
         bool ok = await _viewModel.WriteRecipeAsync();
         if (ok)
         {
+            TrialDataStore.RecordRecipeVersion(_viewModel.SelectedRecipe);
             string name = _viewModel.SelectedRecipe?.RecipeName ?? string.Empty;
             ShowSuccess($"已写入配置参数：{name}");
         }
@@ -1211,14 +1418,264 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void RefreshPlayback_Click(object sender, RoutedEventArgs e) => await RefreshPlaybackTrialsAsync();
+
+    private async Task RefreshPlaybackTrialsAsync()
+    {
+        long? selectedId = (PlaybackTrialListBox.SelectedItem as TrialDataStore.TrialPlaybackSummary)?.TrialGroupId;
+        IReadOnlyList<TrialDataStore.TrialPlaybackSummary> summaries = await Task.Run(TrialDataStore.GetTrialPlaybackSummaries);
+        PlaybackTrialListBox.ItemsSource = summaries;
+
+        TrialDataStore.TrialPlaybackSummary? selected = summaries.FirstOrDefault(item => item.TrialGroupId == selectedId);
+        if (selected != null)
+        {
+            PlaybackTrialListBox.SelectedItem = selected;
+        }
+        else if (summaries.Count > 0)
+        {
+            PlaybackTrialListBox.SelectedIndex = 0;
+        }
+        else
+        {
+            ClearPlaybackDisplay();
+        }
+    }
+
+    private async void PlaybackTrialListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (PlaybackTrialListBox.SelectedItem is not TrialDataStore.TrialPlaybackSummary summary)
+        {
+            ClearPlaybackDisplay();
+            return;
+        }
+
+        _pendingPlaybackTrialGroupId = summary.TrialGroupId;
+        TrialDataStore.TrialPlaybackData? data = await Task.Run(() => TrialDataStore.GetTrialPlaybackData(summary.TrialGroupId));
+        if (_pendingPlaybackTrialGroupId != summary.TrialGroupId)
+        {
+            return;
+        }
+
+        if (data == null)
+        {
+            ClearPlaybackDisplay();
+            ShowWarning("读取该次试验数据失败。");
+            return;
+        }
+
+        _selectedPlaybackData = data;
+        RenderPlayback(data);
+    }
+
+    private void ClearPlaybackDisplay()
+    {
+        _selectedPlaybackData = null;
+        _pendingPlaybackTrialGroupId = null;
+        PlaybackPlot.Plot.Clear();
+        PlaybackPlot.Refresh();
+        PlaybackTrialTitleTextBlock.Text = string.Empty;
+        PlaybackRecipeNameTextBlock.Text = "-";
+        PlaybackMaxForceTextBlock.Text = "-";
+        PlaybackStrokePressTextBlock.Text = "-";
+        PlaybackMaxDistanceTextBlock.Text = "-";
+        PlaybackClosedLoopTextBlock.Text = "-";
+        PlaybackSpeedTextBlock.Text = "-";
+        PlaybackShutdownTextBlock.Text = "-";
+        PlaybackDistanceLimitTextBlock.Text = "-";
+    }
+
+    private void RenderPlayback(TrialDataStore.TrialPlaybackData data)
+    {
+        PlaybackPlot.Plot.Clear();
+        if (data.Points.Count > 0)
+        {
+            var scatter = PlaybackPlot.Plot.Add.Scatter(
+                data.Points.Select(point => (double)point.RealDistance).ToArray(),
+                data.Points.Select(point => (double)point.RealForce).ToArray());
+            scatter.Smooth = true;
+            scatter.MarkerSize = 0;
+            scatter.Color = ScottPlot.Color.FromHex("#003A8C");
+            PlaybackPlot.Plot.Axes.AutoScale();
+        }
+
+        PlaybackPlot.Plot.Title("力位移数据", 15);
+        PlaybackPlot.Plot.XLabel("位移（mm）", 15);
+        PlaybackPlot.Plot.YLabel("力（KN）", 15);
+        PlaybackPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 11;
+        PlaybackPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 11;
+        PlaybackPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Refresh();
+
+        RecipeModel? recipe = data.Recipe;
+        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
+        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
+        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
+        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
+        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
+        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
+        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
+        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
+        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
+        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
+    }
+
+    private async void SavePlaybackData_Click(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureTrialDataSaveAvailable())
+        {
+            return;
+        }
+
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool saved = false;
+        TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
+        if (data == null || data.Points.Count == 0)
+        {
+            ShowWarning("请先选择一条包含数据的历史试验。");
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Excel (*.xlsx)|*.xlsx",
+            InitialDirectory = RAM.SettingModel.ExcelFolderPath,
+            FileName = BuildPlaybackBaseFileName(data)
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            bool saveIntegratedData = PlaybackAlgorithmIntegratedDataCheckBox.IsChecked == true;
+            string integratedPath = Path.Combine(
+                Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
+                $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_算法整合数据.xlsx");
+            double displacementStep = DisplacementResamplingService.GetDisplacementStep(
+                data.Recipe?.Speed > 0 ? data.Recipe.Speed : DisplacementResamplingService.DefaultSpeed);
+
+            await Task.Run(() =>
+            {
+                SavePlaybackDataToFile(dialog.FileName, data.Points);
+                if (saveIntegratedData)
+                {
+                    DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
+                }
+            });
+            RAM.RecordTrialDataAndReportSaved();
+            _viewModel.RefreshTrialPackageInfo();
+            ShowSuccess("回放数据表格保存成功");
+            saved = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "保存回放数据表格失败。");
+            ShowError("回放数据表格保存失败");
+        }
+
+        if (saved)
+        {
+            ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
+        }
+    }
+
+    private async void SavePlaybackReport_Click(object sender, RoutedEventArgs e)
+    {
+        TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
+        if (data == null || data.Points.Count == 0)
+        {
+            ShowWarning("请先选择一条包含数据的历史试验。");
+            return;
+        }
+
+        string? tempImagePath = null;
+        var waitWindow = new StartupWaitWindow("正在保存回放试验报告，请稍后。");
+        try
+        {
+            IsEnabled = false;
+            waitWindow.Show();
+            await Task.Yield();
+
+            string folderPath = RAM.SettingModel.ExcelFolderPath;
+            Directory.CreateDirectory(folderPath);
+            string baseFileName = BuildPlaybackBaseFileName(data);
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
+            tempImagePath = CapturePlaybackPlotImageToTempFile();
+            double maxForce = data.Points.Max(point => point.RealForce);
+            double maxDistance = data.Points.Max(point => point.RealDistance);
+
+            await Task.Run(() =>
+            {
+                SaveTestReportDocumentToFile(
+                    reportPath,
+                    tempImagePath,
+                    data.Recipe?.RecipeName ?? "NoRecipe",
+                    data.Summary.TrialSerialNumber,
+                    data.Summary.StartedAtUtc.ToLocalTime(),
+                    maxForce.ToString("F3", CultureInfo.InvariantCulture),
+                    maxDistance.ToString("F3", CultureInfo.InvariantCulture),
+                    data.Recipe);
+            });
+
+            ShowSuccess("回放试验报告保存成功");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "保存回放试验报告失败。");
+            ShowError("回放试验报告保存失败");
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
+            {
+                File.Delete(tempImagePath);
+            }
+
+            waitWindow.Close();
+            IsEnabled = true;
+        }
+    }
+
+    private static string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
+    {
+        string recipeName = string.IsNullOrWhiteSpace(data.Recipe?.RecipeName) ? "NoRecipe" : data.Recipe.RecipeName;
+        return $"{recipeName}_{data.Summary.TrialSerialNumber}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
+    }
+
+    private static void SavePlaybackDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
+    {
+        using var exporter = new ExcelExporter_EPPlus();
+        exporter.CreateSheet("Orders")
+            .SetHeader(new[] { "序号", "位移(mm)", "力(kN)", "压边(kN)", "时间(s)" })
+            .AddData(points, point => new object[] { point.Index, point.RealDistance, point.RealForce, point.RealPress, point.Time })
+            .SaveToFile(fileName);
+    }
+
+    private string CapturePlaybackPlotImageToTempFile()
+    {
+        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensilePlaybackReport_{Guid.NewGuid():N}.png");
+        PlaybackPlot.Plot.SavePng(tempImagePath, 1200, 700);
+        return tempImagePath;
+    }
+
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
+        if (!EnsureTrialDataSaveAvailable())
+        {
+            return;
+        }
+
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
         var waitWindow = new StartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
+        bool saved = false;
 
         try
         {
@@ -1228,12 +1685,17 @@ public partial class MainWindow : Window
 
             Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
+            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
             string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string trialSerialNumber = SNModel.GetSn();
             DateTime generatedAt = DateTime.Now;
-            string maxForce = MaxForceVariable.CurrentValue;
-            string validDistance = ValidDistanceVariable.CurrentValue;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
+            bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
+            var dataSnapshot = DataAqc.loadModels.ToList();
+            string maxForce = GetMaxForceText(dataSnapshot);
+            string validDistance = GetMaxDistanceText(dataSnapshot);
+            double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
+                ResolveAlgorithmSpeed(recipe));
 
             using (BeginCurrentTrialPlotScope())
             {
@@ -1241,7 +1703,15 @@ public partial class MainWindow : Window
 
                 await Task.Run(() =>
                 {
-                    _viewModel.SaveDataToFile(excelPath);
+                    _viewModel.SaveDataToFile(excelPath, dataSnapshot);
+                    if (saveAlgorithmIntegratedData)
+                    {
+                        DisplacementResamplingService.SaveResampledDataToFile(
+                            algorithmIntegratedDataPath,
+                            dataSnapshot,
+                            algorithmDisplacementStep);
+                    }
+
                     SaveTestReportDocumentToFile(
                         reportPath,
                         tempImagePath,
@@ -1254,7 +1724,10 @@ public partial class MainWindow : Window
                 });
             }
 
+            RAM.RecordTrialDataAndReportSaved();
+            _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("数据和试验报告保存成功");
+            saved = true;
             _viewModel.AdvanceTrialSerialNumber();
         }
         catch (Exception ex)
@@ -1272,6 +1745,36 @@ public partial class MainWindow : Window
             waitWindow.Close();
             IsEnabled = true;
         }
+
+        if (saved)
+        {
+            ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
+        }
+    }
+
+    private static double ResolveAlgorithmSpeed(RecipeModel? recipe)
+    {
+        if (double.TryParse(
+                SpeedVariable.CurrentValue,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out double speedFromVariable) &&
+            speedFromVariable > 0)
+        {
+            return speedFromVariable;
+        }
+
+        if (double.TryParse(
+                SpeedVariable.CurrentValue,
+                NumberStyles.Float,
+                CultureInfo.CurrentCulture,
+                out speedFromVariable) &&
+            speedFromVariable > 0)
+        {
+            return speedFromVariable;
+        }
+
+        return recipe?.Speed > 0 ? recipe.Speed : DisplacementResamplingService.DefaultSpeed;
     }
 
     private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
@@ -1309,6 +1812,7 @@ public partial class MainWindow : Window
         string? tempImagePath = null;
         try
         {
+            var dataSnapshot = DataAqc.loadModels.ToList();
             tempImagePath = CaptureReportImageToTempFile();
             SaveTestReportDocumentToFile(
                 fileName,
@@ -1316,8 +1820,8 @@ public partial class MainWindow : Window
                 recipeName,
                 SNModel.GetSn(),
                 DateTime.Now,
-                MaxForceVariable.CurrentValue,
-                ValidDistanceVariable.CurrentValue,
+                GetMaxForceText(dataSnapshot),
+                GetMaxDistanceText(dataSnapshot),
                 _viewModel.SelectedRecipe);
         }
         finally
@@ -1327,6 +1831,20 @@ public partial class MainWindow : Window
                 File.Delete(tempImagePath);
             }
         }
+    }
+
+    private static string GetMaxForceText(IReadOnlyList<Loadmodel> points)
+    {
+        return points.Count == 0
+            ? "0.000"
+            : points.Max(point => point.RealForce).ToString("F3", CultureInfo.InvariantCulture);
+    }
+
+    private static string GetMaxDistanceText(IReadOnlyList<Loadmodel> points)
+    {
+        return points.Count == 0
+            ? "0.000"
+            : points.Max(point => point.RealDistance).ToString("F3", CultureInfo.InvariantCulture);
     }
 
     private string CaptureReportImageToTempFile()

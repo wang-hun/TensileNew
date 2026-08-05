@@ -60,6 +60,13 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="PlaybackNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding CurrentPage}" Value="Playback">
+          <Setter Property="Foreground" Value="{DynamicResource AppNavSelectedForegroundBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="ColorSchemesNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
       <Style.Triggers>
         <DataTrigger Binding="{Binding CurrentPage}" Value="ColorSchemes">
@@ -329,6 +336,7 @@
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="90" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -343,19 +351,25 @@
                 <TextBlock Text="设置" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button Grid.Column="2" Style="{StaticResource HelpNavButtonStyle}" Click="Help_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button Grid.Column="2" Style="{StaticResource PlaybackNavButtonStyle}" Click="Playback_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <iconPacks:PackIconMaterial Kind="DatabaseClockOutline" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="回放" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="3" Style="{StaticResource HelpNavButtonStyle}" Click="Help_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="QuestionCircle" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="试验指导" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="ColorSchemesButton" Grid.Column="3" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="ColorSchemesButton" Grid.Column="4" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="配色" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="VariablesButton" Grid.Column="4" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="VariablesButton" Grid.Column="5" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="变量" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -977,6 +991,10 @@
           </Grid.RowDefinitions>
           <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
             <Grid Width="268" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="24" />
+              </Grid.RowDefinitions>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40" />
                 <ColumnDefinition Width="8" />
@@ -996,6 +1014,15 @@
                   <TextBlock Text="保存数据和报告" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
+              <CheckBox x:Name="AlgorithmIntegratedDataCheckBox"
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        IsChecked="True"
+                        Content="额外保存算法整合数据"
+                        FontSize="12"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
             </Grid>
           </Grid>
           <Grid Grid.Row="1" Margin="5,0,5,5">
@@ -1037,6 +1064,128 @@
           </Grid>
           </Grid>
         </Border>
+      </Grid>
+      <!-- ==================== PLAYBACK PAGE ==================== -->
+      <Grid Grid.Row="1">
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding CurrentPage}" Value="Playback">
+                <Setter Property="Visibility" Value="Visible" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="320" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border Background="{DynamicResource AppSidebarBackgroundBrush}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="55" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" Height="55">
+              <Grid Margin="12,0">
+                <TextBlock Text="历史试验" Style="{StaticResource SectionTitleTextStyle}" HorizontalAlignment="Left" />
+                <Button Width="28" Height="28" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource ActionButtonStyle}" ToolTip="刷新试验列表" Click="RefreshPlayback_Click">
+                  <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="16" Height="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                </Button>
+              </Grid>
+            </Border>
+            <ListBox x:Name="PlaybackTrialListBox" Grid.Row="1" Margin="8" Background="{DynamicResource AppSidebarBackgroundBrush}" BorderThickness="0" SelectionChanged="PlaybackTrialListBox_SelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid Margin="4,7">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding TrialSerialNumber, StringFormat=试验序号：{0}}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
+                    <TextBlock Grid.Row="1" Margin="0,4,0,0" Text="{Binding StartedAtUtc, StringFormat=试验时间：{0:yyyy-MM-dd HH:mm:ss}}" FontSize="12" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+        <Grid Grid.Column="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="8">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="42" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="164" />
+            <RowDefinition Height="68" />
+          </Grid.RowDefinitions>
+          <Border Background="{DynamicResource AppSurfaceBackgroundBrush}">
+            <Grid Margin="12,0">
+              <TextBlock Text="试验曲线" Style="{StaticResource SectionTitleTextStyle}" HorizontalAlignment="Left" />
+              <TextBlock x:Name="PlaybackTrialTitleTextBlock" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <sp:WpfPlot x:Name="PlaybackPlot" Grid.Row="1" Margin="0,8" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+          <Border Grid.Row="2" Background="{DynamicResource AppSidebarBackgroundBrush}">
+            <Grid Width="880" HorizontalAlignment="Center" Margin="16,8">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="28" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+              </Grid.RowDefinitions>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="130" />
+                <ColumnDefinition Width="310" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.ColumnSpan="4" Text="试验数据与配方" Style="{StaticResource HomeSidebarSubTitleStyle}" />
+              <TextBlock Grid.Row="1" Text="配方名称" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackRecipeNameTextBlock" Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="最大拉伸力" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackMaxForceTextBlock" Grid.Row="1" Grid.Column="3" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="2" Text="冲程压边力设定" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackStrokePressTextBlock" Grid.Row="2" Grid.Column="1" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="2" Grid.Column="2" Text="最大拉伸位移" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackMaxDistanceTextBlock" Grid.Row="2" Grid.Column="3" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="3" Text="闭环压边力设定" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackClosedLoopTextBlock" Grid.Row="3" Grid.Column="1" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="3" Grid.Column="2" Text="速度设定" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackSpeedTextBlock" Grid.Row="3" Grid.Column="3" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="4" Text="停机延时 / 比例" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackShutdownTextBlock" Grid.Row="4" Grid.Column="1" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+              <TextBlock Grid.Row="4" Grid.Column="2" Text="拉伸位移上限" Style="{StaticResource CompactMetricNameStyle}" />
+              <TextBlock x:Name="PlaybackDistanceLimitTextBlock" Grid.Row="4" Grid.Column="3" Style="{StaticResource MetricValueStyle}" TextAlignment="Left" />
+            </Grid>
+          </Border>
+          <Grid Grid.Row="3" Width="544" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,2,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="260" />
+              <ColumnDefinition Width="24" />
+              <ColumnDefinition Width="260" />
+            </Grid.ColumnDefinitions>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="20" />
+              </Grid.RowDefinitions>
+              <Button Grid.Row="0" Height="44" VerticalAlignment="Top" Style="{StaticResource ActionButtonStyle}" Click="SavePlaybackData_Click">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="20" Height="20" Margin="0,0,7,0" />
+                  <TextBlock Text="保存数据表格" />
+                </StackPanel>
+              </Button>
+              <CheckBox x:Name="PlaybackAlgorithmIntegratedDataCheckBox" Grid.Row="1" IsChecked="True" Content="额外保存算法整合数据" FontSize="12" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+            <Button Grid.Row="0" Grid.Column="2" Height="44" VerticalAlignment="Top" Style="{StaticResource ActionButtonStyle}" Click="SavePlaybackReport_Click">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="20" Height="20" Margin="0,0,7,0" />
+                <TextBlock Text="保存试验报告" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Grid>
       </Grid>
       <!-- ==================== HELP PAGE ==================== -->
       <Grid Grid.Row="1">
@@ -1198,8 +1347,8 @@
         <!-- Right: settings content -->
         <Grid Grid.Column="1" Margin="1">
           <Grid.RowDefinitions>
-            <RowDefinition Height="4*" />
             <RowDefinition Height="5*" />
+            <RowDefinition Height="4*" />
             <RowDefinition Height="3*" />
           </Grid.RowDefinitions>
           <!-- 系统设置 -->
@@ -1212,15 +1361,18 @@
               <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="系统设置" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,10" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
+              <Viewbox Grid.Row="1" Stretch="Fill" StretchDirection="DownOnly">
+              <Grid Width="1000" Height="300" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="42" />
                   <RowDefinition Height="14" />
                   <RowDefinition Height="42" />
                   <RowDefinition Height="14" />
                   <RowDefinition Height="42" />
-                  <RowDefinition Height="*" />
+                  <RowDefinition Height="10" />
                   <RowDefinition Height="Auto" />
+                  <RowDefinition Height="28" />
+                  <RowDefinition Height="28" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="200" />
@@ -1240,14 +1392,36 @@
                 <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding LanguageDisplayItems}" SelectedItem="{Binding SelectedLanguageDisplay, Mode=TwoWay}" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBox Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding Setting.ExcelFolderPath, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Margin="92,1,0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="摄像头" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-                <ComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="5" ItemsSource="{Binding CameraDevices}" SelectedItem="{Binding SelectedCameraDevice, Mode=TwoWay}" DisplayMemberPath="Name" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1,0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding CameraDevices}" SelectedItem="{Binding SelectedCameraDevice, Mode=TwoWay}" DisplayMemberPath="Name" FontSize="16" Height="30" HorizontalAlignment="Stretch" Margin="0,1" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <StackPanel Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="3" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,1,0,1">
+                  <TextBlock Text="程序退出时保存运行数据" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <ComboBox ItemsSource="{Binding RuntimeDataSavePolicyItems}" SelectedItem="{Binding Setting.RuntimeDataSavePolicy, Mode=TwoWay}" FontSize="16" Width="108" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                </StackPanel>
                 <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,10,0,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Floppy2Fill" Width="20" Height="20" Margin="0,0,8,0" />
                     <TextBlock Text="保存系统参数" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
+                <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="6" Text="{Binding TrialPackageVersionText}" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsTrialPackage}" Value="True">
+                          <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <TextBlock Text="启动次数：" FontSize="15" />
+                  <TextBlock Text="{Binding TrialStartupCount}" FontSize="15" FontWeight="SemiBold" />
+                  <TextBlock Text="保存数据次数：" FontSize="15" Margin="28,0,0,0" />
+                  <TextBlock Text="{Binding TrialDataSaveCountText}" FontSize="15" FontWeight="SemiBold" />
+                </StackPanel>
               </Grid>
+              </Viewbox>
             </Grid>
           </Border>
           <!-- 试验参数 -->
@@ -1260,7 +1434,8 @@
               <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D8DBE3" BorderThickness="0,0,0,1">
                 <TextBlock Text="试验参数" Style="{StaticResource SectionTitleTextStyle}" />
               </Border>
-              <Grid Grid.Row="1" Margin="30,6" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
+              <Viewbox Grid.Row="1" Stretch="Fill" StretchDirection="DownOnly">
+              <Grid Width="1000" Height="220" Background="{DynamicResource AppSidebarBackgroundBrush}" TextElement.Foreground="{DynamicResource AppSidebarLabelForegroundBrush}">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="34" />
                   <RowDefinition Height="8" />
@@ -1316,6 +1491,7 @@
                   </Button>
                 </StackPanel>
               </Grid>
+              </Viewbox>
             </Grid>
           </Border>
           <!-- 标定 -->

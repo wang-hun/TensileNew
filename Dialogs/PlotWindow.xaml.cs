@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using TensileNeW.Models;
 using TensileNeW.Services;
+using Dialog = HandyControl.Controls.Dialog;
 
 namespace TensileNeW;
 
@@ -30,7 +31,9 @@ public partial class PlotWindow : Window
 
         Loaded += (_, _) =>
         {
-            _plotController.Initialize(() => _plotController.LocalizeContextMenu());
+            _plotController.Initialize(() => _plotController.LocalizeContextMenu(
+                filterCurves: ShowCurveFilterDialog,
+                clearCurrentPlot: ShowClearPlotConfirmDialog));
             DataAqc.LoadDataChanged += OnLoadDataChanged;
             DataAqc.ChartCleared += OnChartCleared;
             Closed += (_, _) =>
@@ -55,6 +58,37 @@ public partial class PlotWindow : Window
     private void OnLoadDataChanged(Loadmodel _) => Dispatcher.Invoke(RequestRefresh);
 
     private void OnChartCleared() => Dispatcher.Invoke(_plotController.Reset);
+
+    private void ShowCurveFilterDialog()
+    {
+        IReadOnlyList<LoadPlotController.CurveFilterEntry> entries = _plotController.GetCurveFilterEntries();
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var dialog = new CurveFilterWindow(entries)
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            _plotController.ApplyCurveFilter(dialog.GetSelections());
+        }
+    }
+
+    private void ShowClearPlotConfirmDialog()
+    {
+        if (!_plotController.HasCurves)
+        {
+            return;
+        }
+
+        var dialog = new ClearPlotConfirmDialog();
+        dialog.Confirmed += (_, _) => _plotController.ClearCurrentPlotCurves();
+        Dialog.Show(dialog);
+    }
 
     private void RequestRefresh()
     {

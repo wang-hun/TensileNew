@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -61,8 +62,37 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<ColorScheme> ColorSchemes => ThemeManager.Schemes;
     public SettingModel Setting => RAM.SettingModel;
     public bool IsEnglish => string.Equals(Setting.Language, "EN", StringComparison.OrdinalIgnoreCase);
+    public bool IsTrialPackage => RAM.IsTrial;
+    public int TrialStartupCount => RAM.TrialStartupCount;
+    public int TrialDataSaveCount => RAM.TrialDataSaveCount;
+    public string TrialDataSaveCountText => $"{RAM.TrialDataSaveCount}/{RAM.TrialDataSaveLimit}";
+    public string TrialPackageVersionText
+    {
+        get
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            string assemblyName = assembly.GetName().Name ?? "ECS";
+            string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? assembly.GetName().Version?.ToString()
+                ?? string.Empty;
+            return $"当前版本：{assemblyName} {version}{(RAM.IsTrial ? "-试用版" : string.Empty)}";
+        }
+    }
     public string[] Languages { get; } = ["CN", "EN"];
     public string[] LanguageDisplayItems { get; } = ["中文", "英语"];
+    public string[] RuntimeDataSavePolicyItems { get; } =
+    [
+        SettingModel.RuntimeDataSaveAlwaysYes,
+        SettingModel.RuntimeDataSaveAskEveryTime,
+        SettingModel.RuntimeDataSaveAlwaysNo
+    ];
+
+    public void RefreshTrialPackageInfo()
+    {
+        OnPropertyChanged(nameof(TrialStartupCount));
+        OnPropertyChanged(nameof(TrialDataSaveCount));
+        OnPropertyChanged(nameof(TrialDataSaveCountText));
+    }
 
     public string SelectedLanguageDisplay
     {
@@ -123,6 +153,7 @@ public sealed class MainViewModel : ObservableObject
 
             if (value == null)
             {
+                TrialDataStore.SetCurrentRecipe(null);
                 OnPropertyChanged(nameof(IsSelectedRecipeEditable));
                 OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
                 OnPropertyChanged(nameof(SelectedRecipeEditHint));
@@ -130,6 +161,7 @@ public sealed class MainViewModel : ObservableObject
             }
 
             RAM.SettingModel.CurRecipeModel = value;
+            TrialDataStore.SetCurrentRecipe(value);
             OnPropertyChanged(nameof(Setting));
             OnPropertyChanged(nameof(IsSelectedRecipeEditable));
             OnPropertyChanged(nameof(IsSelectedRecipeReadOnly));
@@ -281,6 +313,7 @@ public sealed class MainViewModel : ObservableObject
         Recipes.Add(recipe);
         SelectedRecipe = recipe;
         SaveSettings();
+        TrialDataStore.RecordRecipeVersion(recipe);
         return true;
     }
     public void DeleteRecipe()
@@ -297,7 +330,9 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        RecipeModel deletedRecipe = SelectedRecipe;
         Recipes.RemoveAt(selectedIndex);
+        TrialDataStore.RecordRecipeDeleted(deletedRecipe);
 
         if (Recipes.Count == 0)
         {
@@ -323,6 +358,7 @@ public sealed class MainViewModel : ObservableObject
     public void SaveSettingsAndApplyLanguage()
     {
         SaveSettings();
+        TrialDataStore.RecordRecipeVersion(SelectedRecipe);
         if (!string.Equals(_startupLanguage, Setting.Language, StringComparison.OrdinalIgnoreCase))
         {
             MessageBox.Show("语言已切换，软件即将关闭 !", "TensileNeW");
@@ -345,16 +381,16 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        SaveDataToFile(dialog.FileName);
+        SaveDataToFile(dialog.FileName, DataAqc.loadModels.ToList());
         return true;
     }
 
-    public void SaveDataToFile(string fileName)
+    public void SaveDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
     {
         using var exporter = new ExcelExporter_EPPlus();
         exporter.CreateSheet("Orders")
-            .SetHeader(new[] { "序号", "压力", "位移", "载荷", "时间" })
-            .AddData(DataAqc.loadModels, o => new object[] { o.Index, o.RealPress, o.RealDistance, o.RealForce, o.Time })
+            .SetHeader(new[] { "序号", "位移(mm)", "力(kN)", "压边(kN)", "时间(s)" })
+            .AddData(points, o => new object[] { o.Index, o.RealDistance, o.RealForce, o.RealPress, o.Time })
             .SaveToFile(fileName);
     }
 

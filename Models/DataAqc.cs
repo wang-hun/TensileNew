@@ -226,25 +226,39 @@ namespace TensileNeW.Models
                         //连接了再读取
                         // if (bool.Parse(plc?.ConnectState ?? "false"))
                         {
-                            var d400FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D400").HexAddress), 16);
-                            var d410WValue = plc.ReadUShort((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D410").HexAddress));
+                            var mBoolValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
+                            float[]? d400FValue = null;
+                            ushort? d410WValue = null;
+                            if (!mBoolValue[36])
+                            {
+                                d400FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D400").HexAddress), 16);
+                                // D410 is the first register in the D410/D411 float at index 5.
+                                d410WValue = (ushort)(BitConverter.SingleToInt32Bits(d400FValue[5]) & 0xFFFF);
+                            }
+
                             var d46FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D46").HexAddress), 11);
                             var d249FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D249").HexAddress));
                             var d260FValue = plc.ReadFloat((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D260").HexAddress));
-                            var d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
-                            var mBoolValue = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("M1").HexAddress), 80);
+                            float[]? d362FValue = null;
+                            if (!mBoolValue[36])
+                            {
+                                d362FValue = plc.ReadFloats((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("D362").HexAddress), 2);
+                            }
+
                             bool fullResetValue = TryReadFullResetValue();
                             var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
 
                             dispatcher.Invoke(() =>
                             {
-                                PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = $"{d400FValue[0].ToString("F3")}";
-                                PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = $"{d400FValue[1].ToString("F3")}";
-                                PLCVariables.First(t => t.Name == "速度设定").CurrentValue = $"{d400FValue[2].ToString("F3")}";
-                                PLCVariables.First(t => t.Name == "拉伸位移上限").CurrentValue = $"{d400FValue[6].ToString("F3")}";
-                                PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = $"{d400FValue[8].ToString("F3")}";
-
-                                PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = $"{d410WValue}";
+                                if (d400FValue is not null && d410WValue.HasValue)
+                                {
+                                    PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = $"{d400FValue[0].ToString("F3")}";
+                                    PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = $"{d400FValue[1].ToString("F3")}";
+                                    PLCVariables.First(t => t.Name == "速度设定").CurrentValue = $"{d400FValue[2].ToString("F3")}";
+                                    PLCVariables.First(t => t.Name == "拉伸位移上限").CurrentValue = $"{d400FValue[6].ToString("F3")}";
+                                    PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = $"{d400FValue[8].ToString("F3")}";
+                                    PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = $"{d410WValue.Value}";
+                                }
 
                                 PLCVariables.First(t => t.Name == "实时拉伸力").CurrentValue = d46FValue[0].ToString("F3");
                                 PLCVariables.First(t => t.Name == "拉伸时间").CurrentValue = d46FValue[1].ToString("F3");
@@ -257,8 +271,11 @@ namespace TensileNeW.Models
                                 PLCVariables.First(t => t.Name == "实时拉伸位移").CurrentValue = d260FValue.ToString("F3");
 
 
-                                PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
-                                PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
+                                if (d362FValue is not null)
+                                {
+                                    PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
+                                    PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
+                                }
 
                                 PLCVariables.First(t => t.Name == "压边释放").CurrentValue = mBoolValue[0].ToString();
                                 PLCVariables.First(t => t.Name == "拉伸").CurrentValue = mBoolValue[49].ToString();
