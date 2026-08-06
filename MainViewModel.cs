@@ -86,6 +86,12 @@ public sealed class MainViewModel : ObservableObject
         SettingModel.RuntimeDataSaveAskEveryTime,
         SettingModel.RuntimeDataSaveAlwaysNo
     ];
+    public string[] RuntimeDataDeletePolicyItems { get; } =
+    [
+        SettingModel.RuntimeDataDeleteAlwaysYes,
+        SettingModel.RuntimeDataDeleteAskEveryTime,
+        SettingModel.RuntimeDataDeleteAlwaysNo
+    ];
 
     public void RefreshTrialPackageInfo()
     {

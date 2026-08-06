@@ -217,11 +217,11 @@ public static class TrialDataStore
 
             Directory.CreateDirectory(destinationDirectory);
             string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
-            string destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}.sqlite");
+            string destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}.data");
             int duplicateIndex = 1;
             while (File.Exists(destinationPath))
             {
-                destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}-{duplicateIndex}.sqlite");
+                destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}-{duplicateIndex}.data");
                 duplicateIndex++;
             }
 

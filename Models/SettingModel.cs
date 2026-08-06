@@ -14,6 +14,9 @@ namespace TensileNeW.Models
         public const string RuntimeDataSaveAlwaysYes = "始终是";
         public const string RuntimeDataSaveAskEveryTime = "每次询问";
         public const string RuntimeDataSaveAlwaysNo = "始终否";
+        public const string RuntimeDataDeleteAlwaysYes = "始终是";
+        public const string RuntimeDataDeleteAskEveryTime = "每次询问";
+        public const string RuntimeDataDeleteAlwaysNo = "始终否";
 
         /// <summary>
         /// 配方列表
@@ -109,6 +112,13 @@ namespace TensileNeW.Models
         {
             get => _RuntimeDataSavePolicy;
             set => SetProperty(ref _RuntimeDataSavePolicy, value);
+        }
+
+        private string _RuntimeDataDeletePolicy = RuntimeDataDeleteAlwaysYes;
+        public string RuntimeDataDeletePolicy
+        {
+            get => _RuntimeDataDeletePolicy;
+            set => SetProperty(ref _RuntimeDataDeletePolicy, value);
         }
 
     }

@@ -97,6 +97,8 @@ public partial class MainWindow : Window
     private bool _runtimeDataSavePromptHandled;
     private bool _runtimeDataSavePromptOpen;
     private bool _runtimeDataSavePromptShouldSave;
+    private bool _runtimeDataDeletePromptHandled;
+    private bool _runtimeDataDeletePromptShouldDelete;
     private bool _isCameraReconnectRunning;
     private readonly LoadPlotController _loadPlotController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
@@ -589,6 +591,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!_runtimeDataDeletePromptHandled && ShouldPromptRuntimeDataDeleteOnExit())
+        {
+            e.Cancel = true;
+            ShowRuntimeDataDeletePrompt();
+            return;
+        }
+
         RunShutdownCleanup();
     }
 
@@ -612,7 +621,10 @@ public partial class MainWindow : Window
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
-        TrialDataStore.TryDeleteDatabaseFile();
+        if (ShouldDeleteRuntimeDataOnExit())
+        {
+            TrialDataStore.TryDeleteDatabaseFile();
+        }
         Logger.Info("关闭程序");
     }
 
@@ -621,6 +633,19 @@ public partial class MainWindow : Window
         return !_runtimeDataSavePromptOpen
             && string.Equals(_viewModel.Setting.RuntimeDataSavePolicy, SettingModel.RuntimeDataSaveAskEveryTime, StringComparison.Ordinal)
             && TrialDataStore.HasAnyTrialData();
+    }
+
+    private bool ShouldPromptRuntimeDataDeleteOnExit()
+    {
+        return !_runtimeDataDeletePromptHandled
+            && string.Equals(_viewModel.Setting.RuntimeDataDeletePolicy, SettingModel.RuntimeDataDeleteAskEveryTime, StringComparison.Ordinal)
+            && TrialDataStore.HasAnyTrialData();
+    }
+
+    private bool ShouldDeleteRuntimeDataOnExit()
+    {
+        return _viewModel.Setting.RuntimeDataDeletePolicy == SettingModel.RuntimeDataDeleteAlwaysYes
+            || (_runtimeDataDeletePromptHandled && _runtimeDataDeletePromptShouldDelete);
     }
 
     private void ShowRuntimeDataSavePrompt()
@@ -655,7 +680,46 @@ public partial class MainWindow : Window
                 _viewModel.SaveSettings();
             }
 
-            Close();
+            Dispatcher.BeginInvoke(new Action(Close));
+        };
+
+        dialog.ShowDialog();
+    }
+
+    private void ShowRuntimeDataDeletePrompt()
+    {
+        if (_runtimeDataSavePromptOpen)
+        {
+            return;
+        }
+
+        _runtimeDataSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow
+        {
+            Owner = this
+        };
+        dialog.ConfigurePrompt("删除运行数据", "是否删除当前所有试验的运行数据？");
+
+        dialog.Closed += (_, _) =>
+        {
+            _runtimeDataSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            _runtimeDataDeletePromptHandled = true;
+            _runtimeDataDeletePromptShouldDelete = dialog.ShouldSave;
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.RuntimeDataDeletePolicy = dialog.ShouldSave
+                    ? SettingModel.RuntimeDataDeleteAlwaysYes
+                    : SettingModel.RuntimeDataDeleteAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            Dispatcher.BeginInvoke(new Action(Close));
         };
 
         dialog.ShowDialog();
