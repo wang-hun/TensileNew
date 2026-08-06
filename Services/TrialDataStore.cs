@@ -25,7 +25,10 @@ public static class TrialDataStore
 
     public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
-    public sealed record TrialPlaybackSummary(long TrialGroupId, string TrialSerialNumber, DateTime StartedAtUtc);
+    public sealed record TrialPlaybackSummary(long TrialGroupId, string TrialSerialNumber, DateTime StartedAtUtc)
+    {
+        public DateTime StartedAtLocal => StartedAtUtc.ToLocalTime();
+    }
 
     public sealed record TrialPlaybackData(
         TrialPlaybackSummary Summary,

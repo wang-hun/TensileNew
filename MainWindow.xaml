@@ -1104,7 +1104,7 @@
                       <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="{Binding TrialSerialNumber, StringFormat=试验序号：{0}}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
-                    <TextBlock Grid.Row="1" Margin="0,4,0,0" Text="{Binding StartedAtUtc, StringFormat=试验时间：{0:yyyy-MM-dd HH:mm:ss}}" FontSize="12" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+                    <TextBlock Grid.Row="1" Margin="0,4,0,0" Text="{Binding StartedAtLocal, StringFormat=试验时间：{0:yyyy-MM-dd HH:mm:ss}}" FontSize="12" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
