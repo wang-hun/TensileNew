@@ -154,17 +154,19 @@ public static class TrialDataStore
             if (_started && !PendingWork.IsAddingCompleted)
             {
                 PendingWork.CompleteAdding();
-                _writerTask?.Wait(TimeSpan.FromSeconds(1));
+                _writerTask?.GetAwaiter().GetResult();
             }
 
+            SqliteConnection.ClearAllPools();
             string databasePath = GetDatabasePath(createDirectory: false);
             if (File.Exists(databasePath))
             {
                 File.Delete(databasePath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error(ex, "删除运行数据库失败。运行数据文件将在下次启动时重新创建。");
         }
     }
 
