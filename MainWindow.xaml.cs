@@ -1736,20 +1736,24 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (DataAqc.loadModels.Count == 0)
+        {
+            return;
+        }
+
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
-        var waitWindow = new StartupWaitWindow("正在保存数据及试验报告，请稍后。");
+        using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
         bool saved = false;
 
         try
         {
             IsEnabled = false;
-            waitWindow.Show();
-            await Task.Yield();
+            await waitWindow.ShowAsync();
 
             Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
@@ -1760,6 +1764,10 @@ public partial class MainWindow : Window
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
             var dataSnapshot = DataAqc.loadModels.ToList();
+            if (dataSnapshot.Count == 0)
+            {
+                return;
+            }
             string maxForce = GetMaxForceText(dataSnapshot);
             string validDistance = GetMaxDistanceText(dataSnapshot);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
@@ -1810,7 +1818,6 @@ public partial class MainWindow : Window
                 File.Delete(tempImagePath);
             }
 
-            waitWindow.Close();
             IsEnabled = true;
         }
 

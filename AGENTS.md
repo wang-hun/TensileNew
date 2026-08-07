@@ -46,6 +46,8 @@
 5. 调用 `TryConnectWithTimeoutAsync()`，后台执行 `DataAqc.TryConnect()` 连接 PLC。
 6. 创建并显示 `MainWindow`，将启动连接结果传入窗口。
 
+保存数据及报告时使用 `BackgroundStartupWaitWindow` 在独立 STA Dispatcher 上显示等待动画；保存流程不得通过等待主 UI Render 或同步延时来驱动该动画。无实时表格数据时，保存按钮直接返回；判断依据是 `DataAqc.loadModels` 是否为空，不得用已被消费者排空的 `_queue` 判断。
+
 需要在启动时增加前置检查时，优先挂在 `DataAqc.TryConnect()` 之前，避免阻塞 UI 线程。
 
 ## PLC 通信
