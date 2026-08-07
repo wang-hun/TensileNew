@@ -159,6 +159,13 @@ namespace TensileNeW.Models
             {
                 SettingModel.RuntimeDataDeletePolicy = SettingModel.RuntimeDataDeleteAlwaysYes;
             }
+
+            if (SettingModel.AutoSavePolicy is not SettingModel.AutoSaveAlwaysYes
+                and not SettingModel.AutoSaveAskEveryTime
+                and not SettingModel.AutoSaveAlwaysNo)
+            {
+                SettingModel.AutoSavePolicy = SettingModel.AutoSaveAlwaysNo;
+            }
         }
 
         public static BindingList<RecipeModel> GetRuntimeRecipes()

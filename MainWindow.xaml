@@ -986,7 +986,7 @@
         <Border Grid.Column="2" Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid Background="{DynamicResource AppSidebarBackgroundBrush}">
           <Grid.RowDefinitions>
-            <RowDefinition Height="86" />
+            <RowDefinition Height="124" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
           <Grid Margin="5" Background="{DynamicResource AppSurfaceBackgroundBrush}">
@@ -994,6 +994,7 @@
               <Grid.RowDefinitions>
                 <RowDefinition Height="44" />
                 <RowDefinition Height="24" />
+                <RowDefinition Height="36" />
               </Grid.RowDefinitions>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="40" />
@@ -1023,6 +1024,24 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
+              <Grid Grid.Row="2" Grid.Column="2" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="112" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="试验完成自动保存" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
+                <ComboBox ItemsSource="{Binding AutoSavePolicyItems}"
+                          SelectedItem="{Binding Setting.AutoSavePolicy, Mode=TwoWay}"
+                          Grid.Column="1"
+                          FontSize="14"
+                          FontWeight="SemiBold"
+                          Width="104"
+                          Height="30"
+                          VerticalContentAlignment="Center"
+                          Background="{DynamicResource AppSurfaceBackgroundBrush}"
+                          BorderBrush="{DynamicResource AppLayoutBorderBrush}"
+                          BorderThickness="1" />
+              </Grid>
             </Grid>
           </Grid>
           <Grid Grid.Row="1" Margin="5,0,5,5">

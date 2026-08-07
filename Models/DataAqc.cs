@@ -31,6 +31,7 @@ namespace TensileNeW.Models
 
         public static event Action<Loadmodel> LoadDataChanged;
         public static event Action ChartCleared;
+        public static event Action? DataCollectionEnded;
         public static bool _simlatueRunFlag = false;
 
         /// <summary>
@@ -355,6 +356,7 @@ namespace TensileNeW.Models
                                 if (beginScan && mBoolValue[36] == false)
                                 {
                                     beginScan = false;
+                                    DataCollectionEnded?.Invoke();
                                 }
 
 

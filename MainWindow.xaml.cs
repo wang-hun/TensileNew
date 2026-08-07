@@ -100,6 +100,7 @@ public partial class MainWindow : Window
     private bool _runtimeDataDeletePromptHandled;
     private bool _runtimeDataDeletePromptShouldDelete;
     private bool _isCameraReconnectRunning;
+    private bool _autoSavePromptOpen;
     private readonly LoadPlotController _loadPlotController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -152,6 +153,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        DataAqc.DataCollectionEnded += OnDataCollectionEnded;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
             LoadPlot,
@@ -617,6 +619,7 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
         _plotAutoscaleTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
@@ -1825,6 +1828,62 @@ public partial class MainWindow : Window
         {
             ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
         }
+    }
+
+    private void OnDataCollectionEnded()
+    {
+        // The existing consumer has already queued its UI updates before this state transition.
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        {
+            if (_isClosing || DataAqc.loadModels.Count == 0)
+            {
+                return;
+            }
+
+            string policy = _viewModel.Setting.AutoSavePolicy;
+            if (policy == SettingModel.AutoSaveAlwaysYes)
+            {
+                SaveDataAndReport_Click(this, new RoutedEventArgs());
+            }
+            else if (policy == SettingModel.AutoSaveAskEveryTime)
+            {
+                ShowAutomaticSavePrompt();
+            }
+        }));
+    }
+
+    private void ShowAutomaticSavePrompt()
+    {
+        if (_autoSavePromptOpen)
+        {
+            return;
+        }
+
+        _autoSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow { Owner = this };
+        dialog.ConfigurePrompt("自动保存数据和报告", "试验已完成，是否自动保存当前数据和试验报告？");
+        dialog.Closed += (_, _) =>
+        {
+            _autoSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.AutoSavePolicy = dialog.ShouldSave
+                    ? SettingModel.AutoSaveAlwaysYes
+                    : SettingModel.AutoSaveAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            if (dialog.ShouldSave)
+            {
+                _ = Dispatcher.InvokeAsync(() => SaveDataAndReport_Click(this, new RoutedEventArgs()));
+            }
+        };
+        dialog.ShowDialog();
     }
 
     private static double ResolveAlgorithmSpeed(RecipeModel? recipe)
