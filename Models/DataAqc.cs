@@ -309,11 +309,6 @@ namespace TensileNeW.Models
                                     {
                                         fullResetFlag = true;
                                     }
-
-                                    ClearQueue();
-                                    IndexCount = 0;
-                                    loadModels?.Clear();
-                                    ChartCleared?.Invoke();
                                 }
 
                                 if (dataResetFlag && mBoolValue[9] == false)
@@ -330,10 +325,16 @@ namespace TensileNeW.Models
 
                                 if (mBoolValue[36] && beginScan == false)
                                 {
+                                    // A new acquisition session owns a fresh table/curve.
+                                    // Reset coils are intentionally not part of this transition.
+                                    ClearQueue();
+                                    IndexCount = 0;
+                                    loadModels?.Clear();
+                                    ChartCleared?.Invoke();
+
                                     temp = 0;
                                     beginScan = true;
                                     beginScanTime = DateTime.Now;
-                                    IndexCount = loadModels?.Count ?? 0;
                                 }
 
                                 if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)//&&(DateTime.Now-beginEnqueTime).TotalMilliseconds>20)
