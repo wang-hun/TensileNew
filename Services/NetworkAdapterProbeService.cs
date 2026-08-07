@@ -164,6 +164,7 @@ public static class NetworkAdapterProbeService
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
+            Logger.Warn(ex, "用户取消管理员权限请求。");
             return new NetworkProbeResult
             {
                 Success = false,
@@ -363,8 +364,9 @@ public static class NetworkAdapterProbeService
                 });
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "写入网络探测失败结果失败。");
             // The parent process will report that no network configuration result was returned.
         }
     }
@@ -384,8 +386,9 @@ public static class NetworkAdapterProbeService
                 process.Kill();
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "终止网络探测辅助进程失败。");
             // If the elevated helper cannot be killed, return a timeout result to the UI.
         }
     }
@@ -401,8 +404,9 @@ public static class NetworkAdapterProbeService
                 File.Delete(fullPath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "删除网络探测临时结果文件失败。");
             // Leaving a small temp result file is safer than deleting an unverified path.
         }
     }

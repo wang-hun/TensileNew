@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using NLog;
 using TensileNeW.Models;
 
 namespace TensileNeW.Services;
@@ -17,6 +18,7 @@ public sealed record ManualDocumentStartupResult(bool HasMissingOffice, string? 
 
 public static class ManualDocumentService
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     public const string MissingOfficeMessage = "未安装office或者wps，试验说明文档无法使用。";
 
     private const string ManualsDirectoryName = "manuals";
@@ -198,6 +200,7 @@ public static class ManualDocumentService
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "说明书文档处理失败。");
             return ManualDocumentConvertResult.Fail($"打开说明书失败：{ex.Message}");
         }
     }
@@ -293,6 +296,7 @@ public static class ManualDocumentService
             }
             catch (Exception ex)
             {
+                Logger.Error(ex, "说明书 STA 转换线程失败。");
                 exception = ex;
             }
         });
@@ -382,6 +386,7 @@ public static class ManualDocumentService
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "Word 文档打开或转换失败。");
             return ConversionResult.Fail(ex.Message);
         }
         finally
@@ -415,8 +420,9 @@ public static class ManualDocumentService
                 Type.Missing);
             return ConversionResult.Ok();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "Word XPS 导出方法失败，尝试备用方法。");
         }
 
         try
@@ -424,8 +430,9 @@ public static class ManualDocumentService
             document.SaveAs2(FileName: xpsPath, FileFormat: 18);
             return ConversionResult.Ok();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "Word SaveAs2 导出方法失败，尝试备用方法。");
         }
 
         try
@@ -435,6 +442,7 @@ public static class ManualDocumentService
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "Word 文档转换为 XPS 失败。");
             return ConversionResult.Fail($"无法将 Word 文档转换为 XPS：{ex.Message}");
         }
     }
@@ -463,6 +471,7 @@ public static class ManualDocumentService
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "PowerPoint 文档转换为 XPS 失败。");
             return ConversionResult.Fail(ex.Message);
         }
         finally
@@ -538,8 +547,9 @@ public static class ManualDocumentService
         {
             return JsonSerializer.Deserialize<CacheManifest>(File.ReadAllText(path)) ?? new CacheManifest();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "读取说明书缓存清单失败，使用空清单。");
             return new CacheManifest();
         }
     }
@@ -572,14 +582,16 @@ public static class ManualDocumentService
         {
             document.Close(false);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "关闭 Word 文档失败，尝试备用关闭方式。");
             try
             {
                 document.Close();
             }
-            catch
+            catch (Exception fallbackEx)
             {
+                Logger.Warn(fallbackEx, "使用备用方式关闭 Word 文档失败。");
             }
         }
     }
@@ -595,14 +607,16 @@ public static class ManualDocumentService
         {
             app.Quit(false);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "退出 Office 应用失败，尝试备用退出方式。");
             try
             {
                 app.Quit();
             }
-            catch
+            catch (Exception fallbackEx)
             {
+                Logger.Warn(fallbackEx, "使用备用方式退出 Office 应用失败。");
             }
         }
     }

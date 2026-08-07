@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NLog;
 
 namespace TensileNeW.Tools.Converter
 {
@@ -25,6 +26,7 @@ namespace TensileNeW.Tools.Converter
 
     public static class BindingHelper
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         /// <summary>
         /// 创建一个带有转换器的数据绑定。
         /// </summary>
@@ -52,6 +54,7 @@ namespace TensileNeW.Tools.Converter
                 }
                 catch (Exception ex)
                 {
+                    Logger.Warn(ex, "数据绑定反向转换失败，恢复原始值。");
                     //MessageBox.Show($"Conversion error: {ex.Message}");
                     e.Value = binding.DataSource.GetType().GetProperty(dataMember).GetValue(binding.DataSource); // 恢复原始值
                 }

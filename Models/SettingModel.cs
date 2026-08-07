@@ -124,7 +124,7 @@ namespace TensileNeW.Models
             set => SetProperty(ref _RuntimeDataDeletePolicy, value);
         }
 
-        private string _AutoSavePolicy = AutoSaveAlwaysNo;
+        private string _AutoSavePolicy = AutoSaveAskEveryTime;
         public string AutoSavePolicy
         {
             get => _AutoSavePolicy;

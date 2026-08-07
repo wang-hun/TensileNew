@@ -223,8 +223,9 @@ public partial class MainWindow : Window
             {
                 return GetSystemMetricsForDpi(index, (uint)dpi);
             }
-            catch (EntryPointNotFoundException)
+            catch (EntryPointNotFoundException ex)
             {
+                Logger.Debug(ex, "系统 DPI API 不可用。");
             }
         }
 
@@ -239,8 +240,9 @@ public partial class MainWindow : Window
             {
                 return (int)GetDpiForWindowNative(hwnd);
             }
-            catch (EntryPointNotFoundException)
+            catch (EntryPointNotFoundException ex)
             {
+                Logger.Debug(ex, "系统 DPI API 不可用。");
             }
         }
 
@@ -301,8 +303,9 @@ public partial class MainWindow : Window
         {
             HelpNavigationTree.ItemsSource = ManualDocumentService.LoadManualNavigation();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "加载说明书导航失败。");
             HelpNavigationTree.ItemsSource = null;
         }
     }
@@ -332,8 +335,9 @@ public partial class MainWindow : Window
                 await OpenManualDocumentAsync(item);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "说明书导航失败，保留当前文档。");
             // Keep the current document unchanged if navigation fails.
         }
     }
@@ -374,6 +378,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                Logger.Error(ex, "打开 PDF 说明书预览失败。");
                 HideHelpDocumentViewer();
                 ShowWarning($"说明书预览失败：{ex.Message}");
             }
@@ -405,6 +410,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "打开 XPS 说明书预览失败。");
             HideHelpDocumentViewer();
             ShowWarning($"说明书预览失败：{ex.Message}");
         }
@@ -471,8 +477,9 @@ public partial class MainWindow : Window
             });
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "打开说明书所在文件夹失败。");
             return false;
         }
     }
@@ -1117,8 +1124,9 @@ public partial class MainWindow : Window
         {
             return await Task.Run(() => DataAqc.TryReconnect(forceReconnect));
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "网络探测失败。");
             return false;
         }
     }

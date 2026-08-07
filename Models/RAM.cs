@@ -164,7 +164,7 @@ namespace TensileNeW.Models
                 and not SettingModel.AutoSaveAskEveryTime
                 and not SettingModel.AutoSaveAlwaysNo)
             {
-                SettingModel.AutoSavePolicy = SettingModel.AutoSaveAlwaysNo;
+                SettingModel.AutoSavePolicy = SettingModel.AutoSaveAskEveryTime;
             }
         }
 
@@ -229,8 +229,9 @@ namespace TensileNeW.Models
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                logger.Warn(ex, "用户配方读取失败，使用内置默认配方。");
                 // Fall back to code defaults.
             }
 

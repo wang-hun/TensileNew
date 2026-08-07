@@ -3,11 +3,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using TensileNeW.Services;
+using NLog;
 
 namespace TensileNeW;
 
 public partial class CameraSelectionWindow : UserControl
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly CameraCaptureService _cameraService;
     private int _previewVersion;
     private bool _keepConnectionForOwner;
@@ -59,8 +61,9 @@ public partial class CameraSelectionWindow : UserControl
             _cameraService.FrameArrived += PreviewService_FrameArrived;
             _cameraService.CaptureFailed += PreviewService_CaptureFailed;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error(ex, "摄像头预览启动失败。");
             if (!_isClosed && version == _previewVersion)
             {
                 PreviewImage.Source = null;
@@ -137,8 +140,9 @@ public partial class CameraSelectionWindow : UserControl
             {
                 await _cameraService.StopAsync();
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.Warn(ex, "关闭摄像头预览失败。");
             }
         });
     }

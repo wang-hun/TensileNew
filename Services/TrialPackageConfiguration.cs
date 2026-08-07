@@ -2,11 +2,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using NLog;
 
 namespace TensileNeW.Services;
 
 public static class TrialPackageConfiguration
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     public const string FileName = "package.config";
     public const int TrialDataSaveLimit = 50;
     private const string ApplicationDataDirectoryName = "ECS";
@@ -179,8 +181,9 @@ public static class TrialPackageConfiguration
         {
             skipPermissionFileSynchronization = reader.ReadBoolean();
         }
-        catch (EndOfStreamException)
+        catch (EndOfStreamException ex)
         {
+            Logger.Debug(ex, "试用配置文件没有权限同步标记，按旧格式处理。");
             // Existing files have no trailing synchronization marker.
         }
 
@@ -200,16 +203,19 @@ public static class TrialPackageConfiguration
             state = Read(filePath);
             return true;
         }
-        catch (InvalidDataException)
+        catch (InvalidDataException ex)
         {
+            Logger.Warn(ex, "试用配置文件数据无效。");
             return false;
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
+            Logger.Warn(ex, "试用配置文件解密失败。");
             return false;
         }
-        catch (EndOfStreamException)
+        catch (EndOfStreamException ex)
         {
+            Logger.Warn(ex, "试用配置文件读取不完整。");
             return false;
         }
     }
