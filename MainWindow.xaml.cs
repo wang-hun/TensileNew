@@ -1420,7 +1420,11 @@ public partial class MainWindow : Window
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");
     private async void StartTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸");
-    private async void ReleaseTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸释放");
+    private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("拉伸释放");
+        await _viewModel.PulseAsync("数据重置");
+    }
     private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
