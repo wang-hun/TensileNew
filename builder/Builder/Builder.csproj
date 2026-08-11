@@ -15,4 +15,8 @@
     <None Remove="manuals\**" />
     <Content Remove="manuals\**" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NLog" Version="4.7.15" />
+  </ItemGroup>
 </Project>
