@@ -1,5 +1,6 @@
 ﻿using HandyControl.Data;
 using Microsoft.Win32;
+using Haukcode.HighResolutionTimer;
 using NLog;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -112,8 +113,10 @@ public partial class MainWindow : Window
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
-    private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _plotRefreshTimer;
     private int _pendingLoadScrollIndex = -1;
+    private int _autoScalePointModulo;
+    private int _autoScalePending;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -170,11 +173,15 @@ public partial class MainWindow : Window
             _loadScrollTimer.Stop();
             ScrollMainLoadDataToLatest();
         };
-        _plotAutoscaleTimer = new System.Windows.Threading.DispatcherTimer
+        _plotRefreshTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(50)
         };
-        _plotAutoscaleTimer.Tick += (_, _) => _loadPlotController.AutoScaleWhileCollecting();
+        _plotRefreshTimer.Tick += (_, _) =>
+        {
+            _plotRefreshTimer.Stop();
+            RefreshPlot();
+        };
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
@@ -263,12 +270,20 @@ public partial class MainWindow : Window
         ChartHintPanel.Visibility = _viewModel.Setting.HideChartHintOnStartup
             ? Visibility.Collapsed
             : Visibility.Visible;
-        DataAqc.LoadDataChanged += _ => Dispatcher.Invoke(RefreshPlot);
+        DataAqc.LoadDataChanged += _ =>
+        {
+            RequestPlotRefresh();
+
+            if (Interlocked.Increment(ref _autoScalePointModulo) >= 20)
+            {
+                Interlocked.Exchange(ref _autoScalePointModulo, 0);
+                QueueAutoScale();
+            }
+        };
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
         _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
-        _plotAutoscaleTimer.Start();
         LoadHelpDocument();
 
         if (!_connectedAtStartup)
@@ -627,7 +642,7 @@ public partial class MainWindow : Window
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
-        _plotAutoscaleTimer.Stop();
+        _plotRefreshTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -780,6 +795,36 @@ public partial class MainWindow : Window
     private void ResetPlot() => _loadPlotController.Reset();
 
     private void RefreshPlot() => _loadPlotController.Refresh();
+
+    private void RequestPlotRefresh()
+    {
+        if (!_plotRefreshTimer.IsEnabled)
+        {
+            _plotRefreshTimer.Start();
+        }
+    }
+
+    private void QueueAutoScale()
+    {
+        if (Interlocked.Exchange(ref _autoScalePending, 1) != 0)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            new Action(() =>
+            {
+                try
+                {
+                    _loadPlotController.AutoScaleWhileCollecting();
+                }
+                finally
+                {
+                    Volatile.Write(ref _autoScalePending, 0);
+                }
+            }));
+    }
 
     private void InitializeCameraPreview()
     {
@@ -1434,7 +1479,10 @@ public partial class MainWindow : Window
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("拉伸释放");
-        await _viewModel.PulseAsync("数据重置");
+        if (ReleaseTensileResetCheckBox.IsChecked == true)
+        {
+            await _viewModel.PulseAsync("数据重置");
+        }
     }
     private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
     private async void Reset_Click(object sender, RoutedEventArgs e)
@@ -1841,8 +1889,10 @@ public partial class MainWindow : Window
     private void OnDataCollectionEnded()
     {
         // The existing consumer has already queued its UI updates before this state transition.
-        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
         {
+            await DelayOneSecondWithHighResolutionTimerAsync();
+
             if (_isClosing || DataAqc.loadModels.Count == 0)
             {
                 return;
@@ -1892,6 +1942,17 @@ public partial class MainWindow : Window
             }
         };
         dialog.ShowDialog();
+    }
+
+    private static Task DelayOneSecondWithHighResolutionTimerAsync()
+    {
+        return Task.Run(() =>
+        {
+            using var timer = new HighResolutionTimer();
+            timer.SetPeriod(1000);
+            timer.Start();
+            timer.WaitForTrigger();
+        });
     }
 
     private static double ResolveAlgorithmSpeed(RecipeModel? recipe)

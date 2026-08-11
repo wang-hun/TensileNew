@@ -918,12 +918,15 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <iconPacks:PackIconBootstrapIcons Style="{StaticResource StatusIconStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" />
-              <Button Grid.Column="1" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" Click="ReleaseTensile_Click">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <iconPacks:PackIconCodicons Kind="RepoFetch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                  <TextBlock Text="释放拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                </StackPanel>
-              </Button>
+              <Grid Grid.Column="1">
+                <Button VerticalAlignment="Center" Style="{StaticResource IndicatorActionButtonStyle}" Tag="{Binding Source={x:Static local:MainWindow.ReleaseTensileCoil}, Path=CurrentValue}" Click="ReleaseTensile_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <iconPacks:PackIconCodicons Kind="RepoFetch" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <TextBlock Text="释放拉伸" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  </StackPanel>
+                </Button>
+                <CheckBox x:Name="ReleaseTensileResetCheckBox" Content="同时数据重置" IsChecked="True" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,2" />
+              </Grid>
             </Grid>
             <TextBlock Grid.Row="1" Grid.Column="0" Text="按住加速" FontSize="16" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Stretch" TextAlignment="Center" VerticalAlignment="Center" Margin="44,0,6,0" />
             <Grid Grid.Row="2" Grid.Column="0" Margin="6,3,6,5" VerticalAlignment="Top">
