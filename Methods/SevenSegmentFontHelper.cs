@@ -3,11 +3,13 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
+using NLog;
 
 namespace TensileNeW;
 
 public static class SevenSegmentFontHelper
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const string FontFileName = "Seven Segment.ttf";
     private const string AssetsFolderName = "Assets";
     private const string FontFamilyName = "Seven Segment";
@@ -48,8 +50,9 @@ public static class SevenSegmentFontHelper
             AddFontResourceEx(fontPath, FrPrivate, IntPtr.Zero);
             return new FontFamily(new Uri(baseDirectory + Path.DirectorySeparatorChar), $"./#{FontFamilyName}");
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "七段数码字体加载失败，使用默认字体。");
             return DefaultFontFamily;
         }
     }
@@ -83,8 +86,9 @@ public static class SevenSegmentFontHelper
             AddFontResourceEx(targetFontPath, 0, IntPtr.Zero);
             SendMessageTimeout((IntPtr)HwndBroadcast, WmFontchange, IntPtr.Zero, IntPtr.Zero, 0, 1000, out _);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "七段数码字体注册失败。");
             AddFontResourceEx(sourceFontPath, FrPrivate, IntPtr.Zero);
         }
     }

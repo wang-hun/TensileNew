@@ -25,7 +25,10 @@ public static class TrialDataStore
 
     public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
-    public sealed record TrialPlaybackSummary(long TrialGroupId, string TrialSerialNumber, DateTime StartedAtUtc);
+    public sealed record TrialPlaybackSummary(long TrialGroupId, string TrialSerialNumber, DateTime StartedAtUtc)
+    {
+        public DateTime StartedAtLocal => StartedAtUtc.ToLocalTime();
+    }
 
     public sealed record TrialPlaybackData(
         TrialPlaybackSummary Summary,
@@ -151,17 +154,19 @@ public static class TrialDataStore
             if (_started && !PendingWork.IsAddingCompleted)
             {
                 PendingWork.CompleteAdding();
-                _writerTask?.Wait(TimeSpan.FromSeconds(1));
+                _writerTask?.GetAwaiter().GetResult();
             }
 
+            SqliteConnection.ClearAllPools();
             string databasePath = GetDatabasePath(createDirectory: false);
             if (File.Exists(databasePath))
             {
                 File.Delete(databasePath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error(ex, "删除运行数据库失败。运行数据文件将在下次启动时重新创建。");
         }
     }
 
@@ -212,11 +217,11 @@ public static class TrialDataStore
 
             Directory.CreateDirectory(destinationDirectory);
             string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
-            string destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}.sqlite");
+            string destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}.data");
             int duplicateIndex = 1;
             while (File.Exists(destinationPath))
             {
-                destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}-{duplicateIndex}.sqlite");
+                destinationPath = Path.Combine(destinationDirectory, $"ECS运行数据-{timestamp}-{duplicateIndex}.data");
                 duplicateIndex++;
             }
 

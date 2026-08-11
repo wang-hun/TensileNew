@@ -31,6 +31,7 @@ namespace TensileNeW.Models
 
         public static event Action<Loadmodel> LoadDataChanged;
         public static event Action ChartCleared;
+        public static event Action? DataCollectionEnded;
         public static bool _simlatueRunFlag = false;
 
         /// <summary>
@@ -309,11 +310,6 @@ namespace TensileNeW.Models
                                     {
                                         fullResetFlag = true;
                                     }
-
-                                    ClearQueue();
-                                    IndexCount = 0;
-                                    loadModels?.Clear();
-                                    ChartCleared?.Invoke();
                                 }
 
                                 if (dataResetFlag && mBoolValue[9] == false)
@@ -330,10 +326,16 @@ namespace TensileNeW.Models
 
                                 if (mBoolValue[36] && beginScan == false)
                                 {
+                                    // A new acquisition session owns a fresh table/curve.
+                                    // Reset coils are intentionally not part of this transition.
+                                    ClearQueue();
+                                    IndexCount = 0;
+                                    loadModels?.Clear();
+                                    ChartCleared?.Invoke();
+
                                     temp = 0;
                                     beginScan = true;
                                     beginScanTime = DateTime.Now;
-                                    IndexCount = loadModels?.Count ?? 0;
                                 }
 
                                 if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)//&&(DateTime.Now-beginEnqueTime).TotalMilliseconds>20)
@@ -354,6 +356,7 @@ namespace TensileNeW.Models
                                 if (beginScan && mBoolValue[36] == false)
                                 {
                                     beginScan = false;
+                                    DataCollectionEnded?.Invoke();
                                 }
 
 

@@ -8,6 +8,7 @@ using Windows.Media.Capture;
 using Windows.Media.Capture.Frames;
 using Windows.Media.MediaProperties;
 using Windows.Storage.Streams;
+using NLog;
 
 namespace TensileNeW.Services;
 
@@ -44,6 +45,7 @@ public sealed class CameraFrameArrivedEventArgs : EventArgs
 
 public sealed class CameraCaptureService : IAsyncDisposable
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     public const int MinimumWindowsMajorVersion = 10;
     public const int MinimumWindowsBuildNumber = 14393;
 
@@ -138,8 +140,9 @@ public sealed class CameraCaptureService : IAsyncDisposable
             _isRunning = true;
             CurrentDeviceId = videoDeviceId;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error(ex, "摄像头初始化失败。");
             _isRunning = false;
             CurrentDeviceId = null;
             _bitmapDispatcher = null;
@@ -210,8 +213,9 @@ public sealed class CameraCaptureService : IAsyncDisposable
             {
                 await frameReader.StopAsync().AsTask();
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.Warn(ex, "停止摄像头帧读取器失败。");
                 // The reader may already be stopped when the camera is removed.
             }
 
@@ -245,6 +249,7 @@ public sealed class CameraCaptureService : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "摄像头帧处理失败。");
             CaptureFailed?.Invoke(this, ex);
         }
     }

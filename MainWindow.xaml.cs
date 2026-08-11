@@ -1,5 +1,6 @@
 ﻿using HandyControl.Data;
 using Microsoft.Win32;
+using Haukcode.HighResolutionTimer;
 using NLog;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -97,7 +98,10 @@ public partial class MainWindow : Window
     private bool _runtimeDataSavePromptHandled;
     private bool _runtimeDataSavePromptOpen;
     private bool _runtimeDataSavePromptShouldSave;
+    private bool _runtimeDataDeletePromptHandled;
+    private bool _runtimeDataDeletePromptShouldDelete;
     private bool _isCameraReconnectRunning;
+    private bool _autoSavePromptOpen;
     private readonly LoadPlotController _loadPlotController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -109,8 +113,10 @@ public partial class MainWindow : Window
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
-    private readonly System.Windows.Threading.DispatcherTimer _plotAutoscaleTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _plotRefreshTimer;
     private int _pendingLoadScrollIndex = -1;
+    private int _autoScalePointModulo;
+    private int _autoScalePending;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -150,6 +156,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        DataAqc.DataCollectionEnded += OnDataCollectionEnded;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
             LoadPlot,
@@ -166,11 +173,15 @@ public partial class MainWindow : Window
             _loadScrollTimer.Stop();
             ScrollMainLoadDataToLatest();
         };
-        _plotAutoscaleTimer = new System.Windows.Threading.DispatcherTimer
+        _plotRefreshTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(50)
         };
-        _plotAutoscaleTimer.Tick += (_, _) => _loadPlotController.AutoScaleWhileCollecting();
+        _plotRefreshTimer.Tick += (_, _) =>
+        {
+            _plotRefreshTimer.Stop();
+            RefreshPlot();
+        };
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
@@ -219,8 +230,9 @@ public partial class MainWindow : Window
             {
                 return GetSystemMetricsForDpi(index, (uint)dpi);
             }
-            catch (EntryPointNotFoundException)
+            catch (EntryPointNotFoundException ex)
             {
+                Logger.Debug(ex, "系统 DPI API 不可用。");
             }
         }
 
@@ -235,8 +247,9 @@ public partial class MainWindow : Window
             {
                 return (int)GetDpiForWindowNative(hwnd);
             }
-            catch (EntryPointNotFoundException)
+            catch (EntryPointNotFoundException ex)
             {
+                Logger.Debug(ex, "系统 DPI API 不可用。");
             }
         }
 
@@ -257,12 +270,20 @@ public partial class MainWindow : Window
         ChartHintPanel.Visibility = _viewModel.Setting.HideChartHintOnStartup
             ? Visibility.Collapsed
             : Visibility.Visible;
-        DataAqc.LoadDataChanged += _ => Dispatcher.Invoke(RefreshPlot);
+        DataAqc.LoadDataChanged += _ =>
+        {
+            RequestPlotRefresh();
+
+            if (Interlocked.Increment(ref _autoScalePointModulo) >= 20)
+            {
+                Interlocked.Exchange(ref _autoScalePointModulo, 0);
+                QueueAutoScale();
+            }
+        };
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
         _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
-        _plotAutoscaleTimer.Start();
         LoadHelpDocument();
 
         if (!_connectedAtStartup)
@@ -297,8 +318,9 @@ public partial class MainWindow : Window
         {
             HelpNavigationTree.ItemsSource = ManualDocumentService.LoadManualNavigation();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "加载说明书导航失败。");
             HelpNavigationTree.ItemsSource = null;
         }
     }
@@ -328,8 +350,9 @@ public partial class MainWindow : Window
                 await OpenManualDocumentAsync(item);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "说明书导航失败，保留当前文档。");
             // Keep the current document unchanged if navigation fails.
         }
     }
@@ -370,6 +393,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                Logger.Error(ex, "打开 PDF 说明书预览失败。");
                 HideHelpDocumentViewer();
                 ShowWarning($"说明书预览失败：{ex.Message}");
             }
@@ -401,6 +425,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "打开 XPS 说明书预览失败。");
             HideHelpDocumentViewer();
             ShowWarning($"说明书预览失败：{ex.Message}");
         }
@@ -467,8 +492,9 @@ public partial class MainWindow : Window
             });
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "打开说明书所在文件夹失败。");
             return false;
         }
     }
@@ -589,6 +615,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!_runtimeDataDeletePromptHandled && ShouldPromptRuntimeDataDeleteOnExit())
+        {
+            e.Cancel = true;
+            ShowRuntimeDataDeletePrompt();
+            return;
+        }
+
         RunShutdownCleanup();
     }
 
@@ -608,11 +641,15 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
-        _plotAutoscaleTimer.Stop();
+        DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        _plotRefreshTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
-        TrialDataStore.TryDeleteDatabaseFile();
+        if (ShouldDeleteRuntimeDataOnExit())
+        {
+            TrialDataStore.TryDeleteDatabaseFile();
+        }
         Logger.Info("关闭程序");
     }
 
@@ -621,6 +658,19 @@ public partial class MainWindow : Window
         return !_runtimeDataSavePromptOpen
             && string.Equals(_viewModel.Setting.RuntimeDataSavePolicy, SettingModel.RuntimeDataSaveAskEveryTime, StringComparison.Ordinal)
             && TrialDataStore.HasAnyTrialData();
+    }
+
+    private bool ShouldPromptRuntimeDataDeleteOnExit()
+    {
+        return !_runtimeDataDeletePromptHandled
+            && string.Equals(_viewModel.Setting.RuntimeDataDeletePolicy, SettingModel.RuntimeDataDeleteAskEveryTime, StringComparison.Ordinal)
+            && TrialDataStore.HasAnyTrialData();
+    }
+
+    private bool ShouldDeleteRuntimeDataOnExit()
+    {
+        return _viewModel.Setting.RuntimeDataDeletePolicy == SettingModel.RuntimeDataDeleteAlwaysYes
+            || (_runtimeDataDeletePromptHandled && _runtimeDataDeletePromptShouldDelete);
     }
 
     private void ShowRuntimeDataSavePrompt()
@@ -655,7 +705,46 @@ public partial class MainWindow : Window
                 _viewModel.SaveSettings();
             }
 
-            Close();
+            Dispatcher.BeginInvoke(new Action(Close));
+        };
+
+        dialog.ShowDialog();
+    }
+
+    private void ShowRuntimeDataDeletePrompt()
+    {
+        if (_runtimeDataSavePromptOpen)
+        {
+            return;
+        }
+
+        _runtimeDataSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow
+        {
+            Owner = this
+        };
+        dialog.ConfigurePrompt("删除运行数据", "是否删除当前所有试验的运行数据？");
+
+        dialog.Closed += (_, _) =>
+        {
+            _runtimeDataSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            _runtimeDataDeletePromptHandled = true;
+            _runtimeDataDeletePromptShouldDelete = dialog.ShouldSave;
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.RuntimeDataDeletePolicy = dialog.ShouldSave
+                    ? SettingModel.RuntimeDataDeleteAlwaysYes
+                    : SettingModel.RuntimeDataDeleteAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            Dispatcher.BeginInvoke(new Action(Close));
         };
 
         dialog.ShowDialog();
@@ -706,6 +795,36 @@ public partial class MainWindow : Window
     private void ResetPlot() => _loadPlotController.Reset();
 
     private void RefreshPlot() => _loadPlotController.Refresh();
+
+    private void RequestPlotRefresh()
+    {
+        if (!_plotRefreshTimer.IsEnabled)
+        {
+            _plotRefreshTimer.Start();
+        }
+    }
+
+    private void QueueAutoScale()
+    {
+        if (Interlocked.Exchange(ref _autoScalePending, 1) != 0)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            new Action(() =>
+            {
+                try
+                {
+                    _loadPlotController.AutoScaleWhileCollecting();
+                }
+                finally
+                {
+                    Volatile.Write(ref _autoScalePending, 0);
+                }
+            }));
+    }
 
     private void InitializeCameraPreview()
     {
@@ -1050,8 +1169,9 @@ public partial class MainWindow : Window
         {
             return await Task.Run(() => DataAqc.TryReconnect(forceReconnect));
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "网络探测失败。");
             return false;
         }
     }
@@ -1356,7 +1476,14 @@ public partial class MainWindow : Window
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");
     private async void StartTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸");
-    private async void ReleaseTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸释放");
+    private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("拉伸释放");
+        if (ReleaseTensileResetCheckBox.IsChecked == true)
+        {
+            await _viewModel.PulseAsync("数据重置");
+        }
+    }
     private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
@@ -1668,20 +1795,24 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (DataAqc.loadModels.Count == 0)
+        {
+            return;
+        }
+
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
-        var waitWindow = new StartupWaitWindow("正在保存数据及试验报告，请稍后。");
+        using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
         bool saved = false;
 
         try
         {
             IsEnabled = false;
-            waitWindow.Show();
-            await Task.Yield();
+            await waitWindow.ShowAsync();
 
             Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
@@ -1692,6 +1823,10 @@ public partial class MainWindow : Window
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
             var dataSnapshot = DataAqc.loadModels.ToList();
+            if (dataSnapshot.Count == 0)
+            {
+                return;
+            }
             string maxForce = GetMaxForceText(dataSnapshot);
             string validDistance = GetMaxDistanceText(dataSnapshot);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
@@ -1742,7 +1877,6 @@ public partial class MainWindow : Window
                 File.Delete(tempImagePath);
             }
 
-            waitWindow.Close();
             IsEnabled = true;
         }
 
@@ -1750,6 +1884,75 @@ public partial class MainWindow : Window
         {
             ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
         }
+    }
+
+    private void OnDataCollectionEnded()
+    {
+        // The existing consumer has already queued its UI updates before this state transition.
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
+        {
+            await DelayOneSecondWithHighResolutionTimerAsync();
+
+            if (_isClosing || DataAqc.loadModels.Count == 0)
+            {
+                return;
+            }
+
+            string policy = _viewModel.Setting.AutoSavePolicy;
+            if (policy == SettingModel.AutoSaveAlwaysYes)
+            {
+                SaveDataAndReport_Click(this, new RoutedEventArgs());
+            }
+            else if (policy == SettingModel.AutoSaveAskEveryTime)
+            {
+                ShowAutomaticSavePrompt();
+            }
+        }));
+    }
+
+    private void ShowAutomaticSavePrompt()
+    {
+        if (_autoSavePromptOpen)
+        {
+            return;
+        }
+
+        _autoSavePromptOpen = true;
+        var dialog = new RuntimeDataSavePromptWindow { Owner = this };
+        dialog.ConfigurePrompt("自动保存数据和报告", "试验已完成，是否自动保存当前数据和试验报告？");
+        dialog.Closed += (_, _) =>
+        {
+            _autoSavePromptOpen = false;
+            if (!dialog.HasDecision)
+            {
+                return;
+            }
+
+            if (dialog.DontAskAgain)
+            {
+                _viewModel.Setting.AutoSavePolicy = dialog.ShouldSave
+                    ? SettingModel.AutoSaveAlwaysYes
+                    : SettingModel.AutoSaveAlwaysNo;
+                _viewModel.SaveSettings();
+            }
+
+            if (dialog.ShouldSave)
+            {
+                _ = Dispatcher.InvokeAsync(() => SaveDataAndReport_Click(this, new RoutedEventArgs()));
+            }
+        };
+        dialog.ShowDialog();
+    }
+
+    private static Task DelayOneSecondWithHighResolutionTimerAsync()
+    {
+        return Task.Run(() =>
+        {
+            using var timer = new HighResolutionTimer();
+            timer.SetPeriod(1000);
+            timer.Start();
+            timer.WaitForTrigger();
+        });
     }
 
     private static double ResolveAlgorithmSpeed(RecipeModel? recipe)

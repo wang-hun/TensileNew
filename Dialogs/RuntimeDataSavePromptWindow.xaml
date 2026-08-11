@@ -41,7 +41,8 @@
                 </Button>
             </Grid>
 
-            <TextBlock Grid.Row="1"
+            <TextBlock x:Name="PromptTextBlock"
+                       Grid.Row="1"
                        Text="是否保存当前所有试验的运行数据，以供后续数据分析？"
                        FontSize="17"
                        FontWeight="Bold"

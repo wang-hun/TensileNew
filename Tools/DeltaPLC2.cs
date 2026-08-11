@@ -10,11 +10,14 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using NLog;
 
 namespace TensileNeW.Tools
 {
+    
     public class TestDeltaPLC2
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         public static void test()
         {
             DeltaPLC2 plc = new DeltaPLC2("192.168.1.5");
@@ -50,6 +53,7 @@ namespace TensileNeW.Tools
             }
             catch (Exception ex)
             {
+                Logger.Error(ex, "PLC 测试操作失败。");
                 Console.WriteLine($"操作失败: {ex.Message}");
             }
             finally
@@ -60,6 +64,7 @@ namespace TensileNeW.Tools
     }
     public class DeltaPLC2:ObservableObject
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private const int ConnectTimeoutMilliseconds = 5000;
         private IModbusMaster _master; 
         private TcpClient _client; 
@@ -115,8 +120,9 @@ namespace TensileNeW.Tools
                 _master = master;
                 ConnectState = "true";
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.Error(ex, "PLC 连接初始化失败。");
                 client.Close();
                 ConnectState = "false";
                 throw;

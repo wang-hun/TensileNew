@@ -152,6 +152,20 @@ namespace TensileNeW.Models
             {
                 SettingModel.RuntimeDataSavePolicy = SettingModel.RuntimeDataSaveAlwaysNo;
             }
+
+            if (SettingModel.RuntimeDataDeletePolicy is not SettingModel.RuntimeDataDeleteAlwaysYes
+                and not SettingModel.RuntimeDataDeleteAskEveryTime
+                and not SettingModel.RuntimeDataDeleteAlwaysNo)
+            {
+                SettingModel.RuntimeDataDeletePolicy = SettingModel.RuntimeDataDeleteAlwaysYes;
+            }
+
+            if (SettingModel.AutoSavePolicy is not SettingModel.AutoSaveAlwaysYes
+                and not SettingModel.AutoSaveAskEveryTime
+                and not SettingModel.AutoSaveAlwaysNo)
+            {
+                SettingModel.AutoSavePolicy = SettingModel.AutoSaveAskEveryTime;
+            }
         }
 
         public static BindingList<RecipeModel> GetRuntimeRecipes()
@@ -215,8 +229,9 @@ namespace TensileNeW.Models
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                logger.Warn(ex, "用户配方读取失败，使用内置默认配方。");
                 // Fall back to code defaults.
             }
 

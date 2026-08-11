@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Newtonsoft.Json.Linq;
+using NLog;
 using TensileNeW.Models;
 using TensileNeW.Services;
 using HandyMessageBox = HandyControl.Controls.MessageBox;
@@ -18,6 +19,7 @@ namespace TensileNeW;
 
 public partial class App : Application
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const string SingleInstanceMutexName = @"Local\TensileNeW_ECS_SingleInstance";
     private const string SingleInstanceNoticeMutexName = @"Local\TensileNeW_ECS_SingleInstanceNotice";
     private static Mutex? singleInstanceMutex;
@@ -110,6 +112,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "程序启动失败。");
             waitWindow?.Close();
             HandyMessageBox.Error($"程序启动失败：{ex.Message}", "TensileNeW");
             Shutdown();
@@ -137,8 +140,9 @@ public partial class App : Application
                 return true;
             }
         }
-        catch (AbandonedMutexException)
+        catch (AbandonedMutexException ex)
         {
+            Logger.Debug(ex, "检测到已放弃的单实例互斥体。");
             return true;
         }
 
@@ -165,6 +169,7 @@ public partial class App : Application
         }
         catch (ApplicationException)
         {
+            Logger.Warn("释放单实例互斥体失败。");
         }
         finally
         {
@@ -187,8 +192,9 @@ public partial class App : Application
         {
             ThemeManager.Apply(GetConfiguredColorSchemeName());
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "应用主题加载失败，使用默认主题。");
             ThemeManager.Apply(ThemeManager.DefaultSchemeName);
         }
 
@@ -201,8 +207,9 @@ public partial class App : Application
         {
             return mutex.WaitOne(0);
         }
-        catch (AbandonedMutexException)
+        catch (AbandonedMutexException ex)
         {
+            Logger.Debug(ex, "检测到已放弃的通知互斥体。");
             return true;
         }
     }
@@ -250,8 +257,9 @@ public partial class App : Application
             _ = connectTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
             return false;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn(ex, "启动连接流程失败。");
             return false;
         }
     }
@@ -270,6 +278,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "摄像头扫描失败。");
             return new CameraStartupResult([], null, null, $"摄像头扫描失败：{ex.Message}");
         }
 
