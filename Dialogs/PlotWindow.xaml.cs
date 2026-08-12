@@ -8,8 +8,6 @@ namespace TensileNeW;
 
 public partial class PlotWindow : Window
 {
-    private readonly DispatcherTimer _refreshTimer;
-    private readonly DispatcherTimer _autoscaleTimer;
     private readonly LoadPlotController _plotController;
 
     public PlotWindow(Func<bool> autoPlayEnabled, Func<bool> showLegend, Func<bool> keepPlotOnReset)
@@ -19,31 +17,19 @@ public partial class PlotWindow : Window
         Owner = Application.Current?.MainWindow;
         Topmost = true;
 
-        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        _refreshTimer.Tick += (_, _) =>
-        {
-            _refreshTimer.Stop();
-            _plotController.Refresh();
-        };
-
-        _autoscaleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
-        _autoscaleTimer.Tick += (_, _) => _plotController.AutoScaleWhileCollecting();
-
         Loaded += (_, _) =>
         {
             _plotController.Initialize(() => _plotController.LocalizeContextMenu(
                 filterCurves: ShowCurveFilterDialog,
                 clearCurrentPlot: ShowClearPlotConfirmDialog));
-            DataAqc.LoadDataChanged += OnLoadDataChanged;
+            DataAqc.LoadDataBatchChanged += OnLoadDataBatchChanged;
             DataAqc.ChartCleared += OnChartCleared;
             Closed += (_, _) =>
             {
-                DataAqc.LoadDataChanged -= OnLoadDataChanged;
+                DataAqc.LoadDataBatchChanged -= OnLoadDataBatchChanged;
                 DataAqc.ChartCleared -= OnChartCleared;
-                _autoscaleTimer.Stop();
             };
             _plotController.Refresh();
-            _autoscaleTimer.Start();
         };
     }
 
@@ -55,7 +41,7 @@ public partial class PlotWindow : Window
 
     public void AutoScale() => _plotController.AutoScale();
 
-    private void OnLoadDataChanged(Loadmodel _) => Dispatcher.Invoke(RequestRefresh);
+    private void OnLoadDataBatchChanged(IReadOnlyList<Loadmodel> _) => _plotController.Refresh(autoScale: true);
 
     private void OnChartCleared() => Dispatcher.Invoke(_plotController.Reset);
 
@@ -90,11 +76,4 @@ public partial class PlotWindow : Window
         Dialog.Show(dialog);
     }
 
-    private void RequestRefresh()
-    {
-        if (!_refreshTimer.IsEnabled)
-        {
-            _refreshTimer.Start();
-        }
-    }
 }

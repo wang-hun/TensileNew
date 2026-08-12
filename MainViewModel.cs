@@ -45,7 +45,7 @@ public sealed class MainViewModel : ObservableObject
         SNModel.LoadSN();
         _trialSerialNumber = SNModel.GetSn();
 
-        DataAqc.LoadDataChanged += _ => OnPropertyChanged(nameof(ChartPolylinePoints));
+        DataAqc.LoadDataBatchChanged += _ => OnPropertyChanged(nameof(ChartPolylinePoints));
         DataAqc.ChartCleared += () => OnPropertyChanged(nameof(ChartPolylinePoints));
         RAM.Changed += OnRecipeChanged;
         Recipes.ListChanged += Recipes_ListChanged;
@@ -423,10 +423,6 @@ public sealed class MainViewModel : ObservableObject
     public static void StopConsumers()
     {
         DataAqc._cts.Cancel();
-        while (!DataAqc._queue.IsEmpty)
-        {
-            Thread.Sleep(10);
-        }
     }
 
     private static ushort Address(string variableName)
