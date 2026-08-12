@@ -93,7 +93,7 @@ public sealed class LoadPlotController
         _plotHost.Refresh();
     }
 
-    public void Refresh()
+    public void Refresh(bool autoScale = false)
     {
         if (!_initialized)
         {
@@ -133,6 +133,11 @@ public sealed class LoadPlotController
         }
 
         ApplyLabels();
+        if (autoScale && _autoTrackLatestPoint() && IsDataCollecting() && _currentSeries?.Scatter != null)
+        {
+            _plotHost.Plot.Axes.AutoScale();
+        }
+
         if (AutoScrollXAxisEnabled && _autoTrackLatestPoint() && _currentSeries is { Xs.Count: > 0 } current)
         {
             double xSpan = limits.Right - limits.Left;

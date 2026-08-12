@@ -113,10 +113,7 @@ public partial class MainWindow : Window
     private XpsDocument? _manualXpsDocument;
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
-    private readonly System.Windows.Threading.DispatcherTimer _plotRefreshTimer;
     private int _pendingLoadScrollIndex = -1;
-    private int _autoScalePointModulo;
-    private int _autoScalePending;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -172,15 +169,6 @@ public partial class MainWindow : Window
         {
             _loadScrollTimer.Stop();
             ScrollMainLoadDataToLatest();
-        };
-        _plotRefreshTimer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(50)
-        };
-        _plotRefreshTimer.Tick += (_, _) =>
-        {
-            _plotRefreshTimer.Stop();
-            RefreshPlot();
         };
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
@@ -263,25 +251,24 @@ public partial class MainWindow : Window
             : pixels;
     }
 
-    private void Window_Loaded(object sender, RoutedEventArgs e)
+    private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         Logger.Info("启动程序");
         InitializePlot();
         ChartHintPanel.Visibility = _viewModel.Setting.HideChartHintOnStartup
             ? Visibility.Collapsed
             : Visibility.Visible;
-        DataAqc.LoadDataChanged += _ =>
+        DataAqc.LoadDataBatchChanged += _ =>
         {
-            RequestPlotRefresh();
-
-            if (Interlocked.Increment(ref _autoScalePointModulo) >= 20)
-            {
-                Interlocked.Exchange(ref _autoScalePointModulo, 0);
-                QueueAutoScale();
-            }
+            RefreshPlot(autoScale: true);
         };
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
         _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
+        if (_connectedAtStartup)
+        {
+            // 连接成功后先把当前选中配方写入并校验，再启动采集，避免启动采集读请求与配方写入交错。
+            await WriteStartupRecipeAsync();
+        }
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
         LoadHelpDocument();
@@ -322,6 +309,26 @@ public partial class MainWindow : Window
         {
             Logger.Warn(ex, "加载说明书导航失败。");
             HelpNavigationTree.ItemsSource = null;
+        }
+    }
+
+    private async Task WriteStartupRecipeAsync()
+    {
+        try
+        {
+            bool written = await _viewModel.WriteRecipeAsync();
+            if (written)
+            {
+                Logger.Info("启动连接成功，已写入当前选中配方：{0}", _viewModel.SelectedRecipe?.RecipeName);
+            }
+            else
+            {
+                Logger.Warn("启动连接成功，但当前选中配方写入 PLC 失败：{0}", _viewModel.SelectedRecipe?.RecipeName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "启动连接后写入当前选中配方失败。");
         }
     }
 
@@ -642,7 +649,6 @@ public partial class MainWindow : Window
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
-        _plotRefreshTimer.Stop();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -794,37 +800,7 @@ public partial class MainWindow : Window
 
     private void ResetPlot() => _loadPlotController.Reset();
 
-    private void RefreshPlot() => _loadPlotController.Refresh();
-
-    private void RequestPlotRefresh()
-    {
-        if (!_plotRefreshTimer.IsEnabled)
-        {
-            _plotRefreshTimer.Start();
-        }
-    }
-
-    private void QueueAutoScale()
-    {
-        if (Interlocked.Exchange(ref _autoScalePending, 1) != 0)
-        {
-            return;
-        }
-
-        _ = Dispatcher.BeginInvoke(
-            System.Windows.Threading.DispatcherPriority.Background,
-            new Action(() =>
-            {
-                try
-                {
-                    _loadPlotController.AutoScaleWhileCollecting();
-                }
-                finally
-                {
-                    Volatile.Write(ref _autoScalePending, 0);
-                }
-            }));
-    }
+    private void RefreshPlot(bool autoScale = false) => _loadPlotController.Refresh(autoScale);
 
     private void InitializeCameraPreview()
     {
@@ -1258,6 +1234,8 @@ public partial class MainWindow : Window
                     bool connected = await TryConnectWithRetriesAsync(probeStopwatch);
                     if (connected)
                     {
+                        // 探测重连期间采集已暂停；等待配方写入完成后再恢复采集。
+                        await WriteStartupRecipeAsync();
                         successMessage = $"网络检查成功，已通过 {candidate.AdapterName} 连接设备。";
                         break;
                     }

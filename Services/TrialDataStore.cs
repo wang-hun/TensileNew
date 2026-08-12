@@ -147,6 +147,11 @@ public static class TrialDataStore
         }
     }
 
+    public static void BeginNewCapture()
+    {
+        OnChartCleared();
+    }
+
     public static void TryDeleteDatabaseFile()
     {
         try

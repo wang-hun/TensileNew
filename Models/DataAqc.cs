@@ -24,12 +24,12 @@ namespace TensileNeW.Models
         public static BindingList<PLCVariable> PLCVariables = new BindingList<PLCVariable>();
         public static DeltaPLC2 plc { get; private set; }
 
-        public static ConcurrentQueue<Loadmodel> _queue = new ConcurrentQueue<Loadmodel>();
+        private static readonly ConcurrentQueue<AcquisitionBatchItem> AcquisitionQueue = new();
         public static CancellationTokenSource _cts = new CancellationTokenSource();
-        public static BindingList<Loadmodel> loadModels = new BindingList<Loadmodel>();
+        public static BatchBindingList<Loadmodel> loadModels = new();
         private static readonly object PlcConnectionLock = new();
 
-        public static event Action<Loadmodel> LoadDataChanged;
+        public static event Action<IReadOnlyList<Loadmodel>>? LoadDataBatchChanged;
         public static event Action ChartCleared;
         public static event Action? DataCollectionEnded;
         public static bool _simlatueRunFlag = false;
@@ -199,12 +199,8 @@ namespace TensileNeW.Models
                 DateTime successTime = DateTime.Now;
                 DateTime exceptionTime = DateTime.Now;
                 bool beginScan = false;
-                bool dataResetFlag = false;
-                bool fullResetFlag = false;
                 DateTime beginScanTime = DateTime.Now;
-                DateTime beginEnqueTime = DateTime.Now;
                 int IndexCount = 0;
-                float temp = 0;
                 while (!DataAqc._cts.IsCancellationRequested)
                 {
                     try
@@ -221,7 +217,9 @@ namespace TensileNeW.Models
                             throw new Exception("连接中断");
                         }
 
-                        hrTimer.WaitForTrigger();
+                        // 临时隔离测试：取消相邻采样的定时等待，确认采样波动是否由等待周期造成。
+                        // 验证完成后应恢复 WaitForTrigger()，避免空闲时无节制地提高 PLC 轮询频率。
+                        // hrTimer.WaitForTrigger();
 
 
                         //连接了再读取
@@ -249,118 +247,50 @@ namespace TensileNeW.Models
                             bool fullResetValue = TryReadFullResetValue();
                             var y4Value = plc.ReadBools((ushort)(ModbusAddressHelper.ConvertToModbusAddresss("Y4").HexAddress), 4);
 
-                            dispatcher.Invoke(() =>
+                            AcquisitionQueue.Enqueue(new AcquisitionBatchItem(
+                                new PlcSnapshot(
+                                    mBoolValue,
+                                    d400FValue,
+                                    d410WValue,
+                                    d46FValue,
+                                    d249FValue,
+                                    d260FValue,
+                                    d362FValue,
+                                    fullResetValue,
+                                    y4Value),
+                                null,
+                                false,
+                                false));
+
+                            if (mBoolValue[36] && !beginScan)
                             {
-                                if (d400FValue is not null && d410WValue.HasValue)
-                                {
-                                    PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = $"{d400FValue[0].ToString("F3")}";
-                                    PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = $"{d400FValue[1].ToString("F3")}";
-                                    PLCVariables.First(t => t.Name == "速度设定").CurrentValue = $"{d400FValue[2].ToString("F3")}";
-                                    PLCVariables.First(t => t.Name == "拉伸位移上限").CurrentValue = $"{d400FValue[6].ToString("F3")}";
-                                    PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = $"{d400FValue[8].ToString("F3")}";
-                                    PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = $"{d410WValue.Value}";
-                                }
+                                beginScan = true;
+                                beginScanTime = DateTime.Now;
+                                IndexCount = 0;
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false));
+                            }
 
-                                PLCVariables.First(t => t.Name == "实时拉伸力").CurrentValue = d46FValue[0].ToString("F3");
-                                PLCVariables.First(t => t.Name == "拉伸时间").CurrentValue = d46FValue[1].ToString("F3");
-                                PLCVariables.First(t => t.Name == "实时压边力").CurrentValue = d46FValue[4].ToString("F3");
-                                PLCVariables.First(t => t.Name == "主推力").CurrentValue = d46FValue[10].ToString("F3");
-
-                                PLCVariables.First(t => t.Name == "实时拉伸速度").CurrentValue = d249FValue.ToString("F3");
-
-
-                                PLCVariables.First(t => t.Name == "实时拉伸位移").CurrentValue = d260FValue.ToString("F3");
-
-
-                                if (d362FValue is not null)
-                                {
-                                    PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = d362FValue[0].ToString("F3");
-                                    PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = d362FValue[1].ToString("F3");
-                                }
-
-                                PLCVariables.First(t => t.Name == "压边释放").CurrentValue = mBoolValue[0].ToString();
-                                PLCVariables.First(t => t.Name == "拉伸").CurrentValue = mBoolValue[49].ToString();
-                                PLCVariables.First(t => t.Name == "拉伸释放").CurrentValue = mBoolValue[2].ToString();
-                                PLCVariables.First(t => t.Name == "停止").CurrentValue = mBoolValue[8].ToString();
-                                PLCVariables.First(t => t.Name == "数据重置").CurrentValue = mBoolValue[9].ToString();
-                                PLCVariables.First(t => t.Name == "冲程压边").CurrentValue = mBoolValue[29].ToString();
-                                PLCVariables.First(t => t.Name == "传感器标零").CurrentValue = mBoolValue[59].ToString();
-                                PLCVariables.First(t => t.Name == "传感器标零状态").CurrentValue = mBoolValue[60].ToString();
-                                PLCVariables.First(t => t.Name == "弹料").CurrentValue = mBoolValue[69].ToString();
-                                PLCVariables.First(t => t.Name == "压边").CurrentValue = mBoolValue[79].ToString();
-                                PLCVariables.First(t => t.Name == "完全复位").CurrentValue = fullResetValue.ToString();
-                                PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = mBoolValue[36].ToString();
-
-                                PLCVariables.First(t => t.Name == "拉伸线圈").CurrentValue = y4Value[0].ToString();
-                                PLCVariables.First(t => t.Name == "拉伸释放线圈").CurrentValue = y4Value[1].ToString();
-                                PLCVariables.First(t => t.Name == "压边线圈").CurrentValue = y4Value[2].ToString();
-                                PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = y4Value[3].ToString();
-
-                                #region 数据重置触发
-                                bool dataResetTriggered = mBoolValue[9] && dataResetFlag == false;
-                                bool fullResetTriggered = fullResetValue && fullResetFlag == false;
-                                if (dataResetTriggered || fullResetTriggered)
-                                {
-                                    if (dataResetTriggered)
-                                    {
-                                        dataResetFlag = true;
-                                    }
-
-                                    if (fullResetTriggered)
-                                    {
-                                        fullResetFlag = true;
-                                    }
-                                }
-
-                                if (dataResetFlag && mBoolValue[9] == false)
-                                {
-                                    dataResetFlag = false;
-                                }
-
-                                if (fullResetFlag && fullResetValue == false)
-                                {
-                                    fullResetFlag = false;
-                                }
-                                #endregion
-
-
-                                if (mBoolValue[36] && beginScan == false)
-                                {
-                                    // A new acquisition session owns a fresh table/curve.
-                                    // Reset coils are intentionally not part of this transition.
-                                    ClearQueue();
-                                    IndexCount = 0;
-                                    loadModels?.Clear();
-                                    ChartCleared?.Invoke();
-
-                                    temp = 0;
-                                    beginScan = true;
-                                    beginScanTime = DateTime.Now;
-                                }
-
-                                if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)//&&(DateTime.Now-beginEnqueTime).TotalMilliseconds>20)
-                                {
-                                    beginEnqueTime = DateTime.Now;
-                                    //超时5分钟
-                                    Enqueue(new Loadmodel()
+                            if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)
+                            {
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(
+                                    null,
+                                    new Loadmodel
                                     {
                                         Index = ++IndexCount,
                                         RealPress = d46FValue[4],
                                         RealDistance = d260FValue,
                                         RealForce = d46FValue[0],
-                                        Time = d46FValue[1].ToString("F3") //beginEnqueTime.ToString("HH:mm:ss.fff")
+                                        Time = d46FValue[1].ToString("F3")
+                                    },
+                                    false,
+                                    false));
+                            }
 
-                                    });
-                                }
-
-                                if (beginScan && mBoolValue[36] == false)
-                                {
-                                    beginScan = false;
-                                    DataCollectionEnded?.Invoke();
-                                }
-
-
-                            });
+                            if (beginScan && !mBoolValue[36])
+                            {
+                                beginScan = false;
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true));
+                            }
 
                             //本次成功时间
                             successTime = DateTime.Now;
@@ -373,7 +303,7 @@ namespace TensileNeW.Models
                         }
 
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         Thread.Sleep(500);
                         if (AutoReconnectSuspended)
@@ -412,74 +342,133 @@ namespace TensileNeW.Models
         /// 新的model 追加到队列尾部
         /// </summary>
         /// <param name="loadmodel"></param>
-        private static Exception tempEnqueueEx = null;
-        public static void Enqueue(Loadmodel loadmodel)
+        public static void StartConsumers(Dispatcher dispatcher)
         {
-            try
+            Task.Run(async () =>
             {
+                PeriodicTimer timer = new(TimeSpan.FromMilliseconds(100));
                 try
                 {
-                    TrialDataStore.EnqueuePoint(SNModel.GetSn(), loadmodel);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex.Message);
-                }
-
-                _queue.Enqueue(loadmodel);
-            }
-            catch (Exception ex)
-            {
-                if (tempEnqueueEx != ex)
-                    logger.Error(ex.Message);
-                tempEnqueueEx = ex;
-            }
-        }
-
-        private static void ClearQueue()
-        {
-            while (_queue.TryDequeue(out _))
-            {
-            }
-        }
-
-
-        /// <summary>
-        /// 收到开始采集信号后--首先开启一个消费者线程
-        /// </summary>
-        public static void StartConsumers(Dispatcher dispatcher)//CancellationToken cancellationToken, Action<Loadmodel> consumer
-        {
-
-            Task.Run(() =>
-            {
-                while (!DataAqc._cts.IsCancellationRequested)
-                {
-                    if (DataAqc._queue.TryDequeue(out Loadmodel item))
+                    while (await timer.WaitForNextTickAsync(_cts.Token))
                     {
-                        try
-                        {
-                            dispatcher.BeginInvoke(() =>
-                            {  //consumer(item);
-                               //写入datagrid
-                                loadModels.Add(item);
-                                LoadDataChanged?.Invoke(item);
-                            });
-
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.Error(ex.Message);
-                        }
-                    }
-                    else
-                    {
-                        Thread.SpinWait(5); // 无任务时降低CPU占用
+                        DrainAcquisitionQueue(dispatcher);
                     }
                 }
-
-            }, DataAqc._cts.Token);
-
+                catch (OperationCanceledException)
+                {
+                }
+                finally
+                {
+                    timer.Dispose();
+                }
+            }, _cts.Token);
         }
+
+        private static void DrainAcquisitionQueue(Dispatcher dispatcher)
+        {
+            List<AcquisitionBatchItem> batch = [];
+            while (AcquisitionQueue.TryDequeue(out AcquisitionBatchItem? item))
+            {
+                batch.Add(item);
+            }
+
+            if (batch.Count == 0)
+            {
+                return;
+            }
+
+            foreach (AcquisitionBatchItem item in batch)
+            {
+                if (item.Started)
+                {
+                    TrialDataStore.BeginNewCapture();
+                }
+
+                if (item.LoadPoint is not null)
+                {
+                    TrialDataStore.EnqueuePoint(SNModel.GetSn(), item.LoadPoint);
+                }
+            }
+
+            List<Loadmodel> points = batch.Where(item => item.LoadPoint is not null).Select(item => item.LoadPoint!).ToList();
+
+            dispatcher.BeginInvoke(() => ApplyBatchOnUiThread(batch, points));
+        }
+
+        private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch, IReadOnlyList<Loadmodel> points)
+        {
+            foreach (AcquisitionBatchItem item in batch)
+            {
+                if (item.Started)
+                {
+                    loadModels.Clear();
+                    ChartCleared?.Invoke();
+                }
+
+                if (item.Ended)
+                {
+                    DataCollectionEnded?.Invoke();
+                }
+            }
+
+            PlcSnapshot? latestSnapshot = batch.LastOrDefault(item => item.Snapshot is not null)?.Snapshot;
+            if (latestSnapshot is not null)
+            {
+                ApplyPlcSnapshot(latestSnapshot);
+            }
+
+            if (points.Count > 0)
+            {
+                loadModels.AddRange(points);
+                LoadDataBatchChanged?.Invoke(points);
+            }
+        }
+
+        private static void ApplyPlcSnapshot(PlcSnapshot snapshot)
+        {
+            if (snapshot.D400Values is not null && snapshot.D410Value.HasValue)
+            {
+                PLCVariables.First(t => t.Name == "冲程压边力设定").CurrentValue = snapshot.D400Values[0].ToString("F3");
+                PLCVariables.First(t => t.Name == "闭环压边力设定").CurrentValue = snapshot.D400Values[1].ToString("F3");
+                PLCVariables.First(t => t.Name == "速度设定").CurrentValue = snapshot.D400Values[2].ToString("F3");
+                PLCVariables.First(t => t.Name == "拉伸位移上限").CurrentValue = snapshot.D400Values[6].ToString("F3");
+                PLCVariables.First(t => t.Name == "停机比例设定").CurrentValue = snapshot.D400Values[8].ToString("F3");
+                PLCVariables.First(t => t.Name == "停机延时设定").CurrentValue = snapshot.D410Value.Value.ToString();
+            }
+
+            PLCVariables.First(t => t.Name == "实时拉伸力").CurrentValue = snapshot.D46Values[0].ToString("F3");
+            PLCVariables.First(t => t.Name == "拉伸时间").CurrentValue = snapshot.D46Values[1].ToString("F3");
+            PLCVariables.First(t => t.Name == "实时压边力").CurrentValue = snapshot.D46Values[4].ToString("F3");
+            PLCVariables.First(t => t.Name == "主推力").CurrentValue = snapshot.D46Values[10].ToString("F3");
+            PLCVariables.First(t => t.Name == "实时拉伸速度").CurrentValue = snapshot.D249Value.ToString("F3");
+            PLCVariables.First(t => t.Name == "实时拉伸位移").CurrentValue = snapshot.D260Value.ToString("F3");
+
+            if (snapshot.D362Values is not null)
+            {
+                PLCVariables.First(t => t.Name == "最大拉伸力").CurrentValue = snapshot.D362Values[0].ToString("F3");
+                PLCVariables.First(t => t.Name == "有效拉伸位移").CurrentValue = snapshot.D362Values[1].ToString("F3");
+            }
+
+            PLCVariables.First(t => t.Name == "压边释放").CurrentValue = snapshot.MValues[0].ToString();
+            PLCVariables.First(t => t.Name == "拉伸").CurrentValue = snapshot.MValues[49].ToString();
+            PLCVariables.First(t => t.Name == "拉伸释放").CurrentValue = snapshot.MValues[2].ToString();
+            PLCVariables.First(t => t.Name == "停止").CurrentValue = snapshot.MValues[8].ToString();
+            PLCVariables.First(t => t.Name == "数据重置").CurrentValue = snapshot.MValues[9].ToString();
+            PLCVariables.First(t => t.Name == "冲程压边").CurrentValue = snapshot.MValues[29].ToString();
+            PLCVariables.First(t => t.Name == "传感器标零").CurrentValue = snapshot.MValues[59].ToString();
+            PLCVariables.First(t => t.Name == "传感器标零状态").CurrentValue = snapshot.MValues[60].ToString();
+            PLCVariables.First(t => t.Name == "弹料").CurrentValue = snapshot.MValues[69].ToString();
+            PLCVariables.First(t => t.Name == "压边").CurrentValue = snapshot.MValues[79].ToString();
+            PLCVariables.First(t => t.Name == "完全复位").CurrentValue = snapshot.FullResetValue.ToString();
+            PLCVariables.First(t => t.Name == "数据采集标志").CurrentValue = snapshot.MValues[36].ToString();
+            PLCVariables.First(t => t.Name == "拉伸线圈").CurrentValue = snapshot.YValues[0].ToString();
+            PLCVariables.First(t => t.Name == "拉伸释放线圈").CurrentValue = snapshot.YValues[1].ToString();
+            PLCVariables.First(t => t.Name == "压边线圈").CurrentValue = snapshot.YValues[2].ToString();
+            PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = snapshot.YValues[3].ToString();
+        }
+
+        private sealed record AcquisitionBatchItem(PlcSnapshot? Snapshot, Loadmodel? LoadPoint, bool Started, bool Ended);
+        private sealed record PlcSnapshot(bool[] MValues, float[]? D400Values, ushort? D410Value, float[] D46Values, float D249Value, float D260Value, float[]? D362Values, bool FullResetValue, bool[] YValues);
 
 
 
