@@ -346,7 +346,7 @@ namespace TensileNeW.Models
         {
             Task.Run(async () =>
             {
-                PeriodicTimer timer = new(TimeSpan.FromMilliseconds(100));
+                PeriodicTimer timer = new(TimeSpan.FromMilliseconds(50));
                 try
                 {
                     while (await timer.WaitForNextTickAsync(_cts.Token))
