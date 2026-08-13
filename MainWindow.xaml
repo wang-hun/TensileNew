@@ -382,6 +382,7 @@
               <ColumnDefinition Width="104" />
               <ColumnDefinition Width="68" />
               <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="110" />
             </Grid.ColumnDefinitions>
             <Button x:Name="ReconnectButton" Grid.Column="1" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -436,6 +437,11 @@
                 </StackPanel>
               </Border>
             </Grid>
+            <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+              <TextBlock Text="采样率" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
+              <TextBlock x:Name="FpsTextBlock" Text="0" FontFamily="{DynamicResource SevenSegmentFontFamily}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+              <TextBlock Text="tick/s" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
+            </StackPanel>
           </Grid>
         </Grid>
       </Border>
@@ -1423,7 +1429,7 @@
                   <TextBlock Text="退出时自动删除运行数据" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <ComboBox ItemsSource="{Binding RuntimeDataDeletePolicyItems}" SelectedItem="{Binding Setting.RuntimeDataDeletePolicy, Mode=TwoWay}" FontSize="16" Width="108" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
                 </StackPanel>
-                <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" Margin="0,10,0,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
+                <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="6" Style="{StaticResource ButtonPrimary}" FontSize="16" Height="48" Width="220" HorizontalAlignment="Center" VerticalAlignment="Center" Click="SaveSettings_Click">
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <iconPacks:PackIconBootstrapIcons Kind="Floppy2Fill" Width="20" Height="20" Margin="0,0,8,0" />
                     <TextBlock Text="保存系统参数" VerticalAlignment="Center" />

@@ -10,10 +10,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>2.1.4.2608</Version>
-    <AssemblyVersion>2.1.4.2608</AssemblyVersion>
-    <FileVersion>2.1.4.2608</FileVersion>
-    <InformationalVersion>V2.1.4.2608</InformationalVersion>
+    <Version>2.1.6.2608</Version>
+    <AssemblyVersion>2.1.6.2608</AssemblyVersion>
+    <FileVersion>2.1.6.2608</FileVersion>
+    <InformationalVersion>V2.1.6.2608</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

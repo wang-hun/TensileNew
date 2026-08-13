@@ -221,6 +221,9 @@
 
 - 保持现有 WPF、HandyControl、MahApps、ScottPlot 和 MVVM Toolkit 的使用方式，不为局部修改引入新的 UI 框架或大规模重构。
 - 修改主界面 UI 前必须先确认所在 Grid/Border 的固定宽高、Margin、Padding 和可用空间，新增按钮、图标或文字后要按实际可用宽度核算总宽高，避免折叠、遮挡、显示不全或挤压相邻控件。
+- 设置页右侧各分区的可用宽高以其外层容器的实际内容区域为准；不得为了视觉留白擅自给该区域、其直接 Grid 或 Border 新增 Padding、Margin、BorderThickness，或保留无业务作用的既有内外边距。版本号、试用版打开次数、保存次数及任何系统设置字段必须完整可见，不能被右缘或下缘裁切。
+- 修改设置页布局时，必须同时按最小支持分辨率和常用高分辨率静态核算右侧第一分区：逐项列出全部 RowDefinition 高度、控件 Height、控件 Margin/Padding、Grid/Border 的 Padding/Margin/BorderThickness，以及 Viewbox 缩放后的垂直剩余空间。所有行和外边距的合计高度不得超过固定内容区高度；任何一项导致版本号、打开次数或保存次数不可完整显示，均不得提交该布局。
+- 对已经发生下缘裁切的设置页，修复优先级是先删除新增或无作用的 Padding/Margin/BorderThickness，再调整行高或缩放；禁止通过扩大固定内容区、继续压缩字体、截断文本、隐藏试用信息或扩大窗口最小尺寸来掩盖容器留白造成的问题。
 - 新增弹窗、列表和局部面板时，默认不要添加装饰性外框或边框，尤其不要把 `AppLayoutBorderBrush`、`AppStartupWaitBorderBrush` 等主题强调色当作普通容器边框使用；只有现有控件模板或明确设计需要边界时才保留必要分隔线。
 - 主界面按钮应优先复用现有 `ActionButtonStyle`、`IndicatorActionButtonStyle`、`ButtonPrimary`、`ButtonDanger` 等本地样式和动态主题资源；除非确有必要，不要临时手写一套背景色、边框色、字体或高度，避免破坏主题一致性。
 - 在 DataGrid、曲线图、预览区等内容控件上叠放小按钮时，必须给表头文字、滚动条和内容区域预留空间；不能让按钮覆盖关键数据、列标题或交互区域。必要时通过缩小按钮、调整列宽、增加右侧 Padding/Margin 或使用独立工具列解决。
