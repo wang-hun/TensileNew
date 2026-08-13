@@ -65,6 +65,8 @@
 
 `DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
 
+当前数据消费使用 `DataAqc.StartConsumers()` 的 50ms 周期：消费者会排空采集队列并形成一个批次，UI 线程在 `ApplyBatchOnUiThread()` 中只将该批次最后一个 `PlcSnapshot` 应用于实时数值。主窗口右上角“采样率”显示的是最近 20 个 UI 批次内全部 `PlcSnapshot` 的总数，单位为 `tick/s`，不是固定的 UI 刷新频率，也不是仅在试验采集期间产生的 `Loadmodel` 数量。统计通过 `UiBatchApplied` 在既有批次处理完成后旁路接收该批次快照数；不得为统计目的改动 PLC 采样循环、`StartConsumers()` 周期、队列排空、数据库写入、曲线绘制或 UI 刷新调度。
+
 ## 本地正弦曲线调试
 
 用户可能会临时要求恢复正弦曲线调试功能，用于在没有连接设备时验证曲线图、数据表格和 `TrialDataStore` 的真实数据链路。这个功能是本地调试辅助，不应作为产品功能保存并提交；实现后必须明确告知当前工作区存在未提交调试改动。
