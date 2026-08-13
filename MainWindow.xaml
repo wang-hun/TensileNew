@@ -382,6 +382,7 @@
               <ColumnDefinition Width="104" />
               <ColumnDefinition Width="68" />
               <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="110" />
             </Grid.ColumnDefinitions>
             <Button x:Name="ReconnectButton" Grid.Column="1" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -436,6 +437,11 @@
                 </StackPanel>
               </Border>
             </Grid>
+            <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+              <TextBlock Text="采样率" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
+              <TextBlock x:Name="FpsTextBlock" Text="0" FontFamily="{DynamicResource SevenSegmentFontFamily}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+              <TextBlock Text="tick/s" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
+            </StackPanel>
           </Grid>
         </Grid>
       </Border>

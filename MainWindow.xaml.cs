@@ -115,6 +115,10 @@ public partial class MainWindow : Window
     public bool HasMissingManualOffice { get; set; }
     private readonly System.Windows.Threading.DispatcherTimer _loadScrollTimer;
     private int _pendingLoadScrollIndex = -1;
+    private const int FpsSampleWindowSize = 20;
+    private readonly int[] _fpsSampleCounts = new int[FpsSampleWindowSize];
+    private int _fpsSampleIndex;
+    private int _fpsSampleTotal;
 
     public static PLCVariable TimeVariable => FindVariable("拉伸时间");
     public static PLCVariable MaxForceVariable => FindVariable("最大拉伸力");
@@ -157,6 +161,7 @@ public partial class MainWindow : Window
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
             LoadPlot,
@@ -313,6 +318,15 @@ public partial class MainWindow : Window
             Logger.Warn(ex, "加载说明书导航失败。");
             HelpNavigationTree.ItemsSource = null;
         }
+    }
+
+    private void OnUiBatchApplied(int sampleCount)
+    {
+        _fpsSampleTotal -= _fpsSampleCounts[_fpsSampleIndex];
+        _fpsSampleCounts[_fpsSampleIndex] = sampleCount;
+        _fpsSampleTotal += sampleCount;
+        _fpsSampleIndex = (_fpsSampleIndex + 1) % FpsSampleWindowSize;
+        FpsTextBlock.Text = _fpsSampleTotal.ToString();
     }
 
     private void Plc_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -667,6 +681,7 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
         _viewModel.SaveSettings();

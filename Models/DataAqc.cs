@@ -30,6 +30,7 @@ namespace TensileNeW.Models
         private static readonly object PlcConnectionLock = new();
 
         public static event Action<IReadOnlyList<Loadmodel>>? LoadDataBatchChanged;
+        public static event Action<int>? UiBatchApplied;
         public static event Action ChartCleared;
         public static event Action? DataCollectionEnded;
         public static bool _simlatueRunFlag = false;
@@ -390,6 +391,8 @@ namespace TensileNeW.Models
                 loadModels.AddRange(points);
                 LoadDataBatchChanged?.Invoke(points);
             }
+
+            UiBatchApplied?.Invoke(batch.Count(item => item.Snapshot is not null));
         }
 
         private static void ApplyPlcSnapshot(PlcSnapshot snapshot)
