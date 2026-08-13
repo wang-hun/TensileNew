@@ -153,20 +153,14 @@ namespace TensileNeW.Models
             }
         }
 
-        public static bool TryReconnect(bool forceReconnect = false)
+        public static bool TryReconnect()
         {
             try
             {
                 lock (PlcConnectionLock)
                 {
-                    if (!forceReconnect && IsPlcConnected())
-                    {
-                        logger.Info("PLC已连接，跳过自动重连。");
-                        return true;
-                    }
-
-                    plc.Disconnect();
-                    Thread.Sleep(500);
+                    plc.AbortConnection();
+                    Thread.Sleep(100);
                     plc.Connect();
                 }
                 logger.Info("重新连接PLC成功！");
@@ -179,12 +173,6 @@ namespace TensileNeW.Models
             }
         }
 
-        private static bool IsPlcConnected()
-        {
-            return plc?.Client is { Connected: true }
-                && bool.TryParse(plc.ConnectState, out bool connected)
-                && connected;
-        }
         public static long showTime = 0;
 
         public static void Refresh(Dispatcher dispatcher)
@@ -196,8 +184,7 @@ namespace TensileNeW.Models
                 hrTimer.Start();
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                DateTime successTime = DateTime.Now;
-                DateTime exceptionTime = DateTime.Now;
+                DateTime nextReconnectTime = DateTime.MinValue;
                 bool beginScan = false;
                 DateTime beginScanTime = DateTime.Now;
                 int IndexCount = 0;
@@ -211,15 +198,7 @@ namespace TensileNeW.Models
                             continue;
                         }
 
-                        if (null == plc.Client || plc.Client.Connected == false)
-                        {
-
-                            throw new Exception("连接中断");
-                        }
-
-                        // 临时隔离测试：取消相邻采样的定时等待，确认采样波动是否由等待周期造成。
-                        // 验证完成后应恢复 WaitForTrigger()，避免空闲时无节制地提高 PLC 轮询频率。
-                        // hrTimer.WaitForTrigger();
+                        hrTimer.WaitForTrigger();
 
 
                         //连接了再读取
@@ -292,30 +271,27 @@ namespace TensileNeW.Models
                                 AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true));
                             }
 
-                            //本次成功时间
-                            successTime = DateTime.Now;
-
-                            //stopwatch.Stop();
-                            //showTime = stopwatch.ElapsedMilliseconds;
-                            //Debug.WriteLine(showTime);
-                            //stopwatch.Restart();
-
                         }
 
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        Thread.Sleep(500);
                         if (AutoReconnectSuspended)
                         {
                             continue;
                         }
-                        //上次成功时间 过了5秒了
-                        if ((DateTime.Now - exceptionTime).TotalSeconds > 5)
+
+                        // A failed Modbus request is the only connection-health signal.
+                        // Reconnect on the first failed acquisition cycle.
+                        if (DateTime.UtcNow >= nextReconnectTime)
                         {
-                            exceptionTime = DateTime.Now;
-                            logger.Error("超时，自动断开重连！");
+                            nextReconnectTime = DateTime.UtcNow.AddMilliseconds(500);
+                            logger.Warn(ex, "PLC 采集失败，立即断开并重连。");
                             TryReconnect();
+                        }
+                        else
+                        {
+                            Thread.Sleep(10);
                         }
                     }
 
@@ -327,15 +303,7 @@ namespace TensileNeW.Models
 
         private static bool TryReadFullResetValue()
         {
-            try
-            {
-                return plc.ReadBool((ushort)ModbusAddressHelper.ConvertToModbusAddresss("M111").HexAddress);
-            }
-            catch (Exception ex)
-            {
-                logger.Debug(ex, "读取完全复位 M111 失败，按未触发处理。");
-                return false;
-            }
+            return plc.ReadBool((ushort)ModbusAddressHelper.ConvertToModbusAddresss("M111").HexAddress);
         }
 
         /// <summary>

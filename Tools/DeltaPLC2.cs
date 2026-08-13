@@ -67,9 +67,12 @@ namespace TensileNeW.Tools
     public class DeltaPLC2:ObservableObject
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private const int ConnectTimeoutMilliseconds = 5000;
-        private IModbusMaster _master; 
-        private TcpClient _client; 
+        // PLC and PC are directly connected. Normal Modbus TCP round trips are
+        // millisecond-scale, so the socket itself must fail fast on a cable loss.
+        private const int ConnectTimeoutMilliseconds = 100;
+        private const int RequestTimeoutMilliseconds = 100;
+        private IModbusMaster? _master;
+        private TcpClient? _client;
         private readonly string _ipAddress;
         private readonly byte _slaveId;
         private readonly BlockingCollection<Action> _requestQueue = new();
@@ -81,7 +84,7 @@ namespace TensileNeW.Tools
             get => _ConnectState;
             set => SetProperty(ref _ConnectState, value);
         }
-        public TcpClient Client { get => _client; private set => _client = value; }
+        public TcpClient? Client { get => _client; private set => _client = value; }
 
 
         /// <summary>
@@ -110,15 +113,23 @@ namespace TensileNeW.Tools
         {
             T result = default!;
             Exception? error = null;
-            using ManualResetEventSlim completed = new(false);
+            TaskCompletionSource completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _requestQueue.Add(() =>
             {
                 try { result = request(); }
                 catch (Exception ex) { error = ex; }
-                finally { completed.Set(); }
+                finally { completed.TrySetResult(); }
             });
-            completed.Wait();
-            if (error is not null) throw error;
+            completed.Task.GetAwaiter().GetResult();
+
+            if (error is not null)
+            {
+                if (ConnectState == "true")
+                {
+                    MarkConnectionBroken("Modbus TCP 读写失败", error);
+                }
+                throw error;
+            }
             return result;
         }
 
@@ -129,7 +140,11 @@ namespace TensileNeW.Tools
         /// </summary>
         public void Connect(int port = 502)
         {
-            Execute(() => ConnectCore(port));
+            Execute(() =>
+            {
+                ConnectCore(port);
+                return true;
+            });
         }
 
         private void ConnectCore(int port)
@@ -147,11 +162,11 @@ namespace TensileNeW.Tools
                 }
 
                 connectTask.GetAwaiter().GetResult();
-                client.SendTimeout =5000;
-                client.ReceiveTimeout = 500; 
+                client.SendTimeout = RequestTimeoutMilliseconds;
+                client.ReceiveTimeout = RequestTimeoutMilliseconds;
                 IModbusMaster master = new ModbusFactory().CreateMaster(client);
-                master.Transport.ReadTimeout = 100;
-                master.Transport.WriteTimeout = 1000;
+                master.Transport.ReadTimeout = RequestTimeoutMilliseconds;
+                master.Transport.WriteTimeout = RequestTimeoutMilliseconds;
 
                 Client = client;
                 _master = master;
@@ -171,14 +186,35 @@ namespace TensileNeW.Tools
         /// </summary>
         public void Disconnect()
         {
-            Execute(DisconnectCore);
+            AbortConnection();
         }
 
-        private void DisconnectCore()
+        /// <summary>
+        /// Breaks the socket immediately, including when the serialized request worker
+        /// is currently blocked in an operating-system TCP read.
+        /// </summary>
+        public void AbortConnection()
         {
-            Client?.Close(); 
-            _master?.Dispose();
+            TcpClient? client = Client;
+            IModbusMaster? master = _master;
+            Client = null;
+            _master = null;
             ConnectState = "false";
+            try { master?.Dispose(); }
+            catch (ObjectDisposedException) { }
+            try { client?.Close(); }
+            catch (SocketException) { }
+        }
+
+        private void MarkConnectionBroken(string reason, Exception? exception)
+        {
+            AbortConnection();
+            Logger.Warn(exception, "PLC 连接已断开：{0}", reason);
+        }
+
+        private IModbusMaster RequireMaster()
+        {
+            return _master ?? throw new InvalidOperationException("PLC 未连接。");
         }
 
         // === 读写单个数据 ===
@@ -189,14 +225,7 @@ namespace TensileNeW.Tools
         /// <param name="address">地址（如 0 表示线圈地址 00001）</param>
         public bool ReadBool(ushort address)
         {
-            //if (_master is null) return false;
-            //if (Client.Connected==false) { throw new Exception("连接中断"); }
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-
-            bool[] values = Execute(() => _master.ReadCoils(_slaveId,address, 1));
+            bool[] values = Execute(() => RequireMaster().ReadCoils(_slaveId,address, 1));
             return values[0];
         }
 
@@ -207,11 +236,7 @@ namespace TensileNeW.Tools
         /// <param name="value">值</param>
         public void WriteBool(ushort address, bool value)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-            Execute(() => _master?.WriteSingleCoil(_slaveId, address, value));
+            Execute(() => RequireMaster().WriteSingleCoil(_slaveId, address, value));
         }
 
         /// <summary>
@@ -219,12 +244,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public ushort ReadUShort(ushort address)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-            //if (_master is null) return 0;
-            ushort[] values = Execute(() => _master.ReadHoldingRegisters(_slaveId, address, 1));
+            ushort[] values = Execute(() => RequireMaster().ReadHoldingRegisters(_slaveId, address, 1));
             return values[0];
         }
 
@@ -233,11 +253,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public void WriteUShort(ushort address, ushort value)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-            Execute(() => _master?.WriteSingleRegister(_slaveId, address, value));
+            Execute(() => RequireMaster().WriteSingleRegister(_slaveId, address, value));
         }
 
         /// <summary>
@@ -245,13 +261,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public float ReadFloat(ushort startAddress)
         {
-            //if (_master is null) return 0;
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-
-            ushort[] registers = Execute(() => _master.ReadHoldingRegisters(_slaveId, startAddress, 2));
+            ushort[] registers = Execute(() => RequireMaster().ReadHoldingRegisters(_slaveId, startAddress, 2));
             byte[] bytes = new byte[4];
             BitConverter.GetBytes(registers[0]).CopyTo(bytes, 0);
             BitConverter.GetBytes(registers[1]).CopyTo(bytes, 2);
@@ -263,15 +273,11 @@ namespace TensileNeW.Tools
         /// </summary>
         public void WriteFloat(ushort startAddress, float value)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                //throw new Exception("连接中断");
-            }
             byte[] bytes = BitConverter.GetBytes(value);
             ushort[] registers = new ushort[2];
             registers[0] = BitConverter.ToUInt16(bytes, 0);
             registers[1] = BitConverter.ToUInt16(bytes, 2);
-            Execute(() => _master?.WriteMultipleRegisters(_slaveId, startAddress, registers));
+            Execute(() => RequireMaster().WriteMultipleRegisters(_slaveId, startAddress, registers));
         }
 
         /// <summary>
@@ -299,12 +305,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public bool[] ReadBools(ushort startAddress, ushort count)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-            //if (_master is null) return new bool[count];
-            return Execute(() => _master.ReadCoils(_slaveId, startAddress, count));
+            return Execute(() => RequireMaster().ReadCoils(_slaveId, startAddress, count));
         }
 
         /// <summary>
@@ -312,11 +313,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public void WriteBools(ushort startAddress, bool[] values)
         {
-            if (null == Client || Client.Connected == false)
-            {
-                throw new Exception("连接中断");
-            }
-            Execute(() => _master?.WriteMultipleCoils(_slaveId, startAddress, values));
+            Execute(() => RequireMaster().WriteMultipleCoils(_slaveId, startAddress, values));
         }
 
         /// <summary>
@@ -324,7 +321,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public ushort[]? ReadUShorts(ushort startAddress, ushort count)
         {
-            return Execute(() => _master?.ReadHoldingRegisters(_slaveId, startAddress, count));
+            return Execute(() => RequireMaster().ReadHoldingRegisters(_slaveId, startAddress, count));
         }
 
         /// <summary>
@@ -332,7 +329,7 @@ namespace TensileNeW.Tools
         /// </summary>
         public void WriteUShorts(ushort startAddress, ushort[] values)
         {
-            Execute(() => _master?.WriteMultipleRegisters(_slaveId, startAddress, values));
+            Execute(() => RequireMaster().WriteMultipleRegisters(_slaveId, startAddress, values));
         }
 
         /// <summary>
@@ -341,12 +338,7 @@ namespace TensileNeW.Tools
         public float[] ReadFloats(ushort startAddress, ushort count)
         {
             float[] floats = new float[count];
-            //if (_master is null) return floats;
-            if (null == Client || Client.Connected == false)
-            { 
-                throw new Exception("连接中断");
-            }
-            ushort[] registers = Execute(() => _master.ReadHoldingRegisters(_slaveId, startAddress, (ushort)(count * 2)));
+            ushort[] registers = Execute(() => RequireMaster().ReadHoldingRegisters(_slaveId, startAddress, (ushort)(count * 2)));
             for (int i = 0; i < count; i++)
             {
                 byte[] bytes = new byte[4];
@@ -362,7 +354,6 @@ namespace TensileNeW.Tools
         /// </summary>
         public void WriteFloats(ushort startAddress, float[] values)
         {
-            if (_master is null) return ;
             ushort[] registers = new ushort[values.Length * 2];
             for (int i = 0; i < values.Length; i++)
             {
@@ -370,7 +361,7 @@ namespace TensileNeW.Tools
                 registers[i * 2] = BitConverter.ToUInt16(bytes, 0);
                 registers[i * 2 + 1] = BitConverter.ToUInt16(bytes, 2);
             }
-            Execute(() => _master.WriteMultipleRegisters(_slaveId, startAddress, registers));
+            Execute(() => RequireMaster().WriteMultipleRegisters(_slaveId, startAddress, registers));
         }
     }
 }

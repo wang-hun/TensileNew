@@ -102,6 +102,7 @@ public partial class MainWindow : Window
     private bool _runtimeDataDeletePromptShouldDelete;
     private bool _isCameraReconnectRunning;
     private bool _autoSavePromptOpen;
+    private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -153,6 +154,8 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
+        DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
@@ -309,6 +312,22 @@ public partial class MainWindow : Window
         {
             Logger.Warn(ex, "加载说明书导航失败。");
             HelpNavigationTree.ItemsSource = null;
+        }
+    }
+
+    private void Plc_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(DeltaPLC2.ConnectState))
+        {
+            return;
+        }
+
+        bool connected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
+        bool wasConnected = _lastPlcConnected;
+        _lastPlcConnected = connected;
+        if (wasConnected && !connected)
+        {
+            Dispatcher.BeginInvoke(() => ShowError("连接断开，请检查连接线路。"));
         }
     }
 
@@ -648,6 +667,7 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
@@ -1139,11 +1159,11 @@ public partial class MainWindow : Window
             : "正在连接 设备主机，请稍后...";
     }
 
-    private static async Task<bool> TryReconnectAsync(bool forceReconnect = true)
+    private static async Task<bool> TryReconnectAsync()
     {
         try
         {
-            return await Task.Run(() => DataAqc.TryReconnect(forceReconnect));
+            return await Task.Run(DataAqc.TryReconnect);
         }
         catch (Exception ex)
         {
