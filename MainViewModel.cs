@@ -385,7 +385,7 @@ public sealed class MainViewModel : ObservableObject
         {
             Filter = "Excel (*.xlsx)|*.xlsx",
             InitialDirectory = RAM.SettingModel.ExcelFolderPath,
-            FileName = $"{recipeName}_{SNModel.GetSn()}_{DateTime.Now:yyyyMMddHHmmss}"
+            FileName = $"{SNModel.GetSn()}_{recipeName}_{DateTime.Now:yyyyMMddHHmmss}"
         };
 
         if (dialog.ShowDialog() != true)
