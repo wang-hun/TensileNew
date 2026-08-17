@@ -326,7 +326,7 @@ public partial class MainWindow : Window
         _fpsSampleCounts[_fpsSampleIndex] = sampleCount;
         _fpsSampleTotal += sampleCount;
         _fpsSampleIndex = (_fpsSampleIndex + 1) % FpsSampleWindowSize;
-        FpsTextBlock.Text = _fpsSampleTotal.ToString();
+        FpsTextBlock.Text = _fpsSampleTotal.ToString("D2");
     }
 
     private void Plc_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -849,6 +849,7 @@ public partial class MainWindow : Window
         _cameraCaptureService.FrameArrived += CameraCaptureService_FrameArrived;
         _cameraCaptureService.CaptureFailed += CameraCaptureService_CaptureFailed;
         SetCameraPreviewSource(_cameraCaptureService.CurrentBitmap);
+        ReportHomeCameraDisplayDemand();
     }
 
     private async Task InitializeCameraAfterMainWindowShownAsync()
@@ -916,6 +917,46 @@ public partial class MainWindow : Window
     private void CameraCaptureService_CaptureFailed(object? sender, Exception e)
     {
         Logger.Error(e);
+    }
+
+    private const string HomeCameraDemandKey = "home-preview";
+
+    /// <summary>
+    /// Tells the capture service how many device pixels the home preview actually
+    /// occupies, so the streamed frame size follows the real layout instead of a
+    /// hardcoded resolution.
+    /// </summary>
+    private void ReportHomeCameraDisplayDemand()
+    {
+        CameraCaptureService? camera = _cameraCaptureService;
+        if (camera is null)
+        {
+            return;
+        }
+
+        if (HomeCameraPreviewImage.ActualWidth <= 0 || HomeCameraPreviewImage.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        double scaleX = 1.0;
+        double scaleY = 1.0;
+        PresentationSource source = PresentationSource.FromVisual(HomeCameraPreviewImage);
+        if (source?.CompositionTarget is not null)
+        {
+            scaleX = source.CompositionTarget.TransformToDevice.M11;
+            scaleY = source.CompositionTarget.TransformToDevice.M22;
+        }
+
+        camera.ReportDisplayDemand(
+            HomeCameraDemandKey,
+            (int)Math.Ceiling(HomeCameraPreviewImage.ActualWidth * scaleX),
+            (int)Math.Ceiling(HomeCameraPreviewImage.ActualHeight * scaleY));
+    }
+
+    private void HomeCameraPreviewImage_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ReportHomeCameraDisplayDemand();
     }
 
     private void SetCameraPreviewSource(BitmapSource? source)
@@ -1073,6 +1114,7 @@ public partial class MainWindow : Window
         _cameraPreviewWindow.Closed += (_, _) => _cameraPreviewWindow = null;
         _cameraPreviewWindow.SetPreviewSource(_currentCameraBitmap);
         _cameraPreviewWindow.Show();
+        _cameraPreviewWindow.AttachCaptureService(_cameraCaptureService);
     }
 
     private void OpenPlotWindow()
@@ -1523,8 +1565,8 @@ public partial class MainWindow : Window
             ShowError("写入配置参数失败，请检查连接");
         }
     }
-    private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", true);
-    private async void ClosePress_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", false);
+    private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetStrokeStampingAsync(true);
+    private async void ClosePress_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetStrokeStampingAsync(false);
     private async void Tanliao_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", true);
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 
@@ -1668,7 +1710,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
         bool saved = false;
         TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
         if (data == null || data.Points.Count == 0)
@@ -1782,7 +1824,7 @@ public partial class MainWindow : Window
     private static string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
     {
         string recipeName = string.IsNullOrWhiteSpace(data.Recipe?.RecipeName) ? "NoRecipe" : data.Recipe.RecipeName;
-        return $"{recipeName}_{data.Summary.TrialSerialNumber}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
+        return $"{data.Summary.TrialSerialNumber}_{recipeName}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
     }
 
     private static void SavePlaybackDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
@@ -1813,10 +1855,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-        string baseFileName = $"{recipeName}_{SNModel.GetSn()}_{timestamp}";
+        string baseFileName = $"{SNModel.GetSn()}_{recipeName}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
         using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
@@ -2000,7 +2042,7 @@ public partial class MainWindow : Window
         {
             Filter = "Word (*.docx)|*.docx",
             InitialDirectory = RAM.SettingModel.ExcelFolderPath,
-            FileName = $"{recipeName}_{SNModel.GetSn()}_{DateTime.Now:yyyyMMddHHmmss}"
+            FileName = $"{SNModel.GetSn()}_{recipeName}_{DateTime.Now:yyyyMMddHHmmss}"
         };
 
         if (dialog.ShowDialog() != true)

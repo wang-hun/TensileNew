@@ -58,7 +58,8 @@
                 <Grid>
                     <Image x:Name="PreviewImage"
                            Stretch="Uniform"
-                           SnapsToDevicePixels="True" />
+                           SnapsToDevicePixels="True"
+                           SizeChanged="PreviewImage_SizeChanged" />
                     <TextBlock x:Name="PreviewEmptyTextBlock"
                                Text="正在准备预览"
                                Foreground="#D0FFFFFF"

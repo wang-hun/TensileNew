@@ -62,8 +62,11 @@
 - 默认端口：502。
 - 默认 Unit ID / Slave ID：1。
 - 地址转换：`Tools/ModbusAddressHelper.cs`。
+- 主界面“冲程压边”按下/松开时，必须在后台即时写入现有变量 `M30`，并同时以相同布尔值写入 `M45`；不得只写其中一个，也不得改为脉冲或延迟写入。修改该控制路径时必须同步维护 `MainViewModel.SetStrokeStampingAsync()` 与主窗口按键事件。
 
 `DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
+
+当前数据消费使用 `DataAqc.StartConsumers()` 的 50ms 周期：消费者会排空采集队列并形成一个批次，UI 线程在 `ApplyBatchOnUiThread()` 中只将该批次最后一个 `PlcSnapshot` 应用于实时数值。主窗口右上角“采样率”显示的是最近 20 个 UI 批次内全部 `PlcSnapshot` 的总数，单位为 `tick/s`，不是固定的 UI 刷新频率，也不是仅在试验采集期间产生的 `Loadmodel` 数量。统计通过 `UiBatchApplied` 在既有批次处理完成后旁路接收该批次快照数；不得为统计目的改动 PLC 采样循环、`StartConsumers()` 周期、队列排空、数据库写入、曲线绘制或 UI 刷新调度。
 
 ## 本地正弦曲线调试
 
@@ -153,7 +156,7 @@
 - `package.config` 的试用标记、计数后允许追加权限文件同步跳过标记；旧文件没有该字段时按原有同步逻辑处理。携带该标记的非试用包只读取运行目录中的标记，完全跳过 `%LocalAppData%\ECS\package.config` 的读取、写入、复制、同步和覆盖；说明书缓存仍与权限文件无关，保持原有缓存逻辑。
 - builder 生成试用包时，仅在输出目录名末尾追加 `-试用版`；非试用包保持原有目录名。builder 首先通过 `Y/N` 选择是否试用，回答 `N` 后再选择 `1`（带完整版权限配置文件）或 `2`（不带完整版权限配置文件）。
 - 安装器生成 payload 时由安装器自己的可见 UTF-8 控制台执行与 builder 相同的两步选择，并将两个选择作为参数传给 builder；builder 收到完整参数后不得再次询问。
-- 试用包最多保存 50 次数据。系统设置页保存次数显示为 `当前次数/50`；主窗口“保存数据和报告”和回放页“保存数据表格”必须在写文件前拒绝第 51 次及之后的保存。第 10、25、40 次成功保存后复用试用提示弹窗，明确说明试用版只能保存 50 次。
+- 试用包最多保存 100 次数据。系统设置页保存次数显示为 `当前次数/100`；主窗口“保存数据和报告”和回放页“保存数据表格”必须在写文件前拒绝第 101 次及之后的保存。第 10、25、40、50、75、90、100 次成功保存后复用试用提示弹窗，明确说明试用版只能保存 100 次。
 - `Assets/DefaultRecipe.json`：内置默认配方资源，构建时复制到输出目录。
 - `NLog.config`：日志配置，构建时复制到输出目录。
 - `TrialDataStore` 相关数据、日志、临时数据库等属于运行或验证产物，不应留在仓库中。
@@ -171,7 +174,8 @@
 ## 版本管理
 
 - 应用版本统一维护在 `TensileNeW.csproj` 的 `Version`、`AssemblyVersion`、`FileVersion` 和 `InformationalVersion`。
-- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`InformationalVersion` 使用带 `V` 前缀的显示格式，例如 `V1.1.1.2606`。
+- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`Version`、`AssemblyVersion` 和 `FileVersion` 必须保持该四段纯数字格式。`InformationalVersion` 使用带 `V` 前缀的显示格式，并在版本号后以空格追加发布标识，例如 `V2.2.0.2608 R`。
+- 发布标识统一使用 `R` 或 `B`：`R` 为商用发布版，表示大更新；`B` 为测试版，表示用于 debug 和试机调试的小更新。更新版本时必须同步维护 `InformationalVersion` 中的发布标识；`builder/` 读取该字段生成发布目录名，因此不得在打包产物中手工追加或替换标识。
 - 主窗口标题运行时读取程序集 `InformationalVersion`，不要在 XAML 中硬编码版本号。
 - `builder/` 专门负责打包发布，打包目录名由 builder 读取主项目的 `InformationalVersion` 生成；更新版本时优先修改主项目版本元数据，不要在 builder 输出目录或生成产物里手工改版本。
 
@@ -258,7 +262,7 @@ dotnet build .\TensileNeW.csproj
 
 ## Git 注意事项
 
-- `AGENTS.md` 是本地协作说明文件，按仓库规则被 Git 忽略，不应为了提交而取消忽略或强行追踪。
+- `AGENTS.md` 。
 - 更新 `AGENTS.md` 后不需要验证它是否出现在 `git diff`；以文件实际内容为准。
 - 仓库可能存在用户未提交的工作区变更。不要回退、覆盖或格式化与当前任务无关的文件。
 - `release` 分支用于保存此前所有发布版本组成的版本链，每个版本应是一个以版本号命名的压缩提交，例如 `V1.1.2.2606`。不要把 `master` 的全部开发提交历史直接 merge 进 `release`，也不要生成包含整条 `master` 历史的 merge commit。
@@ -281,3 +285,29 @@ dotnet build .\TensileNeW.csproj
 首次选择摄像头的 `CameraSelectionWindow` 必须沿用 HandyControl `Dialog.Show` 的弹窗风格，并在下拉框下方提供小预览画面。该预览必须借用主窗口持有的唯一 `CameraCaptureService` 实例，下拉框切换时异步切换同一条连接；用户确认后主窗口直接接管这条已打开连接，不允许释放后再重连，也不允许创建第二个摄像头服务实例与正式预览争用同一个摄像头。
 
 摄像头采集和 UI 刷新必须保持异步，不要在 UI 线程同步等待 `MediaCapture.InitializeAsync()`、`MediaFrameReader.StartAsync()` 或帧读取。摄像头连接失败不能影响 `DataAqc.Refresh()`、PLC 自动重连、曲线刷新和试验数据采集。
+
+### 帧管线性能约束
+
+高分辨率摄像头（8K 时单帧 BGRA 约 126 MiB）会通过内存分配间接拖慢采集线程：每帧一个大数组会落到大对象堆并触发 gen2 GC，而 GC 挂起阶段会停住 `DataAqc.Refresh()` 所在的托管线程，使其错过 `HighResolutionTimer` 触发点并导致采样率下降。以下约束用于避免这条因果链，修改帧管线时必须保留：
+
+- **不允许每帧分配像素缓冲。** `CameraCaptureService` 用 `_pixelBuffers` 双缓冲轮转复用，只在帧尺寸变化时重新分配。双缓冲的正确性依赖渲染闸门保证同时最多只有一帧在等 UI 线程；不要在保留单缓冲的前提下去掉闸门，也不要在去掉双缓冲的前提下保留闸门。
+- **丢帧必须发生在像素处理之前。** `OnFrameArrived` 开头用 `ShouldDropFrameBeforeDecode()` 判断，命中则 `TryAcquireLatestFrame()?.Dispose()` 直接丢弃。不要退回到"先转换拷贝、再在发布阶段丢弃"的顺序。
+- **不允许为统一 alpha 模式做整帧转换。** 视频帧没有 alpha，`Bgra8/Ignore` 与 `Bgra8/Premultiplied` 字节相同，WPF 侧使用 `PixelFormats.Bgr32` 消费。只有当帧不是 `Bgra8` 时才调用 `SoftwareBitmap.Convert`。不要改回 `Pbgra32`，否则会重新引入每帧一次的全帧转换。
+- **读取帧数据用 `LockBuffer` + `IMemoryBufferByteAccess` 一次拷贝完成**，不要退回 `Windows.Storage.Streams.Buffer` + `DataReader` 的两次拷贝方案。stride 必须取 `BitmapPlaneDescription.Stride`，不能假定为 `width * 4`；高分辨率帧存在行填充。
+- **访问 `IMemoryBufferByteAccess` 有两个必须避开的陷阱**，两者都会导致每帧抛异常、画面完全黑屏：
+  - 不能用 `[ComImport]` 声明接口再直接强制转换 `IMemoryBufferReference`。CsWinRT 通过自己的封送层投射 WinRT 对象，不走经典 COM 互操作，强转会抛 `InvalidCastException: Invalid cast from 'WinRT.IInspectable'`。
+  - 也不能用 `Marshal.GetIUnknownForObject()` 取指针。它返回的是 CsWinRT 包装对象，不暴露原生接口，`QueryInterface` 会以 `E_NOINTERFACE` 失败。
+  - 正确做法是 `((IWinRTObject)reference).NativeObject.ThisPtr` 取原生指针（借用，不额外 AddRef），再手动 `Marshal.QueryInterface` 并按 vtable 槽位 3 调用 `GetBuffer`。见 `MemoryBufferByteAccess`。
+- **写入 `WriteableBitmap` 用 `Lock()` / `BackBuffer` / `AddDirtyRect()`**，不要改回 `WritePixels()`（会多一次全帧拷贝）。目标与源 stride 可能不同，必须保留逐行拷贝分支。
+- 项目为此开启了 `AllowUnsafeBlocks`。
+
+### 自适应帧分辨率
+
+帧格式必须按实际显示需求从设备 `SupportedFormats` 中选择，不得沿用设备默认（通常是最高）分辨率，也**不得硬编码上限**把高清摄像头压回固定分辨率。8K 摄像头的意义在于高清采集，将来会扩展实时区域放大等功能，因此在消费者确实需要 8K 时必须能流 8K。
+
+- 消费者通过 `CameraCaptureService.ReportDisplayDemand(consumerKey, pixelWidth, pixelHeight)` 上报自己**当前实际渲染尺寸**（DIP 乘以 `TransformToDevice` 得到设备像素），传 0 表示撤销需求。
+- 服务取所有活跃消费者需求的逐轴最大值，选择**能覆盖该需求的最小**设备格式；需求超过设备全部格式时用最高分辨率；无活跃消费者时用最小格式。
+- 当前三个消费者及其 key：主页预览 `home-preview`、独立预览窗口 `preview-window`、首次选择弹窗 `selection-preview`。三者共享同一个 `WriteableBitmap`，所以分辨率由最大者决定。独立预览窗口可调整大小并可最大化到任意显示器，是需求最高的消费者；它必须在 `OnClosed` 撤销需求，否则流会一直停在放大后的尺寸。
+- 新增摄像头画面消费者时必须一并上报需求并在销毁时撤销，否则该消费者会显示被放大的低分辨率画面，或反过来让整条流长期停在过高分辨率。
+- 格式切换通过 `QueueFormatReevaluation()` 串行化到后台任务链，UI 线程不得同步等待 `SetFormatAsync`。设备拒绝切换时保持当前格式并只记警告，不影响正在进行的预览。
+- 需要排查设备真实能力时，把日志级别开到 Debug，`LogSupportedFormats()` 会输出每个格式的 subtype、分辨率和帧率。

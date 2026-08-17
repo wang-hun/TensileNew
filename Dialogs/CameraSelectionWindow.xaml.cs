@@ -27,7 +27,36 @@ public partial class CameraSelectionWindow : UserControl
         CameraComboBox.SelectedIndex = devices.Count > 0 ? 0 : -1;
     }
 
+    private const string DemandKey = "selection-preview";
+
     public CameraDeviceDescriptor? SelectedDevice => CameraComboBox.SelectedItem as CameraDeviceDescriptor;
+
+    private void ReportDisplayDemand()
+    {
+        if (PreviewImage.ActualWidth <= 0 || PreviewImage.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        double scaleX = 1.0;
+        double scaleY = 1.0;
+        PresentationSource source = PresentationSource.FromVisual(PreviewImage);
+        if (source?.CompositionTarget is not null)
+        {
+            scaleX = source.CompositionTarget.TransformToDevice.M11;
+            scaleY = source.CompositionTarget.TransformToDevice.M22;
+        }
+
+        _cameraService.ReportDisplayDemand(
+            DemandKey,
+            (int)Math.Ceiling(PreviewImage.ActualWidth * scaleX),
+            (int)Math.Ceiling(PreviewImage.ActualHeight * scaleY));
+    }
+
+    private void PreviewImage_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ReportDisplayDemand();
+    }
 
     private async void CameraComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -49,6 +78,7 @@ public partial class CameraSelectionWindow : UserControl
         _cameraService.FrameArrived -= PreviewService_FrameArrived;
         _cameraService.CaptureFailed -= PreviewService_CaptureFailed;
         _cameraService.SetBitmapDispatcher(Dispatcher);
+        ReportDisplayDemand();
 
         try
         {
@@ -128,6 +158,8 @@ public partial class CameraSelectionWindow : UserControl
     {
         _cameraService.FrameArrived -= PreviewService_FrameArrived;
         _cameraService.CaptureFailed -= PreviewService_CaptureFailed;
+        // Withdraw this dialog's demand; the main window reports its own once it takes over.
+        _cameraService.ReportDisplayDemand(DemandKey, 0, 0);
     }
 
     private void StopPreviewInBackground()

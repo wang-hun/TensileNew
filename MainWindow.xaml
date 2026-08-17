@@ -438,9 +438,8 @@
               </Border>
             </Grid>
             <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-              <TextBlock Text="采样率" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
-              <TextBlock x:Name="FpsTextBlock" Text="0" FontFamily="{DynamicResource SevenSegmentFontFamily}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
-              <TextBlock Text="tick/s" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" />
+              <TextBlock x:Name="FpsTextBlock" Text="00" FontFamily="{DynamicResource SevenSegmentFontFamily}" FontSize="22" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+              <TextBlock Text="SPS" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AppConnectionLabelBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
             </StackPanel>
           </Grid>
         </Grid>
@@ -787,7 +786,8 @@
                   <Grid>
                     <Image x:Name="HomeCameraPreviewImage"
                            Stretch="Uniform"
-                           SnapsToDevicePixels="True" />
+                           SnapsToDevicePixels="True"
+                           SizeChanged="HomeCameraPreviewImage_SizeChanged" />
                     <TextBlock x:Name="HomeCameraEmptyTextBlock"
                                Text="摄像头未连接"
                                Foreground="#D0FFFFFF"

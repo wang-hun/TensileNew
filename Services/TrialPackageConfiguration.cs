@@ -10,7 +10,7 @@ public static class TrialPackageConfiguration
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     public const string FileName = "package.config";
-    public const int TrialDataSaveLimit = 50;
+    public const int TrialDataSaveLimit = 100;
     private const string ApplicationDataDirectoryName = "ECS";
     private const byte ConfigurationVersion = 2;
 
