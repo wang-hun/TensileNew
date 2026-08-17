@@ -1565,8 +1565,8 @@ public partial class MainWindow : Window
             ShowError("写入配置参数失败，请检查连接");
         }
     }
-    private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", true);
-    private async void ClosePress_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("冲程压边", false);
+    private async void ClosePress_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetStrokeStampingAsync(true);
+    private async void ClosePress_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetStrokeStampingAsync(false);
     private async void Tanliao_Down(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", true);
     private async void Tanliao_Up(object sender, MouseButtonEventArgs e) => await _viewModel.SetBoolAsync("弹料", false);
 

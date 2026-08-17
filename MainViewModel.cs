@@ -264,6 +264,28 @@ public sealed class MainViewModel : ObservableObject
         });
     }
 
+    public Task SetStrokeStampingAsync(bool value)
+    {
+        return Task.Run(() =>
+        {
+            try
+            {
+                if (!IsPlcConnected())
+                {
+                    throw new InvalidOperationException("PLC未连接");
+                }
+
+                DataAqc.plc.WriteBool(Address("冲程压边"), value);
+                ushort m45Address = (ushort)ModbusAddressHelper.ConvertToModbusAddresss("M45").HexAddress;
+                DataAqc.plc.WriteBool(m45Address, value);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+        });
+    }
+
     public async Task<bool> WriteRecipeAsync()
     {
         var recipe = SelectedRecipe;
