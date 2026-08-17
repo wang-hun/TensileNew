@@ -326,7 +326,7 @@ public partial class MainWindow : Window
         _fpsSampleCounts[_fpsSampleIndex] = sampleCount;
         _fpsSampleTotal += sampleCount;
         _fpsSampleIndex = (_fpsSampleIndex + 1) % FpsSampleWindowSize;
-        FpsTextBlock.Text = _fpsSampleTotal.ToString();
+        FpsTextBlock.Text = _fpsSampleTotal.ToString("D2");
     }
 
     private void Plc_PropertyChanged(object? sender, PropertyChangedEventArgs e)
