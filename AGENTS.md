@@ -262,7 +262,7 @@ dotnet build .\TensileNeW.csproj
 
 ## Git 注意事项
 
-- `AGENTS.md` 是本地协作说明文件，按仓库规则被 Git 忽略，不应为了提交而取消忽略或强行追踪。
+- `AGENTS.md` 。
 - 更新 `AGENTS.md` 后不需要验证它是否出现在 `git diff`；以文件实际内容为准。
 - 仓库可能存在用户未提交的工作区变更。不要回退、覆盖或格式化与当前任务无关的文件。
 - `release` 分支用于保存此前所有发布版本组成的版本链，每个版本应是一个以版本号命名的压缩提交，例如 `V1.1.2.2606`。不要把 `master` 的全部开发提交历史直接 merge 进 `release`，也不要生成包含整条 `master` 历史的 merge commit。
