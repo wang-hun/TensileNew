@@ -787,7 +787,8 @@
                   <Grid>
                     <Image x:Name="HomeCameraPreviewImage"
                            Stretch="Uniform"
-                           SnapsToDevicePixels="True" />
+                           SnapsToDevicePixels="True"
+                           SizeChanged="HomeCameraPreviewImage_SizeChanged" />
                     <TextBlock x:Name="HomeCameraEmptyTextBlock"
                                Text="摄像头未连接"
                                Foreground="#D0FFFFFF"

@@ -849,6 +849,7 @@ public partial class MainWindow : Window
         _cameraCaptureService.FrameArrived += CameraCaptureService_FrameArrived;
         _cameraCaptureService.CaptureFailed += CameraCaptureService_CaptureFailed;
         SetCameraPreviewSource(_cameraCaptureService.CurrentBitmap);
+        ReportHomeCameraDisplayDemand();
     }
 
     private async Task InitializeCameraAfterMainWindowShownAsync()
@@ -916,6 +917,46 @@ public partial class MainWindow : Window
     private void CameraCaptureService_CaptureFailed(object? sender, Exception e)
     {
         Logger.Error(e);
+    }
+
+    private const string HomeCameraDemandKey = "home-preview";
+
+    /// <summary>
+    /// Tells the capture service how many device pixels the home preview actually
+    /// occupies, so the streamed frame size follows the real layout instead of a
+    /// hardcoded resolution.
+    /// </summary>
+    private void ReportHomeCameraDisplayDemand()
+    {
+        CameraCaptureService? camera = _cameraCaptureService;
+        if (camera is null)
+        {
+            return;
+        }
+
+        if (HomeCameraPreviewImage.ActualWidth <= 0 || HomeCameraPreviewImage.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        double scaleX = 1.0;
+        double scaleY = 1.0;
+        PresentationSource source = PresentationSource.FromVisual(HomeCameraPreviewImage);
+        if (source?.CompositionTarget is not null)
+        {
+            scaleX = source.CompositionTarget.TransformToDevice.M11;
+            scaleY = source.CompositionTarget.TransformToDevice.M22;
+        }
+
+        camera.ReportDisplayDemand(
+            HomeCameraDemandKey,
+            (int)Math.Ceiling(HomeCameraPreviewImage.ActualWidth * scaleX),
+            (int)Math.Ceiling(HomeCameraPreviewImage.ActualHeight * scaleY));
+    }
+
+    private void HomeCameraPreviewImage_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ReportHomeCameraDisplayDemand();
     }
 
     private void SetCameraPreviewSource(BitmapSource? source)
@@ -1073,6 +1114,7 @@ public partial class MainWindow : Window
         _cameraPreviewWindow.Closed += (_, _) => _cameraPreviewWindow = null;
         _cameraPreviewWindow.SetPreviewSource(_currentCameraBitmap);
         _cameraPreviewWindow.Show();
+        _cameraPreviewWindow.AttachCaptureService(_cameraCaptureService);
     }
 
     private void OpenPlotWindow()

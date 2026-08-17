@@ -283,3 +283,29 @@ dotnet build .\TensileNeW.csproj
 首次选择摄像头的 `CameraSelectionWindow` 必须沿用 HandyControl `Dialog.Show` 的弹窗风格，并在下拉框下方提供小预览画面。该预览必须借用主窗口持有的唯一 `CameraCaptureService` 实例，下拉框切换时异步切换同一条连接；用户确认后主窗口直接接管这条已打开连接，不允许释放后再重连，也不允许创建第二个摄像头服务实例与正式预览争用同一个摄像头。
 
 摄像头采集和 UI 刷新必须保持异步，不要在 UI 线程同步等待 `MediaCapture.InitializeAsync()`、`MediaFrameReader.StartAsync()` 或帧读取。摄像头连接失败不能影响 `DataAqc.Refresh()`、PLC 自动重连、曲线刷新和试验数据采集。
+
+### 帧管线性能约束
+
+高分辨率摄像头（8K 时单帧 BGRA 约 126 MiB）会通过内存分配间接拖慢采集线程：每帧一个大数组会落到大对象堆并触发 gen2 GC，而 GC 挂起阶段会停住 `DataAqc.Refresh()` 所在的托管线程，使其错过 `HighResolutionTimer` 触发点并导致采样率下降。以下约束用于避免这条因果链，修改帧管线时必须保留：
+
+- **不允许每帧分配像素缓冲。** `CameraCaptureService` 用 `_pixelBuffers` 双缓冲轮转复用，只在帧尺寸变化时重新分配。双缓冲的正确性依赖渲染闸门保证同时最多只有一帧在等 UI 线程；不要在保留单缓冲的前提下去掉闸门，也不要在去掉双缓冲的前提下保留闸门。
+- **丢帧必须发生在像素处理之前。** `OnFrameArrived` 开头用 `ShouldDropFrameBeforeDecode()` 判断，命中则 `TryAcquireLatestFrame()?.Dispose()` 直接丢弃。不要退回到"先转换拷贝、再在发布阶段丢弃"的顺序。
+- **不允许为统一 alpha 模式做整帧转换。** 视频帧没有 alpha，`Bgra8/Ignore` 与 `Bgra8/Premultiplied` 字节相同，WPF 侧使用 `PixelFormats.Bgr32` 消费。只有当帧不是 `Bgra8` 时才调用 `SoftwareBitmap.Convert`。不要改回 `Pbgra32`，否则会重新引入每帧一次的全帧转换。
+- **读取帧数据用 `LockBuffer` + `IMemoryBufferByteAccess` 一次拷贝完成**，不要退回 `Windows.Storage.Streams.Buffer` + `DataReader` 的两次拷贝方案。stride 必须取 `BitmapPlaneDescription.Stride`，不能假定为 `width * 4`；高分辨率帧存在行填充。
+- **访问 `IMemoryBufferByteAccess` 有两个必须避开的陷阱**，两者都会导致每帧抛异常、画面完全黑屏：
+  - 不能用 `[ComImport]` 声明接口再直接强制转换 `IMemoryBufferReference`。CsWinRT 通过自己的封送层投射 WinRT 对象，不走经典 COM 互操作，强转会抛 `InvalidCastException: Invalid cast from 'WinRT.IInspectable'`。
+  - 也不能用 `Marshal.GetIUnknownForObject()` 取指针。它返回的是 CsWinRT 包装对象，不暴露原生接口，`QueryInterface` 会以 `E_NOINTERFACE` 失败。
+  - 正确做法是 `((IWinRTObject)reference).NativeObject.ThisPtr` 取原生指针（借用，不额外 AddRef），再手动 `Marshal.QueryInterface` 并按 vtable 槽位 3 调用 `GetBuffer`。见 `MemoryBufferByteAccess`。
+- **写入 `WriteableBitmap` 用 `Lock()` / `BackBuffer` / `AddDirtyRect()`**，不要改回 `WritePixels()`（会多一次全帧拷贝）。目标与源 stride 可能不同，必须保留逐行拷贝分支。
+- 项目为此开启了 `AllowUnsafeBlocks`。
+
+### 自适应帧分辨率
+
+帧格式必须按实际显示需求从设备 `SupportedFormats` 中选择，不得沿用设备默认（通常是最高）分辨率，也**不得硬编码上限**把高清摄像头压回固定分辨率。8K 摄像头的意义在于高清采集，将来会扩展实时区域放大等功能，因此在消费者确实需要 8K 时必须能流 8K。
+
+- 消费者通过 `CameraCaptureService.ReportDisplayDemand(consumerKey, pixelWidth, pixelHeight)` 上报自己**当前实际渲染尺寸**（DIP 乘以 `TransformToDevice` 得到设备像素），传 0 表示撤销需求。
+- 服务取所有活跃消费者需求的逐轴最大值，选择**能覆盖该需求的最小**设备格式；需求超过设备全部格式时用最高分辨率；无活跃消费者时用最小格式。
+- 当前三个消费者及其 key：主页预览 `home-preview`、独立预览窗口 `preview-window`、首次选择弹窗 `selection-preview`。三者共享同一个 `WriteableBitmap`，所以分辨率由最大者决定。独立预览窗口可调整大小并可最大化到任意显示器，是需求最高的消费者；它必须在 `OnClosed` 撤销需求，否则流会一直停在放大后的尺寸。
+- 新增摄像头画面消费者时必须一并上报需求并在销毁时撤销，否则该消费者会显示被放大的低分辨率画面，或反过来让整条流长期停在过高分辨率。
+- 格式切换通过 `QueueFormatReevaluation()` 串行化到后台任务链，UI 线程不得同步等待 `SetFormatAsync`。设备拒绝切换时保持当前格式并只记警告，不影响正在进行的预览。
+- 需要排查设备真实能力时，把日志级别开到 Debug，`LogSupportedFormats()` 会输出每个格式的 subtype、分辨率和帧率。

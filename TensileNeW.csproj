@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <Version>2.1.6.2608</Version>
     <AssemblyVersion>2.1.6.2608</AssemblyVersion>
