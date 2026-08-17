@@ -1710,7 +1710,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
         bool saved = false;
         TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
         if (data == null || data.Points.Count == 0)
@@ -1855,7 +1855,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49;
+        bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         string baseFileName = $"{SNModel.GetSn()}_{recipeName}_{timestamp}";
