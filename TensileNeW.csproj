@@ -11,10 +11,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>2.1.6.2608</Version>
-    <AssemblyVersion>2.1.6.2608</AssemblyVersion>
-    <FileVersion>2.1.6.2608</FileVersion>
-    <InformationalVersion>V2.1.6.2608</InformationalVersion>
+    <Version>2.2.0.2608</Version>
+    <AssemblyVersion>2.2.0.2608</AssemblyVersion>
+    <FileVersion>2.2.0.2608</FileVersion>
+    <InformationalVersion>V2.2.0.2608 R</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
