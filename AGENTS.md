@@ -62,6 +62,7 @@
 - 默认端口：502。
 - 默认 Unit ID / Slave ID：1。
 - 地址转换：`Tools/ModbusAddressHelper.cs`。
+- 主界面“冲程压边”按下/松开时，必须在后台即时写入现有变量 `M30`，并同时以相同布尔值写入 `M45`；不得只写其中一个，也不得改为脉冲或延迟写入。修改该控制路径时必须同步维护 `MainViewModel.SetStrokeStampingAsync()` 与主窗口按键事件。
 
 `DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
 
@@ -173,7 +174,8 @@
 ## 版本管理
 
 - 应用版本统一维护在 `TensileNeW.csproj` 的 `Version`、`AssemblyVersion`、`FileVersion` 和 `InformationalVersion`。
-- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`InformationalVersion` 使用带 `V` 前缀的显示格式，例如 `V1.1.1.2606`。
+- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`Version`、`AssemblyVersion` 和 `FileVersion` 必须保持该四段纯数字格式。`InformationalVersion` 使用带 `V` 前缀的显示格式，并在版本号后以空格追加发布标识，例如 `V2.2.0.2608 R`。
+- 发布标识统一使用 `R` 或 `B`：`R` 为商用发布版，表示大更新；`B` 为测试版，表示用于 debug 和试机调试的小更新。更新版本时必须同步维护 `InformationalVersion` 中的发布标识；`builder/` 读取该字段生成发布目录名，因此不得在打包产物中手工追加或替换标识。
 - 主窗口标题运行时读取程序集 `InformationalVersion`，不要在 XAML 中硬编码版本号。
 - `builder/` 专门负责打包发布，打包目录名由 builder 读取主项目的 `InformationalVersion` 生成；更新版本时优先修改主项目版本元数据，不要在 builder 输出目录或生成产物里手工改版本。
 
