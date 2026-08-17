@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using MahApps.Metro.IconPacks;
 using TensileNeW.Services;
 
 namespace TensileNeW;
@@ -14,6 +15,8 @@ public partial class CameraPreviewWindow : Window
     public CameraPreviewWindow()
     {
         InitializeComponent();
+        StateChanged += (_, _) => UpdateMaximizeButton();
+        UpdateMaximizeButton();
     }
 
     /// <summary>
@@ -76,10 +79,35 @@ public partial class CameraPreviewWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ButtonState == MouseButtonState.Pressed)
+        if (e.ClickCount == 2)
+        {
+            ToggleWindowState();
+            e.Handled = true;
+        }
+        else if (e.ButtonState == MouseButtonState.Pressed)
         {
             DragMove();
         }
+    }
+
+    private void Maximize_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleWindowState();
+    }
+
+    private void ToggleWindowState()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+        UpdateMaximizeButton();
+    }
+
+    private void UpdateMaximizeButton()
+    {
+        bool isMaximized = WindowState == WindowState.Maximized;
+        MaximizeIcon.Kind = isMaximized ? PackIconMaterialKind.WindowRestore : PackIconMaterialKind.WindowMaximize;
+        MaximizeButton.ToolTip = isMaximized ? "还原" : "最大化";
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

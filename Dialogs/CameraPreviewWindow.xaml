@@ -36,8 +36,26 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="32" />
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="1"
+                <Button x:Name="MaximizeButton"
+                        Grid.Column="1"
+                        Width="32"
+                        Height="28"
+                        Padding="0"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
+                        ToolTip="最大化"
+                        Click="Maximize_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <iconPacks:PackIconMaterial x:Name="MaximizeIcon"
+                                                Kind="WindowMaximize"
+                                                Width="14"
+                                                Height="14"
+                                                Foreground="{DynamicResource AppNavForegroundBrush}" />
+                </Button>
+                <Button Grid.Column="2"
                         Width="32"
                         Height="28"
                         Padding="0"
