@@ -169,6 +169,8 @@ public partial class MainWindow : Window
             () => _viewModel.Setting.ShowPlotLegend,
             () => _viewModel.Setting.KeepPlotOnReset,
             11);
+        PlaybackPlot.UserInputProcessor.DoubleLeftClickBenchmark(false);
+        LoadPlotController.LocalizeContextMenu(PlaybackPlot);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -1687,6 +1689,7 @@ public partial class MainWindow : Window
         PlaybackPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 11;
         PlaybackPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
         PlaybackPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Plot.Font.Automatic();
         PlaybackPlot.Refresh();
 
         RecipeModel? recipe = data.Recipe;
