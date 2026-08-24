@@ -1283,7 +1283,8 @@ public partial class MainWindow : Window
         try
         {
             waitWindow.Show();
-            IReadOnlyList<NetworkProbeCandidate> candidates = NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
+            IReadOnlyList<NetworkProbeCandidate> candidates =
+                NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
             if (candidates.Count == 0)
             {
                 warningMessage = "未发现可用于探测的有线网卡。";
