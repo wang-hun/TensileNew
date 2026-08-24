@@ -97,6 +97,16 @@ public static class NetworkAdapterProbeService
 
         foreach (NetworkInterface adapter in EnumerateWiredAdapters())
         {
+            // Do not reconfigure an adapter that already has an active TCP
+            // connection bound to one of its local addresses. That adapter is
+            // being used by another device/application and must be left alone;
+            // probing it can leave the whole network-probe sequence waiting on
+            // an unrelated connection.
+            if (IsAdapterInUse(adapter))
+            {
+                continue;
+            }
+
             foreach (IPAddress localIp in BuildCandidateLocalIps(targetIp, existingAddresses))
             {
                 candidates.Add(new NetworkProbeCandidate
@@ -109,6 +119,32 @@ public static class NetworkAdapterProbeService
         }
 
         return candidates;
+    }
+
+    private static bool IsAdapterInUse(NetworkInterface adapter)
+    {
+        HashSet<IPAddress> adapterAddresses = adapter.GetIPProperties().UnicastAddresses
+            .Select(address => address.Address)
+            .Where(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            .ToHashSet();
+
+        if (adapterAddresses.Count == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            return IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveTcpConnections()
+                .Where(connection => connection.State != TcpState.Closed)
+                .Any(connection => adapterAddresses.Contains(connection.LocalEndPoint.Address));
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "无法读取网卡 {0} 的活动 TCP 连接，将继续探测。", adapter.Name);
+            return false;
+        }
     }
 
     public static Task<NetworkProbeResult> RunElevatedAddAddressAsync(NetworkProbeCandidate candidate) =>

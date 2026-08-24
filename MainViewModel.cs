@@ -275,9 +275,10 @@ public sealed class MainViewModel : ObservableObject
                     throw new InvalidOperationException("PLC未连接");
                 }
 
-                DataAqc.plc.WriteBool(Address("冲程压边"), value);
-                ushort m45Address = (ushort)ModbusAddressHelper.ConvertToModbusAddresss("M45").HexAddress;
-                DataAqc.plc.WriteBool(m45Address, value);
+                ushort strokeAddress = DataAqc.UseM45ForStrokeStamping
+                    ? (ushort)ModbusAddressHelper.ConvertToModbusAddresss("M45").HexAddress
+                    : Address("冲程压边");
+                DataAqc.plc.WriteBool(strokeAddress, value);
             }
             catch (Exception ex)
             {

@@ -32,6 +32,7 @@
     <Compile Remove="installer\**" />
     <Compile Remove="obj\**" />
     <Compile Remove="SamplingCapture\**" />
+    <Compile Remove="测试\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
     <EmbeddedResource Remove="codex_obj\**" />
@@ -40,6 +41,7 @@
     <EmbeddedResource Remove="installer\**" />
     <EmbeddedResource Remove="obj\**" />
     <EmbeddedResource Remove="SamplingCapture\**" />
+    <EmbeddedResource Remove="测试\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
     <None Remove="codex_obj\**" />
@@ -48,6 +50,7 @@
     <None Remove="installer\**" />
     <None Remove="obj\**" />
     <None Remove="SamplingCapture\**" />
+    <None Remove="测试\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
     <Page Remove="codex_obj\**" />
@@ -56,6 +59,7 @@
     <Page Remove="installer\**" />
     <Page Remove="obj\**" />
     <Page Remove="SamplingCapture\**" />
+    <Page Remove="测试\**" />
   </ItemGroup>
 
   <ItemGroup>
