@@ -1,0 +1,45 @@
+<Window x:Class="TensileNeW.VisionDetectionSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        Width="420" Height="380" WindowStartupLocation="CenterOwner" WindowStyle="None"
+        ResizeMode="NoResize" ShowInTaskbar="False" Background="Transparent" FontFamily="Microsoft YaHei">
+  <Window.Resources>
+    <PathGeometry x:Key="RightTopLongBaseAnimationGeometry">
+      <PathFigure StartPoint="314,18" IsClosed="False"><LineSegment Point="44,18" /></PathFigure>
+    </PathGeometry>
+    <PathGeometry x:Key="LeftBottomLongBaseAnimationGeometry">
+      <PathFigure StartPoint="105,362" IsClosed="False"><LineSegment Point="376,362" /></PathFigure>
+    </PathGeometry>
+  </Window.Resources>
+  <Grid>
+    <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderThickness="0" CornerRadius="4">
+      <Grid Margin="22,42">
+        <Button Width="32" Height="32" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Background="Transparent" BorderBrush="Transparent" BorderThickness="0" ToolTip="关闭" Click="Close_Click">
+          <iconPacks:PackIconMaterial Kind="Close" Width="20" Height="20" Foreground="{DynamicResource AppConnectionErrorForegroundBrush}" />
+        </Button>
+        <TextBlock Text="视觉检测设置" FontSize="22" FontWeight="Bold"
+                   Foreground="{DynamicResource AppMetricNameForegroundBrush}"
+                   HorizontalAlignment="Center" TextAlignment="Center" />
+      </Grid>
+    </Border>
+    <Grid IsHitTestVisible="False">
+      <Rectangle Width="1" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="18,0,0,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Rectangle Width="44" Height="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,18,0,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Canvas Width="150" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <Path Data="M 131,0 L 74,0 L 44,18 L 131,18" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeThickness="1" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      </Canvas>
+      <Rectangle Width="1" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,18,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Rectangle Width="44" Height="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,18" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Canvas Width="150" Height="22" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+        <Path Data="M 18,22 L 75,22 L 105,4 L 18,4" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeThickness="1" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      </Canvas>
+      <Canvas Width="420" Height="380" HorizontalAlignment="Left" VerticalAlignment="Top">
+        <hc:AnimationPath Data="{StaticResource RightTopLongBaseAnimationGeometry}" Width="420" Height="380" Duration="00:00:02" PathLength="30" Stretch="None" StrokeThickness="1" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeStartLineCap="Flat" StrokeEndLineCap="Flat" />
+        <hc:AnimationPath Data="{StaticResource LeftBottomLongBaseAnimationGeometry}" Width="420" Height="380" Duration="00:00:02" PathLength="30" Stretch="None" StrokeThickness="1" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeStartLineCap="Flat" StrokeEndLineCap="Flat" />
+      </Canvas>
+    </Grid>
+  </Grid>
+</Window>

@@ -158,6 +158,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
@@ -1482,11 +1483,20 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
-    private static void SetVisionModuleEnabled(bool enabled)
+    private void SetVisionModuleEnabled(bool enabled)
     {
         RAM.SettingModel.VisionModuleEnabled = enabled;
         RAM.SaveSettingModel();
+        VisionSettingsButton.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         ShowInfo(enabled ? "视觉检测模块已启用" : "视觉检测模块已关闭");
+    }
+
+    private void VisionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (RAM.SettingModel.VisionModuleEnabled)
+        {
+            new VisionDetectionSettingsWindow { Owner = this }.ShowDialog();
+        }
     }
 
     private async Task RunDebugAlgorithmDataImportAsync()
