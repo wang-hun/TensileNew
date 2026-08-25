@@ -18,7 +18,8 @@ internal static class Program
         {
             string repositoryRoot = FindRepositoryRoot();
             PackageMode packageMode = AskPackageMode();
-            PackageInstaller(repositoryRoot, packageMode);
+            bool visionModuleEnabled = AskVisionModuleEnabled();
+            PackageInstaller(repositoryRoot, packageMode, visionModuleEnabled);
             return 0;
         }
         catch (Exception ex)
@@ -28,7 +29,7 @@ internal static class Program
         }
     }
 
-    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode)
+    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode, bool visionModuleEnabled)
     {
         string mainProjectPath = Path.Combine(repositoryRoot, "TensileNeW.csproj");
         string builderProjectPath = Path.Combine(repositoryRoot, "builder", "Builder", "Builder.csproj");
@@ -49,7 +50,7 @@ internal static class Program
             Console.WriteLine("正在生成安装器内容物...");
             RunDotnet(
                 $"run --project {Quote(builderProjectPath)} --no-launch-profile -- pack " +
-                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)}");
+                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(visionModuleEnabled ? "Y" : "N")}");
 
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
 
@@ -72,6 +73,26 @@ internal static class Program
         finally
         {
             DeleteDirectoryIfExists(workingRoot);
+        }
+    }
+
+    private static bool AskVisionModuleEnabled()
+    {
+        while (true)
+        {
+            Console.Write("是否启用视觉检测模块？(Y/N): ");
+            string? answer = Console.ReadLine()?.Trim();
+            if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(answer, "N", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            Console.WriteLine("请输入 Y 或 N。");
         }
     }
 

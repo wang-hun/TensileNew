@@ -75,6 +75,17 @@ namespace TensileNeW.Models
             set => SetProperty(ref _CameraDeviceName, value);
         }
 
+        /// <summary>
+        /// Controls whether the optional vision module UI and behavior are enabled.
+        /// The module remains part of the application when this is false.
+        /// </summary>
+        private bool _VisionModuleEnabled;
+        public bool VisionModuleEnabled
+        {
+            get => _VisionModuleEnabled;
+            set => SetProperty(ref _VisionModuleEnabled, value);
+        }
+
         private bool _HideChartHintOnStartup;
         public bool HideChartHintOnStartup
         {

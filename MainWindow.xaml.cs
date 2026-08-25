@@ -1477,7 +1477,16 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(new Action(async () => await RunDebugAlgorithmDataImportAsync()));
         };
+        dialog.VisionModuleEnableRequested += (_, _) => SetVisionModuleEnabled(true);
+        dialog.VisionModuleDisableRequested += (_, _) => SetVisionModuleEnabled(false);
         dialog.ShowDialog();
+    }
+
+    private static void SetVisionModuleEnabled(bool enabled)
+    {
+        RAM.SettingModel.VisionModuleEnabled = enabled;
+        RAM.SaveSettingModel();
+        ShowInfo(enabled ? "视觉检测模块已启用" : "视觉检测模块已关闭");
     }
 
     private async Task RunDebugAlgorithmDataImportAsync()

@@ -11,10 +11,14 @@ public partial class SettingsPinDialog : UserControl
     private const string SettingsPassword = "GB123";
     private const string ColorPassword = "COLOR";
     private const string DebugAlgorithmDataPassword = "DATAI";
+    private const string VisionModuleEnablePassword = "VISON";
+    private const string VisionModuleDisablePassword = "VISOF";
 
     public event EventHandler? Unlocked;
     public event EventHandler? ColorUnlocked;
     public event EventHandler? DebugAlgorithmDataRequested;
+    public event EventHandler? VisionModuleEnableRequested;
+    public event EventHandler? VisionModuleDisableRequested;
 
     public SettingsPinDialog()
     {
@@ -41,6 +45,20 @@ public partial class SettingsPinDialog : UserControl
         if (string.Equals(PinBox.UnsafePassword, DebugAlgorithmDataPassword, StringComparison.OrdinalIgnoreCase))
         {
             DebugAlgorithmDataRequested?.Invoke(this, EventArgs.Empty);
+            CloseDialog();
+            return;
+        }
+
+        if (string.Equals(PinBox.UnsafePassword, VisionModuleEnablePassword, StringComparison.OrdinalIgnoreCase))
+        {
+            VisionModuleEnableRequested?.Invoke(this, EventArgs.Empty);
+            CloseDialog();
+            return;
+        }
+
+        if (string.Equals(PinBox.UnsafePassword, VisionModuleDisablePassword, StringComparison.OrdinalIgnoreCase))
+        {
+            VisionModuleDisableRequested?.Invoke(this, EventArgs.Empty);
             CloseDialog();
         }
     }

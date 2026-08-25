@@ -2,6 +2,8 @@
 using System.Xml.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using TensileNeW.Services;
 
 namespace Builder;
@@ -25,7 +27,8 @@ internal static class Program
                 string defaultOutputRoot = Path.Combine(AppContext.BaseDirectory, "publish");
 
                 PackageMode packageMode = AskPackageMode();
-                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode);
+                bool visionModuleEnabled = AskVisionModuleEnabled();
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, visionModuleEnabled);
                 return 0;
             }
 
@@ -33,14 +36,17 @@ internal static class Program
             {
                 if (args.Length < 4)
                 {
-                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2]");
+                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2] [Y|N]");
                     return 1;
                 }
 
                 PackageMode packageMode = args.Length >= 5
                     ? ParsePackageMode(args[4], args.Length >= 6 ? args[5] : null)
                     : AskPackageMode();
-                PackageExternalProject(args[1], args[2], args[3], packageMode);
+                bool visionModuleEnabled = args.Length >= 7
+                    ? ParseVisionModuleEnabled(args[6])
+                    : AskVisionModuleEnabled();
+                PackageExternalProject(args[1], args[2], args[3], packageMode, visionModuleEnabled);
                 return 0;
             }
 
@@ -54,7 +60,7 @@ internal static class Program
         }
     }
 
-    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode)
+    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool visionModuleEnabled)
     {
         projectPath = Path.GetFullPath(projectPath);
         outputRoot = Path.GetFullPath(outputRoot);
@@ -100,6 +106,7 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
+        WriteVisionModuleSetting(packageDirectory, visionModuleEnabled);
         TrialPackageConfiguration.Write(
             Path.Combine(packageDirectory, TrialPackageConfiguration.FileName),
             packageMode switch
@@ -111,6 +118,50 @@ internal static class Program
             });
 
         Console.WriteLine($"Packaged external project to {packageDirectory}");
+    }
+
+    private static bool AskVisionModuleEnabled()
+    {
+        while (true)
+        {
+            Console.Write("是否启用视觉检测模块？(Y/N): ");
+            string? answer = Console.ReadLine()?.Trim();
+            if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(answer, "N", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            Console.WriteLine("请输入 Y 或 N。");
+        }
+    }
+
+    private static bool ParseVisionModuleEnabled(string choice) => choice.Trim() switch
+    {
+        "Y" or "y" => true,
+        "N" or "n" => false,
+        _ => throw new ArgumentException("视觉检测模块选择必须是 Y 或 N。", nameof(choice))
+    };
+
+    private static void WriteVisionModuleSetting(string packageDirectory, bool enabled)
+    {
+        string settingPath = Path.Combine(packageDirectory, "Setting.json");
+        JsonObject settings;
+        if (File.Exists(settingPath))
+        {
+            settings = JsonNode.Parse(File.ReadAllText(settingPath)) as JsonObject ?? new JsonObject();
+        }
+        else
+        {
+            settings = new JsonObject();
+        }
+
+        settings["VisionModuleEnabled"] = enabled;
+        File.WriteAllText(settingPath, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static PackageMode AskPackageMode()
