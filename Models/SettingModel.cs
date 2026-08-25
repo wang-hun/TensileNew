@@ -86,6 +86,13 @@ namespace TensileNeW.Models
             set => SetProperty(ref _VisionModuleEnabled, value);
         }
 
+        private bool _UseVisionDetection;
+        public bool UseVisionDetection
+        {
+            get => _UseVisionDetection;
+            set => SetProperty(ref _UseVisionDetection, value);
+        }
+
         private bool _HideChartHintOnStartup;
         public bool HideChartHintOnStartup
         {

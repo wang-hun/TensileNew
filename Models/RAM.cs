@@ -23,6 +23,8 @@ namespace TensileNeW.Models
         public static int TrialStartupCount { get; private set; }
         public static int TrialDataSaveCount { get; private set; }
         public static int SaveIndex=1;
+        public static bool IsVisionDetectionActive =>
+            SettingModel?.VisionModuleEnabled == true && SettingModel.UseVisionDetection;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
         /// <summary>

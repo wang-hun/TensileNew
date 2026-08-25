@@ -23,6 +23,14 @@
         <TextBlock Text="视觉检测设置" FontSize="22" FontWeight="Bold"
                    Foreground="{DynamicResource AppMetricNameForegroundBrush}"
                    HorizontalAlignment="Center" TextAlignment="Center" />
+        <CheckBox Content="是否使用视觉检测"
+                  IsChecked="{Binding UseVisionDetection, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                  IsEnabled="{Binding VisionModuleEnabled}"
+                  FontSize="16"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Checked="UseVisionDetection_Changed"
+                  Unchecked="UseVisionDetection_Changed" />
       </Grid>
     </Border>
     <Grid IsHitTestVisible="False">

@@ -1495,7 +1495,11 @@ public partial class MainWindow : Window
     {
         if (RAM.SettingModel.VisionModuleEnabled)
         {
-            new VisionDetectionSettingsWindow { Owner = this }.ShowDialog();
+            new VisionDetectionSettingsWindow
+            {
+                Owner = this,
+                DataContext = RAM.SettingModel
+            }.ShowDialog();
         }
     }
 
