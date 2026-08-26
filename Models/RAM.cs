@@ -148,6 +148,11 @@ namespace TensileNeW.Models
 
             SettingModel.CameraDeviceId ??= string.Empty;
             SettingModel.CameraDeviceName ??= string.Empty;
+            SettingModel.VisionDeviceIp ??= "127.0.0.1";
+            if (SettingModel.VisionDevicePort is < 1 or > 65535)
+            {
+                SettingModel.VisionDevicePort = 5000;
+            }
             if (SettingModel.RuntimeDataSavePolicy is not SettingModel.RuntimeDataSaveAlwaysYes
                 and not SettingModel.RuntimeDataSaveAskEveryTime
                 and not SettingModel.RuntimeDataSaveAlwaysNo)

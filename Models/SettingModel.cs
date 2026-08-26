@@ -93,6 +93,20 @@ namespace TensileNeW.Models
             set => SetProperty(ref _UseVisionDetection, value);
         }
 
+        private string _VisionDeviceIp = "127.0.0.1";
+        public string VisionDeviceIp
+        {
+            get => _VisionDeviceIp;
+            set => SetProperty(ref _VisionDeviceIp, value);
+        }
+
+        private int _VisionDevicePort = 5000;
+        public int VisionDevicePort
+        {
+            get => _VisionDevicePort;
+            set => SetProperty(ref _VisionDevicePort, value);
+        }
+
         private bool _HideChartHintOnStartup;
         public bool HideChartHintOnStartup
         {
