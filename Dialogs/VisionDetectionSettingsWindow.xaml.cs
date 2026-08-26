@@ -6,8 +6,12 @@ namespace TensileNeW;
 
 public partial class VisionDetectionSettingsWindow : Window
 {
-    private readonly VisionDeviceClient _visionDeviceClient = new();
-    public VisionDetectionSettingsWindow() => InitializeComponent();
+    private readonly VisionDeviceClient _visionDeviceClient;
+    public VisionDetectionSettingsWindow(VisionDeviceClient visionDeviceClient)
+    {
+        _visionDeviceClient = visionDeviceClient;
+        InitializeComponent();
+    }
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     private void UseVisionDetection_Changed(object sender, RoutedEventArgs e)
@@ -26,7 +30,6 @@ public partial class VisionDetectionSettingsWindow : Window
 
     protected override async void OnClosed(EventArgs e)
     {
-        await _visionDeviceClient.DisposeAsync();
         base.OnClosed(e);
     }
 }

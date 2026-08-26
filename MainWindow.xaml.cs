@@ -104,6 +104,8 @@ public partial class MainWindow : Window
     private bool _autoSavePromptOpen;
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
+    private readonly VisionDeviceClient _visionDeviceClient = new();
+    private readonly VisionDetectionController _visionDetectionController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
@@ -158,10 +160,12 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
         VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted += OnDataCollectionStarted;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
@@ -687,6 +691,8 @@ public partial class MainWindow : Window
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted -= OnDataCollectionStarted;
+        _ = _visionDetectionController.DisposeAsync();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -1495,11 +1501,12 @@ public partial class MainWindow : Window
     {
         if (RAM.SettingModel.VisionModuleEnabled)
         {
-            new VisionDetectionSettingsWindow
+            var visionWindow = new VisionDetectionSettingsWindow(_visionDeviceClient)
             {
                 Owner = this,
                 DataContext = RAM.SettingModel
-            }.ShowDialog();
+            };
+            visionWindow.ShowDialog();
         }
     }
 
@@ -1556,7 +1563,11 @@ public partial class MainWindow : Window
 
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");
-    private async void StartTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸");
+    private async void StartTensile_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("拉伸");
+        await _visionDetectionController.OnTensileRequestedAsync();
+    }
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("拉伸释放");
@@ -1565,7 +1576,11 @@ public partial class MainWindow : Window
             await _viewModel.PulseAsync("数据重置");
         }
     }
-    private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
+    private async void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("停止");
+        await _visionDetectionController.OnStopRequestedAsync();
+    }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("数据重置");
@@ -1946,6 +1961,7 @@ public partial class MainWindow : Window
             ShowSuccess("数据和试验报告保存成功");
             saved = true;
             _viewModel.AdvanceTrialSerialNumber();
+            await _visionDetectionController.OnSaveCompletedAsync();
         }
         catch (Exception ex)
         {
@@ -1970,6 +1986,7 @@ public partial class MainWindow : Window
 
     private void OnDataCollectionEnded()
     {
+        _ = _visionDetectionController.OnDataCollectionEndedAsync();
         // The existing consumer has already queued its UI updates before this state transition.
         _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
         {
@@ -1990,6 +2007,11 @@ public partial class MainWindow : Window
                 ShowAutomaticSavePrompt();
             }
         }));
+    }
+
+    private void OnDataCollectionStarted()
+    {
+        _ = _visionDetectionController.OnDataCollectionStartedAsync();
     }
 
     private void ShowAutomaticSavePrompt()

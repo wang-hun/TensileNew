@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.IO;
 using System.Threading.Channels;
+using System.Text;
 
 namespace TensileNeW.Services;
 
@@ -17,6 +18,15 @@ public sealed class VisionDeviceClient : IAsyncDisposable
     private NetworkStream? _networkStream;
     private CancellationTokenSource? _workerCancellation;
     private Task? _senderTask;
+    private Task? _receiverTask;
+    private readonly Channel<string> _receivedMessageQueue = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+    {
+        SingleReader = false,
+        SingleWriter = true,
+        AllowSynchronousContinuations = false
+    });
+
+    public event Action<string>? MessageReceived;
 
     public bool IsConnected => _tcpClient?.Connected == true && _networkStream is not null;
 
@@ -37,6 +47,7 @@ public sealed class VisionDeviceClient : IAsyncDisposable
                 _networkStream = client.GetStream();
                 _workerCancellation = new CancellationTokenSource();
                 _senderTask = Task.Run(() => SendLoopAsync(_workerCancellation.Token));
+                _receiverTask = Task.Run(() => ReceiveLoopAsync(_workerCancellation.Token));
                 return true;
             }
             catch
@@ -57,6 +68,13 @@ public sealed class VisionDeviceClient : IAsyncDisposable
 
     public bool TryEnqueue(VisionDeviceMessage message) => IsConnected && _messageQueue.Writer.TryWrite(message);
 
+    public async ValueTask<string> WaitForMessageAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(timeout);
+        return await _receivedMessageQueue.Reader.ReadAsync(timeoutCts.Token).ConfigureAwait(false);
+    }
+
     private async Task SendLoopAsync(CancellationToken cancellationToken)
     {
         try
@@ -74,11 +92,47 @@ public sealed class VisionDeviceClient : IAsyncDisposable
         catch (ObjectDisposedException) { }
     }
 
+    private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
+    {
+        byte[] buffer = new byte[1024];
+        StringBuilder pending = new();
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                NetworkStream? stream = _networkStream;
+                if (stream is null) return;
+                int count = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                if (count == 0) return;
+                pending.Append(Encoding.UTF8.GetString(buffer, 0, count));
+                PublishTokens(pending);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void PublishTokens(StringBuilder pending)
+    {
+        string text = pending.ToString().Replace("\r", string.Empty, StringComparison.Ordinal);
+        pending.Clear();
+        string[] chunks = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (string chunk in chunks)
+        {
+            string message = chunk.ToUpperInvariant();
+            _receivedMessageQueue.Writer.TryWrite(message);
+            MessageReceived?.Invoke(message);
+        }
+    }
+
     private async Task DisconnectCoreAsync()
     {
         _workerCancellation?.Cancel();
         if (_senderTask is not null) { try { await _senderTask.ConfigureAwait(false); } catch { } }
         _senderTask = null;
+        if (_receiverTask is not null) { try { await _receiverTask.ConfigureAwait(false); } catch { } }
+        _receiverTask = null;
         _workerCancellation?.Dispose();
         _workerCancellation = null;
         _networkStream?.Dispose();
@@ -95,4 +149,8 @@ public sealed class VisionDeviceClient : IAsyncDisposable
     }
 }
 
-public sealed record VisionDeviceMessage(ReadOnlyMemory<byte> Payload);
+public sealed record VisionDeviceMessage(ReadOnlyMemory<byte> Payload)
+{
+    public static VisionDeviceMessage FromText(string text) =>
+        new(System.Text.Encoding.UTF8.GetBytes(text + "\n"));
+}

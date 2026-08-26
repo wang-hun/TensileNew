@@ -33,6 +33,7 @@ namespace TensileNeW.Models
         public static event Action<int>? UiBatchApplied;
         public static event Action ChartCleared;
         public static event Action? DataCollectionEnded;
+        public static event Action? DataCollectionStarted;
         public static bool _simlatueRunFlag = false;
 
         /// <summary>
@@ -261,6 +262,7 @@ namespace TensileNeW.Models
                                 beginScanTime = DateTime.Now;
                                 IndexCount = 0;
                                 AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false));
+                                DataCollectionStarted?.Invoke();
                             }
 
                             if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)
