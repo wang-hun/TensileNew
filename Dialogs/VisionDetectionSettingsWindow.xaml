@@ -8,19 +8,16 @@
       <Grid Margin="22,42">
         <Button Width="32" Height="32" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" BorderBrush="Transparent" Click="Close_Click" ToolTip="关闭"><iconPacks:PackIconMaterial Kind="Close" Width="20" Height="20" Foreground="{DynamicResource AppConnectionErrorForegroundBrush}" /></Button>
         <TextBlock Text="视觉检测设置" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource AppMetricNameForegroundBrush}" HorizontalAlignment="Center" />
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="300">
-          <CheckBox Content="是否使用视觉检测" IsChecked="{Binding UseVisionDetection, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding VisionModuleEnabled}" FontSize="16" Checked="UseVisionDetection_Changed" Unchecked="UseVisionDetection_Changed" />
-          <Grid Margin="0,18,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="42" /></Grid.RowDefinitions>
-            <TextBlock Text="IP" VerticalAlignment="Center" FontSize="15" />
-            <TextBox Grid.Column="1" Text="{Binding VisionDeviceIp, UpdateSourceTrigger=PropertyChanged}" Height="30" VerticalContentAlignment="Center" />
-            <TextBlock Grid.Row="1" Text="端口" VerticalAlignment="Center" FontSize="15" />
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding VisionDevicePort, UpdateSourceTrigger=PropertyChanged}" Height="30" VerticalContentAlignment="Center" />
-            <Button Grid.Row="2" Grid.ColumnSpan="2" Content="连接" Width="100" Height="32" HorizontalAlignment="Center" Click="Connect_Click" />
-          </Grid>
-          <TextBlock x:Name="ConnectionStatusText" Text="未连接" HorizontalAlignment="Center" Margin="0,8,0,0" />
-        </StackPanel>
+        <Grid Width="320" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="18" /><RowDefinition Height="36" /><RowDefinition Height="12" /><RowDefinition Height="36" /><RowDefinition Height="18" /><RowDefinition Height="38" /><RowDefinition Height="24" /></Grid.RowDefinitions>
+          <CheckBox Grid.Row="0" Content="是否使用视觉检测" IsChecked="{Binding UseVisionDetection, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding VisionModuleEnabled}" FontSize="16" Checked="UseVisionDetection_Changed" Unchecked="UseVisionDetection_Changed" />
+          <TextBlock Grid.Row="2" Text="视觉设备 IP 地址" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+          <TextBox Grid.Row="2" Margin="112,0,0,0" Text="{Binding VisionDeviceIp, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D0D5DD" BorderThickness="1" Padding="6,0" />
+          <TextBlock Grid.Row="4" Text="视觉设备端口" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+          <TextBox Grid.Row="4" Margin="112,0,0,0" Text="{Binding VisionDevicePort, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D0D5DD" BorderThickness="1" Padding="6,0" />
+          <Button Grid.Row="6" Content="连接" Style="{StaticResource ButtonPrimary}" Width="104" Height="34" HorizontalAlignment="Center" Click="Connect_Click" />
+          <TextBlock Grid.Row="7" x:Name="ConnectionStatusText" Text="未连接" HorizontalAlignment="Center" FontSize="13" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+        </Grid>
       </Grid>
     </Border>
     <Grid IsHitTestVisible="False">
