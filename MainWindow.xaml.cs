@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
@@ -161,6 +162,8 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         InitializeComponent();
         _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
+        _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
+        _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
         VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
@@ -188,6 +191,7 @@ public partial class MainWindow : Window
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
+        UpdateVisionConnectionUi();
         InitializeCameraPreview();
     }
 
@@ -688,6 +692,8 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        _visionDeviceClient.ConnectionStateChanged -= VisionDeviceClient_ConnectionStateChanged;
+        _viewModel.Setting.PropertyChanged -= Setting_PropertyChanged;
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
@@ -1494,7 +1500,65 @@ public partial class MainWindow : Window
         RAM.SettingModel.VisionModuleEnabled = enabled;
         RAM.SaveSettingModel();
         VisionSettingsButton.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        UpdateVisionConnectionUi();
         ShowInfo(enabled ? "视觉检测模块已启用" : "视觉检测模块已关闭");
+    }
+
+    private void VisionDeviceClient_ConnectionStateChanged()
+    {
+        Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
+    }
+
+    private void Setting_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SettingModel.UseVisionDetection) or nameof(SettingModel.VisionModuleEnabled))
+        {
+            Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
+        }
+    }
+
+    private void UpdateVisionConnectionUi()
+    {
+        bool enabled = RAM.SettingModel.UseVisionDetection;
+        bool connected = _visionDeviceClient.IsConnected;
+        VisionConnectionGroup.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        VisionConnectionIndicator.Background = connected
+            ? new SolidColorBrush(Color.FromRgb(47, 179, 68))
+            : new SolidColorBrush(Color.FromRgb(224, 49, 49));
+        VisionConnectionIndicator.ToolTip = connected ? "Vision device connected" : "Vision device disconnected";
+        VisionConnectionButtonText.Text = connected ? "断开" : "连接";
+        VisionConnectionButton.ToolTip = connected ? "Disconnect vision device" : "Connect vision device";
+    }
+
+    private async void VisionConnectionToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RAM.SettingModel.UseVisionDetection)
+        {
+            return;
+        }
+
+        VisionConnectionButton.IsEnabled = false;
+        try
+        {
+            if (_visionDeviceClient.IsConnected)
+            {
+                await _visionDeviceClient.DisconnectAsync();
+                ShowInfo("视觉设备已断开");
+            }
+            else
+            {
+                bool connected = await _visionDeviceClient.ConnectAsync(
+                    RAM.SettingModel.VisionDeviceIp,
+                    RAM.SettingModel.VisionDevicePort,
+                    TimeSpan.FromSeconds(5));
+                ShowSuccess(connected ? "视觉设备已连接" : "视觉设备连接失败");
+            }
+        }
+        finally
+        {
+            UpdateVisionConnectionUi();
+            VisionConnectionButton.IsEnabled = true;
+        }
     }
 
     private void VisionSettings_Click(object sender, RoutedEventArgs e)
