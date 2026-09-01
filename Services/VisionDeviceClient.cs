@@ -152,5 +152,5 @@ public sealed class VisionDeviceClient : IAsyncDisposable
 public sealed record VisionDeviceMessage(ReadOnlyMemory<byte> Payload)
 {
     public static VisionDeviceMessage FromText(string text) =>
-        new(System.Text.Encoding.UTF8.GetBytes(text + "\n"));
+        new(System.Text.Encoding.UTF8.GetBytes(text));
 }

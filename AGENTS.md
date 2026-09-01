@@ -1,3 +1,7 @@
+DO NOT send optional commentary.
+Spend time on thinking; you do not need to use the commentary channel to report progress to me .
+
+
 # AGENTS.md
 
 本文件是本仓库的本地协作说明，用于让后续维护者和自动化编码代理快速理解项目结构、关键约束和验证方式。它不应作为产品功能文档对外发布。
