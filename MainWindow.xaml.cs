@@ -1912,7 +1912,9 @@ public partial class MainWindow : Window
                     data.Summary.StartedAtUtc.ToLocalTime(),
                     maxForce.ToString("F3", CultureInfo.InvariantCulture),
                     maxDistance.ToString("F3", CultureInfo.InvariantCulture),
-                    data.Recipe);
+                    data.Recipe,
+                    _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
+                    _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
             });
 
             ShowSuccess("回放试验报告保存成功");
@@ -1934,10 +1936,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
+    private string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
     {
         string recipeName = string.IsNullOrWhiteSpace(data.Recipe?.RecipeName) ? "NoRecipe" : data.Recipe.RecipeName;
-        return $"{data.Summary.TrialSerialNumber}_{recipeName}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
+        string annotationFileNamePart = GetAnnotationFileNamePart(_viewModel.Setting.AnnotationName);
+        string timestamp = data.Summary.StartedAtUtc.ToLocalTime().ToString("yyyyMMddHHmmss");
+        return string.IsNullOrEmpty(annotationFileNamePart)
+            ? $"{data.Summary.TrialSerialNumber}_{recipeName}_回放_{timestamp}"
+            : $"{data.Summary.TrialSerialNumber}_{annotationFileNamePart}_{recipeName}_回放_{timestamp}";
     }
 
     private static void SavePlaybackDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
@@ -2029,7 +2035,9 @@ public partial class MainWindow : Window
 
             string recipeName = recipe?.RecipeName ?? "NoRecipe";
             string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-            string baseFileName = $"{trialSerialNumber}_{recipeName}_{timestamp}";
+            string annotationName = _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty;
+            string annotationContent = _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty;
+            string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
             Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
@@ -2071,7 +2079,9 @@ public partial class MainWindow : Window
                         generatedAt,
                         maxForce,
                         validDistance,
-                        recipe);
+                        recipe,
+                        annotationName,
+                        annotationContent);
                 });
             }
             finally
@@ -2214,7 +2224,11 @@ public partial class MainWindow : Window
         {
             Filter = "Word (*.docx)|*.docx",
             InitialDirectory = RAM.SettingModel.ExcelFolderPath,
-            FileName = $"{SNModel.GetSn()}_{recipeName}_{DateTime.Now:yyyyMMddHHmmss}"
+            FileName = BuildBaseFileName(
+                SNModel.GetSn(),
+                recipeName,
+                DateTime.Now.ToString("yyyyMMddHHmmss"),
+                _viewModel.Setting.AnnotationName)
         };
 
         if (dialog.ShowDialog() != true)
@@ -2252,7 +2266,9 @@ public partial class MainWindow : Window
                 DateTime.Now,
                 GetMaxForceText(dataSnapshot),
                 GetMaxDistanceText(dataSnapshot),
-                _viewModel.SelectedRecipe);
+                _viewModel.SelectedRecipe,
+                _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
+                _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
         }
         finally
         {
@@ -2309,7 +2325,9 @@ public partial class MainWindow : Window
         DateTime generatedAt,
         string maxForce,
         string validDistance,
-        RecipeModel? recipe)
+        RecipeModel? recipe,
+        string annotationName,
+        string annotationContent)
     {
         TestReportService.Save(
             fileName,
@@ -2319,7 +2337,52 @@ public partial class MainWindow : Window
             generatedAt,
             maxForce,
             validDistance,
-            recipe);
+            recipe,
+            annotationName,
+            annotationContent);
+    }
+
+    private static string BuildBaseFileName(
+        string trialSerialNumber,
+        string recipeName,
+        string timestamp,
+        string? annotationName)
+    {
+        string annotationFileNamePart = GetAnnotationFileNamePart(annotationName);
+        return string.IsNullOrEmpty(annotationFileNamePart)
+            ? $"{trialSerialNumber}_{recipeName}_{timestamp}"
+            : $"{trialSerialNumber}_{annotationFileNamePart}_{recipeName}_{timestamp}";
+    }
+
+    private static string GetAnnotationFileNamePart(string? annotationName)
+    {
+        string value = annotationName?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        foreach (char invalidCharacter in Path.GetInvalidFileNameChars())
+        {
+            value = value.Replace(invalidCharacter, '_');
+        }
+
+        return value;
+    }
+
+    private void EditAnnotation_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new AnnotationDialog(
+            _viewModel.Setting.AnnotationName,
+            _viewModel.Setting.AnnotationContent);
+        dialog.Confirmed += (_, args) =>
+        {
+            _viewModel.Setting.AnnotationName = args.Name;
+            _viewModel.Setting.AnnotationContent = args.Content;
+            _viewModel.SaveSettings();
+            _viewModel.RefreshAnnotationInfo();
+        };
+        Dialog.Show(dialog);
     }
 
     private void InvokePlotMenuItem(params string[] labels)

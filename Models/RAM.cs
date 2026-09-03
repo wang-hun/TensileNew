@@ -148,6 +148,8 @@ namespace TensileNeW.Models
 
             SettingModel.CameraDeviceId ??= string.Empty;
             SettingModel.CameraDeviceName ??= string.Empty;
+            SettingModel.AnnotationName ??= string.Empty;
+            SettingModel.AnnotationContent ??= string.Empty;
             SettingModel.VisionDeviceIp ??= "127.0.0.1";
             if (SettingModel.VisionDevicePort is < 1 or > 65535)
             {

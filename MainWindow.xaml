@@ -493,10 +493,26 @@
               <Grid Height="42" Margin="0,4,0,0" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="104" />
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="88" />
+                  <ColumnDefinition Width="110" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="试验序列号：" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0" />
                 <TextBox Grid.Column="1" Text="{Binding TrialSerialNumber, UpdateSourceTrigger=PropertyChanged}" Height="34" FontSize="16" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AppSurfaceBackgroundBrush}" />
+                <Grid Grid.Column="2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="9" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="9" />
+                    <ColumnDefinition Width="34" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="1" Text="批注:" TextWrapping="NoWrap" FontSize="15" Foreground="{DynamicResource AppMetricNameForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                  <iconPacks:PackIconLucide Grid.Column="3" Kind="Baseline" Width="18" Height="18" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource AppMetricNameForegroundBrush}" ToolTip="{Binding AnnotationTooltip}" />
+                  <Button Grid.Column="5" Width="34" Height="34" Padding="0" HorizontalAlignment="Center" Style="{StaticResource ActionButtonStyle}" ToolTip="保存的文件名会带有批注的内容" Click="EditAnnotation_Click">
+                    <iconPacks:PackIconMaterial Kind="BorderColor" Width="18" Height="18" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  </Button>
+                </Grid>
               </Grid>
                 </StackPanel>
               </Border>

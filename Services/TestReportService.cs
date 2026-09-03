@@ -28,7 +28,9 @@ public static class TestReportService
         DateTime generatedAt,
         string maxForce,
         string validDistance,
-        RecipeModel? recipe)
+        RecipeModel? recipe,
+        string annotationName,
+        string annotationContent)
     {
         using var document = new XWPFDocument();
         ConfigurePage(document);
@@ -49,6 +51,7 @@ public static class TestReportService
         AddParagraph(document, $"有效拉伸位移：{WithUnit(validDistance, "mm")}", 12, indentationLeft: ReportBodyIndentTwips);
 
         AddParameterSection(document, recipe);
+        AddAnnotationSection(document, annotationName, annotationContent);
 
         using var stream = File.Create(fileName);
         document.Write(stream);
@@ -159,6 +162,25 @@ public static class TestReportService
         {
             SetCellText(table.GetRow(i + 1).GetCell(0), parameters[i].Name);
             SetCellText(table.GetRow(i + 1).GetCell(1), parameters[i].Value);
+        }
+    }
+
+    private static void AddAnnotationSection(XWPFDocument document, string annotationName, string annotationContent)
+    {
+        if (string.IsNullOrWhiteSpace(annotationName) && string.IsNullOrWhiteSpace(annotationContent))
+        {
+            return;
+        }
+
+        AddParagraph(document, "批注", 14, bold: true, indentationLeft: ReportBodyIndentTwips);
+        if (!string.IsNullOrWhiteSpace(annotationName))
+        {
+            AddParagraph(document, annotationName, 12, indentationLeft: ReportBodyIndentTwips);
+        }
+
+        if (!string.IsNullOrWhiteSpace(annotationContent))
+        {
+            AddParagraph(document, annotationContent, 12, indentationLeft: ReportBodyIndentTwips);
         }
     }
 

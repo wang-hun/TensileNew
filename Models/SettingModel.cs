@@ -54,6 +54,20 @@ namespace TensileNeW.Models
             set => SetProperty(ref _ExcelFolderPath, value);
         }
 
+        private string _AnnotationName = string.Empty;
+        public string AnnotationName
+        {
+            get => _AnnotationName;
+            set => SetProperty(ref _AnnotationName, value);
+        }
+
+        private string _AnnotationContent = string.Empty;
+        public string AnnotationContent
+        {
+            get => _AnnotationContent;
+            set => SetProperty(ref _AnnotationContent, value);
+        }
+
         private string _Language = "CN";
         public string Language
         {
