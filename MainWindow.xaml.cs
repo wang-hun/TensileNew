@@ -1638,6 +1638,7 @@ public partial class MainWindow : Window
         if (ReleaseTensileResetCheckBox.IsChecked == true)
         {
             await _viewModel.PulseAsync("数据重置");
+            DataAqc.RequestDataResetClear();
         }
     }
     private async void Stop_Click(object sender, RoutedEventArgs e)
@@ -1648,6 +1649,7 @@ public partial class MainWindow : Window
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("数据重置");
+        DataAqc.RequestDataResetClear();
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
@@ -1773,6 +1775,24 @@ public partial class MainWindow : Window
 
     private void RenderPlayback(TrialDataStore.TrialPlaybackData data)
     {
+        RenderPlaybackPlot(data);
+
+        RecipeModel? recipe = data.Recipe;
+        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
+        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
+        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
+        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
+        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
+        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
+        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
+        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
+        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
+        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
+    }
+
+    private void RenderPlaybackPlot(TrialDataStore.TrialPlaybackData data)
+    {
         PlaybackPlot.Plot.Clear();
         if (data.Points.Count > 0)
         {
@@ -1794,19 +1814,6 @@ public partial class MainWindow : Window
         PlaybackPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
         PlaybackPlot.Plot.Font.Automatic();
         PlaybackPlot.Refresh();
-
-        RecipeModel? recipe = data.Recipe;
-        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
-        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
-        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
-        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
-        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
-        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
-        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
-        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
-        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
-        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
-        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
     }
 
     private async void SavePlaybackData_Click(object sender, RoutedEventArgs e)
@@ -1949,22 +1956,41 @@ public partial class MainWindow : Window
         return tempImagePath;
     }
 
+    private string CapturePlaybackPlotImageToTempFile(TrialDataStore.TrialPlaybackData data)
+    {
+        TrialDataStore.TrialPlaybackData? previousPlaybackData = _selectedPlaybackData;
+        try
+        {
+            RenderPlaybackPlot(data);
+            return CapturePlaybackPlotImageToTempFile();
+        }
+        finally
+        {
+            if (previousPlaybackData is null)
+            {
+                PlaybackPlot.Plot.Clear();
+                PlaybackPlot.Refresh();
+            }
+            else
+            {
+                RenderPlaybackPlot(previousPlaybackData);
+            }
+        }
+    }
+
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
+    {
+        await SaveDataAndReportAsync(allowDatabaseFallback: false);
+    }
+
+    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback)
     {
         if (!EnsureTrialDataSaveAvailable())
         {
             return;
         }
 
-        if (DataAqc.loadModels.Count == 0)
-        {
-            return;
-        }
-
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
-        string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
-        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-        string baseFileName = $"{SNModel.GetSn()}_{recipeName}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
         using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
@@ -1975,27 +2001,56 @@ public partial class MainWindow : Window
             IsEnabled = false;
             await waitWindow.ShowAsync();
 
-            Directory.CreateDirectory(folderPath);
-            string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
-            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string trialSerialNumber = SNModel.GetSn();
             DateTime generatedAt = DateTime.Now;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
             var dataSnapshot = DataAqc.loadModels.ToList();
+            TrialDataStore.TrialPlaybackData? playbackFallbackData = null;
             if (dataSnapshot.Count == 0)
             {
-                return;
+                if (!allowDatabaseFallback)
+                {
+                    return;
+                }
+
+                playbackFallbackData = await Task.Run(TrialDataStore.GetMostRecentTrialPlaybackData);
+                if (playbackFallbackData?.Points.Count > 0)
+                {
+                    dataSnapshot = playbackFallbackData.Points.ToList();
+                    trialSerialNumber = playbackFallbackData.Summary.TrialSerialNumber;
+                    recipe = playbackFallbackData.Recipe ?? recipe;
+                }
+                else
+                {
+                    return;
+                }
             }
+
+            string recipeName = recipe?.RecipeName ?? "NoRecipe";
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            string baseFileName = $"{trialSerialNumber}_{recipeName}_{timestamp}";
+            Directory.CreateDirectory(folderPath);
+            string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
+            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string maxForce = GetMaxForceText(dataSnapshot);
             string validDistance = GetMaxDistanceText(dataSnapshot);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            using (BeginCurrentTrialPlotScope())
+            IDisposable? currentPlotScope = null;
+            try
             {
-                tempImagePath = CaptureReportImageToTempFile();
+                if (playbackFallbackData is null)
+                {
+                    currentPlotScope = BeginCurrentTrialPlotScope();
+                    tempImagePath = CaptureReportImageToTempFile();
+                }
+                else
+                {
+                    tempImagePath = CapturePlaybackPlotImageToTempFile(playbackFallbackData);
+                }
 
                 await Task.Run(() =>
                 {
@@ -2018,6 +2073,10 @@ public partial class MainWindow : Window
                         validDistance,
                         recipe);
                 });
+            }
+            finally
+            {
+                currentPlotScope?.Dispose();
             }
 
             RAM.RecordTrialDataAndReportSaved();
@@ -2064,7 +2123,7 @@ public partial class MainWindow : Window
             string policy = _viewModel.Setting.AutoSavePolicy;
             if (policy == SettingModel.AutoSaveAlwaysYes)
             {
-                SaveDataAndReport_Click(this, new RoutedEventArgs());
+                _ = SaveDataAndReportAsync(allowDatabaseFallback: true);
             }
             else if (policy == SettingModel.AutoSaveAskEveryTime)
             {
@@ -2106,7 +2165,7 @@ public partial class MainWindow : Window
 
             if (dialog.ShouldSave)
             {
-                _ = Dispatcher.InvokeAsync(() => SaveDataAndReport_Click(this, new RoutedEventArgs()));
+                _ = Dispatcher.InvokeAsync(() => _ = SaveDataAndReportAsync(allowDatabaseFallback: true));
             }
         };
         dialog.ShowDialog();
@@ -2220,9 +2279,9 @@ public partial class MainWindow : Window
 
     private string CaptureReportImageToTempFile()
     {
-        InvokePlotMenuItem("自动缩放", "Autoscale");
-        InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
-        return TestReportService.SaveClipboardImageToTempFile();
+        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensileReport_{Guid.NewGuid():N}.png");
+        LoadPlot.Plot.SavePng(tempImagePath, 1200, 700);
+        return tempImagePath;
     }
 
     private IDisposable BeginCurrentTrialPlotScope()

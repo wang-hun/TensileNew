@@ -203,6 +203,8 @@ namespace TensileNeW.Models
                 bool beginScan = false;
                 DateTime beginScanTime = DateTime.Now;
                 int IndexCount = 0;
+                bool previousDataResetValue = false;
+                bool previousFullResetValue = false;
                 while (!DataAqc._cts.IsCancellationRequested)
                 {
                     try
@@ -254,14 +256,25 @@ namespace TensileNeW.Models
                                     y4Value),
                                 null,
                                 false,
+                                false,
                                 false));
+
+                            bool dataResetValue = mBoolValue[9];
+                            if ((dataResetValue && !previousDataResetValue) ||
+                                (fullResetValue && !previousFullResetValue))
+                            {
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, false, true));
+                            }
+
+                            previousDataResetValue = dataResetValue;
+                            previousFullResetValue = fullResetValue;
 
                             if (mBoolValue[36] && !beginScan)
                             {
                                 beginScan = true;
                                 beginScanTime = DateTime.Now;
                                 IndexCount = 0;
-                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false));
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false, false));
                                 DataCollectionStarted?.Invoke();
                             }
 
@@ -278,13 +291,14 @@ namespace TensileNeW.Models
                                         Time = d46FValue[1].ToString("F3")
                                     },
                                     false,
+                                    false,
                                     false));
                             }
 
                             if (beginScan && !mBoolValue[36])
                             {
                                 beginScan = false;
-                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true));
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true, false));
                             }
 
                         }
@@ -374,24 +388,30 @@ namespace TensileNeW.Models
                 }
             }
 
-            List<Loadmodel> points = batch.Where(item => item.LoadPoint is not null).Select(item => item.LoadPoint!).ToList();
-
-            dispatcher.BeginInvoke(() => ApplyBatchOnUiThread(batch, points));
+            dispatcher.BeginInvoke(() => ApplyBatchOnUiThread(batch));
         }
 
-        private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch, IReadOnlyList<Loadmodel> points)
+        private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch)
         {
+            List<Loadmodel> appliedPoints = [];
             foreach (AcquisitionBatchItem item in batch)
             {
-                if (item.Started)
+                if (item.Reset)
                 {
                     loadModels.Clear();
                     ChartCleared?.Invoke();
+                    appliedPoints.Clear();
                 }
 
                 if (item.Ended)
                 {
                     DataCollectionEnded?.Invoke();
+                }
+
+                if (item.LoadPoint is not null)
+                {
+                    loadModels.Add(item.LoadPoint);
+                    appliedPoints.Add(item.LoadPoint);
                 }
             }
 
@@ -401,13 +421,17 @@ namespace TensileNeW.Models
                 ApplyPlcSnapshot(latestSnapshot);
             }
 
-            if (points.Count > 0)
+            if (appliedPoints.Count > 0)
             {
-                loadModels.AddRange(points);
-                LoadDataBatchChanged?.Invoke(points);
+                LoadDataBatchChanged?.Invoke(appliedPoints);
             }
 
             UiBatchApplied?.Invoke(batch.Count(item => item.Snapshot is not null));
+        }
+
+        public static void RequestDataResetClear()
+        {
+            AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, false, true));
         }
 
         private static void ApplyPlcSnapshot(PlcSnapshot snapshot)
@@ -453,7 +477,7 @@ namespace TensileNeW.Models
             PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = snapshot.YValues[3].ToString();
         }
 
-        private sealed record AcquisitionBatchItem(PlcSnapshot? Snapshot, Loadmodel? LoadPoint, bool Started, bool Ended);
+        private sealed record AcquisitionBatchItem(PlcSnapshot? Snapshot, Loadmodel? LoadPoint, bool Started, bool Ended, bool Reset);
         private sealed record PlcSnapshot(bool[] MValues, float[]? D400Values, ushort? D410Value, float[] D46Values, float D249Value, float D260Value, float[]? D362Values, bool FullResetValue, bool[] YValues);
 
         private static void ReadVersionOnceAfterConnection()

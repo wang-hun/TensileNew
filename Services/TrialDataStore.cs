@@ -341,6 +341,12 @@ public static class TrialDataStore
         }
     }
 
+    public static TrialPlaybackData? GetMostRecentTrialPlaybackData()
+    {
+        TrialPlaybackSummary? summary = GetTrialPlaybackSummaries().FirstOrDefault();
+        return summary is null ? null : GetTrialPlaybackData(summary.TrialGroupId);
+    }
+
     private static void StartCaptureSessionLocked(string trialSerialNumber, RecipeSnapshot? recipe)
     {
         Guid captureSessionId = Guid.NewGuid();
