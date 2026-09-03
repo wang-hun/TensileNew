@@ -871,7 +871,7 @@
                     </InlineUIContainer>
                     <Run Text="”，可以打开曲线设置界面。" />
                     <LineBreak />
-                    <Run Text="勾选“重置数据不清空曲线图”后，点击数据重置不会清空已有曲线，下一次试验会使用新颜色继续绘制。" />
+                    <Run Text="勾选“重置数据时保留曲线”后，重置数据时保留已有曲线，下一次试验会使用新颜色继续绘制。" />
                   </TextBlock>
                   <CheckBox Grid.Row="1" Content="下次启动后不再自动显示。" IsChecked="{Binding Setting.HideChartHintOnStartup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Right" Margin="18,0,16,12" FontSize="14" Checked="ChartHintStartupCheckBox_Changed" Unchecked="ChartHintStartupCheckBox_Changed" />
                   <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort" Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="#1677FF" />
