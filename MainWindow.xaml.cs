@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shell;
 using System.Windows.Xps.Packaging;
@@ -104,6 +105,8 @@ public partial class MainWindow : Window
     private bool _autoSavePromptOpen;
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
+    private readonly VisionDeviceClient _visionDeviceClient = new();
+    private readonly VisionDetectionController _visionDetectionController;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
@@ -158,9 +161,14 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
+        _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
+        _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
+        VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted += OnDataCollectionStarted;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
@@ -169,6 +177,8 @@ public partial class MainWindow : Window
             () => _viewModel.Setting.ShowPlotLegend,
             () => _viewModel.Setting.KeepPlotOnReset,
             11);
+        PlaybackPlot.UserInputProcessor.DoubleLeftClickBenchmark(false);
+        LoadPlotController.LocalizeContextMenu(PlaybackPlot);
         _loadScrollTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(200)
@@ -181,6 +191,7 @@ public partial class MainWindow : Window
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
+        UpdateVisionConnectionUi();
         InitializeCameraPreview();
     }
 
@@ -681,9 +692,13 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
+        _visionDeviceClient.ConnectionStateChanged -= VisionDeviceClient_ConnectionStateChanged;
+        _viewModel.Setting.PropertyChanged -= Setting_PropertyChanged;
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted -= OnDataCollectionStarted;
+        _ = _visionDetectionController.DisposeAsync();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -1281,7 +1296,8 @@ public partial class MainWindow : Window
         try
         {
             waitWindow.Show();
-            IReadOnlyList<NetworkProbeCandidate> candidates = NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
+            IReadOnlyList<NetworkProbeCandidate> candidates =
+                NetworkAdapterProbeService.BuildProbeCandidates(RAM.SettingModel.PLC_IP);
             if (candidates.Count == 0)
             {
                 warningMessage = "未发现可用于探测的有线网卡。";
@@ -1474,7 +1490,88 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(new Action(async () => await RunDebugAlgorithmDataImportAsync()));
         };
+        dialog.VisionModuleEnableRequested += (_, _) => SetVisionModuleEnabled(true);
+        dialog.VisionModuleDisableRequested += (_, _) => SetVisionModuleEnabled(false);
         dialog.ShowDialog();
+    }
+
+    private void SetVisionModuleEnabled(bool enabled)
+    {
+        RAM.SettingModel.VisionModuleEnabled = enabled;
+        RAM.SaveSettingModel();
+        VisionSettingsButton.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        UpdateVisionConnectionUi();
+        ShowInfo(enabled ? "视觉检测模块已启用" : "视觉检测模块已关闭");
+    }
+
+    private void VisionDeviceClient_ConnectionStateChanged()
+    {
+        Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
+    }
+
+    private void Setting_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SettingModel.UseVisionDetection) or nameof(SettingModel.VisionModuleEnabled))
+        {
+            Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
+        }
+    }
+
+    private void UpdateVisionConnectionUi()
+    {
+        bool enabled = RAM.SettingModel.UseVisionDetection;
+        bool connected = _visionDeviceClient.IsConnected;
+        VisionConnectionGroup.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        VisionConnectionIndicator.Background = connected
+            ? new SolidColorBrush(Color.FromRgb(47, 179, 68))
+            : new SolidColorBrush(Color.FromRgb(224, 49, 49));
+        VisionConnectionIndicator.ToolTip = connected ? "Vision device connected" : "Vision device disconnected";
+        VisionConnectionButtonText.Text = connected ? "断开" : "连接";
+        VisionConnectionButton.ToolTip = connected ? "Disconnect vision device" : "Connect vision device";
+    }
+
+    private async void VisionConnectionToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (!RAM.SettingModel.UseVisionDetection)
+        {
+            return;
+        }
+
+        VisionConnectionButton.IsEnabled = false;
+        try
+        {
+            if (_visionDeviceClient.IsConnected)
+            {
+                await _visionDeviceClient.DisconnectAsync();
+                ShowInfo("视觉设备已断开");
+            }
+            else
+            {
+                bool connected = await _visionDeviceClient.ConnectAsync(
+                    RAM.SettingModel.VisionDeviceIp,
+                    RAM.SettingModel.VisionDevicePort,
+                    TimeSpan.FromSeconds(5));
+                ShowSuccess(connected ? "视觉设备已连接" : "视觉设备连接失败");
+            }
+        }
+        finally
+        {
+            UpdateVisionConnectionUi();
+            VisionConnectionButton.IsEnabled = true;
+        }
+    }
+
+    private void VisionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (RAM.SettingModel.VisionModuleEnabled)
+        {
+            var visionWindow = new VisionDetectionSettingsWindow(_visionDeviceClient)
+            {
+                Owner = this,
+                DataContext = RAM.SettingModel
+            };
+            visionWindow.ShowDialog();
+        }
     }
 
     private async Task RunDebugAlgorithmDataImportAsync()
@@ -1530,19 +1627,29 @@ public partial class MainWindow : Window
 
     private async void StartPress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边");
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");
-    private async void StartTensile_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("拉伸");
+    private async void StartTensile_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("拉伸");
+        await _visionDetectionController.OnTensileRequestedAsync();
+    }
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("拉伸释放");
         if (ReleaseTensileResetCheckBox.IsChecked == true)
         {
             await _viewModel.PulseAsync("数据重置");
+            DataAqc.RequestDataResetClear();
         }
     }
-    private async void Stop_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("停止");
+    private async void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.PulseAsync("停止");
+        await _visionDetectionController.OnStopRequestedAsync();
+    }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("数据重置");
+        DataAqc.RequestDataResetClear();
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
@@ -1668,6 +1775,24 @@ public partial class MainWindow : Window
 
     private void RenderPlayback(TrialDataStore.TrialPlaybackData data)
     {
+        RenderPlaybackPlot(data);
+
+        RecipeModel? recipe = data.Recipe;
+        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
+        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
+        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
+        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
+        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
+        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
+        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
+        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
+        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
+        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
+    }
+
+    private void RenderPlaybackPlot(TrialDataStore.TrialPlaybackData data)
+    {
         PlaybackPlot.Plot.Clear();
         if (data.Points.Count > 0)
         {
@@ -1687,20 +1812,8 @@ public partial class MainWindow : Window
         PlaybackPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 11;
         PlaybackPlot.Plot.Axes.Bottom.TickGenerator.MaxTickCount = 6;
         PlaybackPlot.Plot.Axes.Left.TickGenerator.MaxTickCount = 6;
+        PlaybackPlot.Plot.Font.Automatic();
         PlaybackPlot.Refresh();
-
-        RecipeModel? recipe = data.Recipe;
-        double maxForce = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealForce);
-        double maxDistance = data.Points.Count == 0 ? 0 : data.Points.Max(point => point.RealDistance);
-        PlaybackTrialTitleTextBlock.Text = $"序号：{data.Summary.TrialSerialNumber}    {data.Summary.StartedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
-        PlaybackRecipeNameTextBlock.Text = recipe?.RecipeName ?? "未记录配方";
-        PlaybackMaxForceTextBlock.Text = $"{maxForce:F3} KN";
-        PlaybackStrokePressTextBlock.Text = recipe == null ? "-" : $"{recipe.StrokeStampingForce:F3} KN";
-        PlaybackMaxDistanceTextBlock.Text = $"{maxDistance:F3} mm";
-        PlaybackClosedLoopTextBlock.Text = recipe == null ? "-" : $"{recipe.ClosedLoopStampingForce:F3} KN";
-        PlaybackSpeedTextBlock.Text = recipe == null ? "-" : $"{recipe.Speed:F3} mm/s";
-        PlaybackShutdownTextBlock.Text = recipe == null ? "-" : $"{recipe.ShutdownDelay} s / {recipe.ShutdownRatio:F3}";
-        PlaybackDistanceLimitTextBlock.Text = recipe == null ? "-" : $"{recipe.TensileDistanceLimit:F3} mm";
     }
 
     private async void SavePlaybackData_Click(object sender, RoutedEventArgs e)
@@ -1799,7 +1912,9 @@ public partial class MainWindow : Window
                     data.Summary.StartedAtUtc.ToLocalTime(),
                     maxForce.ToString("F3", CultureInfo.InvariantCulture),
                     maxDistance.ToString("F3", CultureInfo.InvariantCulture),
-                    data.Recipe);
+                    data.Recipe,
+                    _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
+                    _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
             });
 
             ShowSuccess("回放试验报告保存成功");
@@ -1821,10 +1936,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
+    private string BuildPlaybackBaseFileName(TrialDataStore.TrialPlaybackData data)
     {
         string recipeName = string.IsNullOrWhiteSpace(data.Recipe?.RecipeName) ? "NoRecipe" : data.Recipe.RecipeName;
-        return $"{data.Summary.TrialSerialNumber}_{recipeName}_回放_{data.Summary.StartedAtUtc.ToLocalTime():yyyyMMddHHmmss}";
+        string annotationFileNamePart = GetAnnotationFileNamePart(_viewModel.Setting.AnnotationName);
+        string timestamp = data.Summary.StartedAtUtc.ToLocalTime().ToString("yyyyMMddHHmmss");
+        return string.IsNullOrEmpty(annotationFileNamePart)
+            ? $"{data.Summary.TrialSerialNumber}_{recipeName}_回放_{timestamp}"
+            : $"{data.Summary.TrialSerialNumber}_{annotationFileNamePart}_{recipeName}_回放_{timestamp}";
     }
 
     private static void SavePlaybackDataToFile(string fileName, IReadOnlyList<Loadmodel> points)
@@ -1843,22 +1962,41 @@ public partial class MainWindow : Window
         return tempImagePath;
     }
 
+    private string CapturePlaybackPlotImageToTempFile(TrialDataStore.TrialPlaybackData data)
+    {
+        TrialDataStore.TrialPlaybackData? previousPlaybackData = _selectedPlaybackData;
+        try
+        {
+            RenderPlaybackPlot(data);
+            return CapturePlaybackPlotImageToTempFile();
+        }
+        finally
+        {
+            if (previousPlaybackData is null)
+            {
+                PlaybackPlot.Plot.Clear();
+                PlaybackPlot.Refresh();
+            }
+            else
+            {
+                RenderPlaybackPlot(previousPlaybackData);
+            }
+        }
+    }
+
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
+    {
+        await SaveDataAndReportAsync(allowDatabaseFallback: false);
+    }
+
+    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback)
     {
         if (!EnsureTrialDataSaveAvailable())
         {
             return;
         }
 
-        if (DataAqc.loadModels.Count == 0)
-        {
-            return;
-        }
-
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
-        string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
-        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-        string baseFileName = $"{SNModel.GetSn()}_{recipeName}_{timestamp}";
         string folderPath = RAM.SettingModel.ExcelFolderPath;
         using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
@@ -1869,27 +2007,58 @@ public partial class MainWindow : Window
             IsEnabled = false;
             await waitWindow.ShowAsync();
 
-            Directory.CreateDirectory(folderPath);
-            string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
-            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string trialSerialNumber = SNModel.GetSn();
             DateTime generatedAt = DateTime.Now;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
             var dataSnapshot = DataAqc.loadModels.ToList();
+            TrialDataStore.TrialPlaybackData? playbackFallbackData = null;
             if (dataSnapshot.Count == 0)
             {
-                return;
+                if (!allowDatabaseFallback)
+                {
+                    return;
+                }
+
+                playbackFallbackData = await Task.Run(TrialDataStore.GetMostRecentTrialPlaybackData);
+                if (playbackFallbackData?.Points.Count > 0)
+                {
+                    dataSnapshot = playbackFallbackData.Points.ToList();
+                    trialSerialNumber = playbackFallbackData.Summary.TrialSerialNumber;
+                    recipe = playbackFallbackData.Recipe ?? recipe;
+                }
+                else
+                {
+                    return;
+                }
             }
+
+            string recipeName = recipe?.RecipeName ?? "NoRecipe";
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            string annotationName = _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty;
+            string annotationContent = _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty;
+            string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
+            Directory.CreateDirectory(folderPath);
+            string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
+            string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             string maxForce = GetMaxForceText(dataSnapshot);
             string validDistance = GetMaxDistanceText(dataSnapshot);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            using (BeginCurrentTrialPlotScope())
+            IDisposable? currentPlotScope = null;
+            try
             {
-                tempImagePath = CaptureReportImageToTempFile();
+                if (playbackFallbackData is null)
+                {
+                    currentPlotScope = BeginCurrentTrialPlotScope();
+                    tempImagePath = CaptureReportImageToTempFile();
+                }
+                else
+                {
+                    tempImagePath = CapturePlaybackPlotImageToTempFile(playbackFallbackData);
+                }
 
                 await Task.Run(() =>
                 {
@@ -1910,8 +2079,14 @@ public partial class MainWindow : Window
                         generatedAt,
                         maxForce,
                         validDistance,
-                        recipe);
+                        recipe,
+                        annotationName,
+                        annotationContent);
                 });
+            }
+            finally
+            {
+                currentPlotScope?.Dispose();
             }
 
             RAM.RecordTrialDataAndReportSaved();
@@ -1919,6 +2094,7 @@ public partial class MainWindow : Window
             ShowSuccess("数据和试验报告保存成功");
             saved = true;
             _viewModel.AdvanceTrialSerialNumber();
+            await _visionDetectionController.OnSaveCompletedAsync();
         }
         catch (Exception ex)
         {
@@ -1943,6 +2119,7 @@ public partial class MainWindow : Window
 
     private void OnDataCollectionEnded()
     {
+        _ = _visionDetectionController.OnDataCollectionEndedAsync();
         // The existing consumer has already queued its UI updates before this state transition.
         _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
         {
@@ -1956,13 +2133,18 @@ public partial class MainWindow : Window
             string policy = _viewModel.Setting.AutoSavePolicy;
             if (policy == SettingModel.AutoSaveAlwaysYes)
             {
-                SaveDataAndReport_Click(this, new RoutedEventArgs());
+                _ = SaveDataAndReportAsync(allowDatabaseFallback: true);
             }
             else if (policy == SettingModel.AutoSaveAskEveryTime)
             {
                 ShowAutomaticSavePrompt();
             }
         }));
+    }
+
+    private void OnDataCollectionStarted()
+    {
+        _ = _visionDetectionController.OnDataCollectionStartedAsync();
     }
 
     private void ShowAutomaticSavePrompt()
@@ -1993,7 +2175,7 @@ public partial class MainWindow : Window
 
             if (dialog.ShouldSave)
             {
-                _ = Dispatcher.InvokeAsync(() => SaveDataAndReport_Click(this, new RoutedEventArgs()));
+                _ = Dispatcher.InvokeAsync(() => _ = SaveDataAndReportAsync(allowDatabaseFallback: true));
             }
         };
         dialog.ShowDialog();
@@ -2042,7 +2224,11 @@ public partial class MainWindow : Window
         {
             Filter = "Word (*.docx)|*.docx",
             InitialDirectory = RAM.SettingModel.ExcelFolderPath,
-            FileName = $"{SNModel.GetSn()}_{recipeName}_{DateTime.Now:yyyyMMddHHmmss}"
+            FileName = BuildBaseFileName(
+                SNModel.GetSn(),
+                recipeName,
+                DateTime.Now.ToString("yyyyMMddHHmmss"),
+                _viewModel.Setting.AnnotationName)
         };
 
         if (dialog.ShowDialog() != true)
@@ -2080,7 +2266,9 @@ public partial class MainWindow : Window
                 DateTime.Now,
                 GetMaxForceText(dataSnapshot),
                 GetMaxDistanceText(dataSnapshot),
-                _viewModel.SelectedRecipe);
+                _viewModel.SelectedRecipe,
+                _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
+                _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
         }
         finally
         {
@@ -2107,9 +2295,9 @@ public partial class MainWindow : Window
 
     private string CaptureReportImageToTempFile()
     {
-        InvokePlotMenuItem("自动缩放", "Autoscale");
-        InvokePlotMenuItem("复制到剪贴板", "Copy to Clipboard");
-        return TestReportService.SaveClipboardImageToTempFile();
+        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensileReport_{Guid.NewGuid():N}.png");
+        LoadPlot.Plot.SavePng(tempImagePath, 1200, 700);
+        return tempImagePath;
     }
 
     private IDisposable BeginCurrentTrialPlotScope()
@@ -2137,7 +2325,9 @@ public partial class MainWindow : Window
         DateTime generatedAt,
         string maxForce,
         string validDistance,
-        RecipeModel? recipe)
+        RecipeModel? recipe,
+        string annotationName,
+        string annotationContent)
     {
         TestReportService.Save(
             fileName,
@@ -2147,7 +2337,52 @@ public partial class MainWindow : Window
             generatedAt,
             maxForce,
             validDistance,
-            recipe);
+            recipe,
+            annotationName,
+            annotationContent);
+    }
+
+    private static string BuildBaseFileName(
+        string trialSerialNumber,
+        string recipeName,
+        string timestamp,
+        string? annotationName)
+    {
+        string annotationFileNamePart = GetAnnotationFileNamePart(annotationName);
+        return string.IsNullOrEmpty(annotationFileNamePart)
+            ? $"{trialSerialNumber}_{recipeName}_{timestamp}"
+            : $"{trialSerialNumber}_{annotationFileNamePart}_{recipeName}_{timestamp}";
+    }
+
+    private static string GetAnnotationFileNamePart(string? annotationName)
+    {
+        string value = annotationName?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        foreach (char invalidCharacter in Path.GetInvalidFileNameChars())
+        {
+            value = value.Replace(invalidCharacter, '_');
+        }
+
+        return value;
+    }
+
+    private void EditAnnotation_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new AnnotationDialog(
+            _viewModel.Setting.AnnotationName,
+            _viewModel.Setting.AnnotationContent);
+        dialog.Confirmed += (_, args) =>
+        {
+            _viewModel.Setting.AnnotationName = args.Name;
+            _viewModel.Setting.AnnotationContent = args.Content;
+            _viewModel.SaveSettings();
+            _viewModel.RefreshAnnotationInfo();
+        };
+        Dialog.Show(dialog);
     }
 
     private void InvokePlotMenuItem(params string[] labels)

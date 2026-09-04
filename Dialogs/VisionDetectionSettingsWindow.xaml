@@ -1,0 +1,33 @@
+<Window x:Class="TensileNeW.VisionDetectionSettingsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks" Width="420" Height="380" WindowStartupLocation="CenterOwner" WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Background="Transparent" FontFamily="Microsoft YaHei">
+  <Window.Resources>
+    <PathGeometry x:Key="RightTopLongBaseAnimationGeometry"><PathFigure StartPoint="314,18"><LineSegment Point="44,18" /></PathFigure></PathGeometry>
+    <PathGeometry x:Key="LeftBottomLongBaseAnimationGeometry"><PathFigure StartPoint="105,362"><LineSegment Point="376,362" /></PathFigure></PathGeometry>
+  </Window.Resources>
+  <Grid>
+    <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" CornerRadius="4">
+      <Grid Margin="22,42">
+        <Button Width="32" Height="32" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" BorderBrush="Transparent" Click="Close_Click" ToolTip="关闭"><iconPacks:PackIconMaterial Kind="Close" Width="20" Height="20" Foreground="{DynamicResource AppConnectionErrorForegroundBrush}" /></Button>
+        <TextBlock Text="视觉检测设置" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource AppMetricNameForegroundBrush}" HorizontalAlignment="Center" />
+        <Grid Width="320" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="18" /><RowDefinition Height="36" /><RowDefinition Height="12" /><RowDefinition Height="36" /><RowDefinition Height="18" /><RowDefinition Height="38" /><RowDefinition Height="24" /></Grid.RowDefinitions>
+          <CheckBox Grid.Row="0" Content="是否使用视觉检测" IsChecked="{Binding UseVisionDetection, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding VisionModuleEnabled}" FontSize="16" Checked="UseVisionDetection_Changed" Unchecked="UseVisionDetection_Changed" />
+          <TextBlock Grid.Row="2" Text="视觉设备 IP 地址" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+          <TextBox Grid.Row="2" Margin="112,0,0,0" Text="{Binding VisionDeviceIp, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D0D5DD" BorderThickness="1" Padding="6,0" />
+          <TextBlock Grid.Row="4" Text="视觉设备端口" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+          <TextBox Grid.Row="4" Margin="112,0,0,0" Text="{Binding VisionDevicePort, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Height="30" VerticalContentAlignment="Center" Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="#D0D5DD" BorderThickness="1" Padding="6,0" />
+          <Button Grid.Row="6" Content="连接" Style="{StaticResource ButtonPrimary}" Width="104" Height="34" HorizontalAlignment="Center" Click="Connect_Click" />
+          <TextBlock Grid.Row="7" x:Name="ConnectionStatusText" Text="未连接" HorizontalAlignment="Center" FontSize="13" Foreground="{DynamicResource AppMetricValueForegroundBrush}" />
+        </Grid>
+      </Grid>
+    </Border>
+    <Grid IsHitTestVisible="False">
+      <Rectangle Width="1" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="18,0,0,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Rectangle Width="44" Height="1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,18,0,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Canvas Width="150" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top"><Path Data="M 131,0 L 74,0 L 44,18 L 131,18" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeThickness="1" Fill="{DynamicResource AppMetricValueForegroundBrush}" /></Canvas>
+      <Rectangle Width="1" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,18,0" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Rectangle Width="44" Height="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,18" Fill="{DynamicResource AppMetricValueForegroundBrush}" />
+      <Canvas Width="150" Height="22" HorizontalAlignment="Left" VerticalAlignment="Bottom"><Path Data="M 18,22 L 75,22 L 105,4 L 18,4" Stroke="{DynamicResource AppMetricValueForegroundBrush}" StrokeThickness="1" Fill="{DynamicResource AppMetricValueForegroundBrush}" /></Canvas>
+      <Canvas Width="420" Height="380"><hc:AnimationPath Data="{StaticResource RightTopLongBaseAnimationGeometry}" Width="420" Height="380" Duration="00:00:02" PathLength="30" Stretch="None" StrokeThickness="1" Stroke="{DynamicResource AppMetricValueForegroundBrush}" /><hc:AnimationPath Data="{StaticResource LeftBottomLongBaseAnimationGeometry}" Width="420" Height="380" Duration="00:00:02" PathLength="30" Stretch="None" StrokeThickness="1" Stroke="{DynamicResource AppMetricValueForegroundBrush}" /></Canvas>
+    </Grid>
+  </Grid>
+</Window>

@@ -23,6 +23,8 @@ namespace TensileNeW.Models
         public static int TrialStartupCount { get; private set; }
         public static int TrialDataSaveCount { get; private set; }
         public static int SaveIndex=1;
+        public static bool IsVisionDetectionActive =>
+            SettingModel?.VisionModuleEnabled == true && SettingModel.UseVisionDetection;
         public static Logger logger = LogManager.GetCurrentClassLogger();
         public static event Action<int> Changed;
         /// <summary>
@@ -146,6 +148,13 @@ namespace TensileNeW.Models
 
             SettingModel.CameraDeviceId ??= string.Empty;
             SettingModel.CameraDeviceName ??= string.Empty;
+            SettingModel.AnnotationName ??= string.Empty;
+            SettingModel.AnnotationContent ??= string.Empty;
+            SettingModel.VisionDeviceIp ??= "127.0.0.1";
+            if (SettingModel.VisionDevicePort is < 1 or > 65535)
+            {
+                SettingModel.VisionDevicePort = 5000;
+            }
             if (SettingModel.RuntimeDataSavePolicy is not SettingModel.RuntimeDataSaveAlwaysYes
                 and not SettingModel.RuntimeDataSaveAskEveryTime
                 and not SettingModel.RuntimeDataSaveAlwaysNo)

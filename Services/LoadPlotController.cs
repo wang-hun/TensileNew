@@ -276,8 +276,11 @@ public sealed class LoadPlotController
     }
 
     public void LocalizeContextMenu(Action? openInNewWindow = null, Action? filterCurves = null, Action? clearCurrentPlot = null)
+        => LocalizeContextMenu(_plotHost, openInNewWindow, filterCurves, clearCurrentPlot);
+
+    public static void LocalizeContextMenu(WpfPlot plotHost, Action? openInNewWindow = null, Action? filterCurves = null, Action? clearCurrentPlot = null)
     {
-        var menu = _plotHost.Menu;
+        var menu = plotHost.Menu;
         if (menu == null)
         {
             return;

@@ -54,6 +54,20 @@ namespace TensileNeW.Models
             set => SetProperty(ref _ExcelFolderPath, value);
         }
 
+        private string _AnnotationName = string.Empty;
+        public string AnnotationName
+        {
+            get => _AnnotationName;
+            set => SetProperty(ref _AnnotationName, value);
+        }
+
+        private string _AnnotationContent = string.Empty;
+        public string AnnotationContent
+        {
+            get => _AnnotationContent;
+            set => SetProperty(ref _AnnotationContent, value);
+        }
+
         private string _Language = "CN";
         public string Language
         {
@@ -73,6 +87,38 @@ namespace TensileNeW.Models
         {
             get => _CameraDeviceName;
             set => SetProperty(ref _CameraDeviceName, value);
+        }
+
+        /// <summary>
+        /// Controls whether the optional vision module UI and behavior are enabled.
+        /// The module remains part of the application when this is false.
+        /// </summary>
+        private bool _VisionModuleEnabled;
+        public bool VisionModuleEnabled
+        {
+            get => _VisionModuleEnabled;
+            set => SetProperty(ref _VisionModuleEnabled, value);
+        }
+
+        private bool _UseVisionDetection;
+        public bool UseVisionDetection
+        {
+            get => _UseVisionDetection;
+            set => SetProperty(ref _UseVisionDetection, value);
+        }
+
+        private string _VisionDeviceIp = "127.0.0.1";
+        public string VisionDeviceIp
+        {
+            get => _VisionDeviceIp;
+            set => SetProperty(ref _VisionDeviceIp, value);
+        }
+
+        private int _VisionDevicePort = 5000;
+        public int VisionDevicePort
+        {
+            get => _VisionDevicePort;
+            set => SetProperty(ref _VisionDevicePort, value);
         }
 
         private bool _HideChartHintOnStartup;

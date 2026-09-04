@@ -92,13 +92,21 @@ public static class NetworkAdapterProbeService
             return [];
         }
 
+        List<NetworkInterface> adapters = EnumerateWiredAdapters().ToList();
         List<NetworkProbeCandidate> candidates = [];
         HashSet<IPAddress> existingAddresses = GetAllLocalIPv4Addresses();
+        IReadOnlyList<IPAddress> localIps = BuildCandidateLocalIps(targetIp, existingAddresses).ToList();
 
-        foreach (NetworkInterface adapter in EnumerateWiredAdapters())
+        // Try each physical adapter before moving to the next candidate IP.
+        foreach (IPAddress localIp in localIps)
         {
-            foreach (IPAddress localIp in BuildCandidateLocalIps(targetIp, existingAddresses))
+            foreach (NetworkInterface adapter in adapters)
             {
+                if (IsAdapterInUse(adapter))
+                {
+                    continue;
+                }
+
                 candidates.Add(new NetworkProbeCandidate
                 {
                     AdapterName = adapter.Name,
@@ -109,6 +117,44 @@ public static class NetworkAdapterProbeService
         }
 
         return candidates;
+    }
+
+    private static bool IsAdapterInUse(NetworkInterface adapter)
+    {
+        HashSet<IPAddress> adapterAddresses = adapter.GetIPProperties().UnicastAddresses
+            .Select(address => address.Address)
+            .Where(address => address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            .ToHashSet();
+
+        if (adapterAddresses.Count == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+            // Listening sockets are not evidence that this adapter is carrying
+            // the other device's session: wildcard listeners (0.0.0.0/::)
+            // are common and would incorrectly mark every adapter as busy.
+            // Only a concrete local/remote endpoint in a live session can
+            // identify the adapter currently used by another host. TIME_WAIT,
+            // FIN_WAIT and other teardown states must not reserve the adapter.
+            return properties.GetActiveTcpConnections()
+                .Where(connection => connection.State is
+                    TcpState.Established or
+                    TcpState.SynSent or
+                    TcpState.SynReceived or
+                    TcpState.CloseWait)
+                .Where(connection => !IPAddress.Any.Equals(connection.RemoteEndPoint.Address) &&
+                                     !IPAddress.IPv6Any.Equals(connection.RemoteEndPoint.Address))
+                .Any(connection => adapterAddresses.Contains(connection.LocalEndPoint.Address));
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "无法读取网卡 {0} 的 TCP 使用状态，将保留该网卡继续探测。", adapter.Name);
+            return false;
+        }
     }
 
     public static Task<NetworkProbeResult> RunElevatedAddAddressAsync(NetworkProbeCandidate candidate) =>

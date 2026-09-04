@@ -1,3 +1,7 @@
+DO NOT send optional commentary.
+Spend time on thinking; you do not need to use the commentary channel to report progress to me .
+
+
 # AGENTS.md
 
 本文件是本仓库的本地协作说明，用于让后续维护者和自动化编码代理快速理解项目结构、关键约束和验证方式。它不应作为产品功能文档对外发布。
@@ -62,7 +66,7 @@
 - 默认端口：502。
 - 默认 Unit ID / Slave ID：1。
 - 地址转换：`Tools/ModbusAddressHelper.cs`。
-- 主界面“冲程压边”按下/松开时，必须在后台即时写入现有变量 `M30`，并同时以相同布尔值写入 `M45`；不得只写其中一个，也不得改为脉冲或延迟写入。修改该控制路径时必须同步维护 `MainViewModel.SetStrokeStampingAsync()` 与主窗口按键事件。
+- 主界面“冲程压边”按下/松开时，必须在后台即时写入控制线圈，不得改为脉冲或延迟写入。PLC TCP 连接成功后只读取一次版本寄存器 `D40`（浮点格式 `2026.068`），并缓存本次连接的判断结果：版本号大于等于 `2026.068` 时仅写 `M45`；无版本号、读取失败或版本低于 `2026.068` 时仅写 `M30`。处理按键时只能使用已缓存的结果，不得再次读取或询问 `D40`。重连建立新连接后允许重新读取一次。修改该控制路径时必须同步维护 `DataAqc` 的连接后版本读取/缓存、`MainViewModel.SetStrokeStampingAsync()` 与主窗口按键事件。
 
 `DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
 

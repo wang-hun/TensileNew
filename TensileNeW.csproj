@@ -11,10 +11,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>2.2.0.2608</Version>
-    <AssemblyVersion>2.2.0.2608</AssemblyVersion>
-    <FileVersion>2.2.0.2608</FileVersion>
-    <InformationalVersion>V2.2.0.2608 R</InformationalVersion>
+    <Version>2.3.0.2609</Version>
+    <AssemblyVersion>2.3.0.2609</AssemblyVersion>
+    <FileVersion>2.3.0.2609</FileVersion>
+    <InformationalVersion>V2.3.0.2609 B</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -32,6 +32,7 @@
     <Compile Remove="installer\**" />
     <Compile Remove="obj\**" />
     <Compile Remove="SamplingCapture\**" />
+    <Compile Remove="测试\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
     <EmbeddedResource Remove="codex_obj\**" />
@@ -40,6 +41,7 @@
     <EmbeddedResource Remove="installer\**" />
     <EmbeddedResource Remove="obj\**" />
     <EmbeddedResource Remove="SamplingCapture\**" />
+    <EmbeddedResource Remove="测试\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
     <None Remove="codex_obj\**" />
@@ -48,6 +50,7 @@
     <None Remove="installer\**" />
     <None Remove="obj\**" />
     <None Remove="SamplingCapture\**" />
+    <None Remove="测试\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
     <Page Remove="codex_obj\**" />
@@ -56,6 +59,7 @@
     <Page Remove="installer\**" />
     <Page Remove="obj\**" />
     <Page Remove="SamplingCapture\**" />
+    <Page Remove="测试\**" />
   </ItemGroup>
 
   <ItemGroup>

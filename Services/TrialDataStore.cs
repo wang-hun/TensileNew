@@ -49,8 +49,6 @@ public static class TrialDataStore
 
             EnsureStarted();
             SetCurrentRecipe(currentRecipe);
-            DataAqc.ChartCleared -= OnChartCleared;
-            DataAqc.ChartCleared += OnChartCleared;
             PendingWork.Add(new SyncRecipesWork(
                 builtInRecipes.Select(recipe => RecipeSnapshot.From(recipe, true)).ToList(),
                 userRecipes.Select(recipe => RecipeSnapshot.From(recipe, false)).ToList()));
@@ -149,7 +147,11 @@ public static class TrialDataStore
 
     public static void BeginNewCapture()
     {
-        OnChartCleared();
+        lock (StateLock)
+        {
+            _activeCaptureSessionId = null;
+            _newCapturePending = true;
+        }
     }
 
     public static void TryDeleteDatabaseFile()
@@ -339,21 +341,18 @@ public static class TrialDataStore
         }
     }
 
+    public static TrialPlaybackData? GetMostRecentTrialPlaybackData()
+    {
+        TrialPlaybackSummary? summary = GetTrialPlaybackSummaries().FirstOrDefault();
+        return summary is null ? null : GetTrialPlaybackData(summary.TrialGroupId);
+    }
+
     private static void StartCaptureSessionLocked(string trialSerialNumber, RecipeSnapshot? recipe)
     {
         Guid captureSessionId = Guid.NewGuid();
         _activeCaptureSessionId = captureSessionId;
         _newCapturePending = false;
         PendingWork.Add(new BeginTrialWork(captureSessionId, trialSerialNumber, recipe, DateTime.UtcNow));
-    }
-
-    private static void OnChartCleared()
-    {
-        lock (StateLock)
-        {
-            _activeCaptureSessionId = null;
-            _newCapturePending = true;
-        }
     }
 
     public static TrialPlaybackData? GetTrialPlaybackData(long trialGroupId)

@@ -66,6 +66,17 @@ public sealed class MainViewModel : ObservableObject
     public int TrialStartupCount => RAM.TrialStartupCount;
     public int TrialDataSaveCount => RAM.TrialDataSaveCount;
     public string TrialDataSaveCountText => $"{RAM.TrialDataSaveCount}/{RAM.TrialDataSaveLimit}";
+    public string AnnotationTooltip
+    {
+        get
+        {
+            string name = Setting.AnnotationName?.Trim() ?? string.Empty;
+            string content = Setting.AnnotationContent?.Trim() ?? string.Empty;
+            return string.IsNullOrEmpty(name) && string.IsNullOrEmpty(content)
+                ? "当前无批注"
+                : $"当前批注为{Environment.NewLine}{name}{Environment.NewLine}{content}";
+        }
+    }
     public string TrialPackageVersionText
     {
         get
@@ -104,6 +115,11 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(TrialStartupCount));
         OnPropertyChanged(nameof(TrialDataSaveCount));
         OnPropertyChanged(nameof(TrialDataSaveCountText));
+    }
+
+    public void RefreshAnnotationInfo()
+    {
+        OnPropertyChanged(nameof(AnnotationTooltip));
     }
 
     public string SelectedLanguageDisplay
@@ -275,9 +291,10 @@ public sealed class MainViewModel : ObservableObject
                     throw new InvalidOperationException("PLC未连接");
                 }
 
-                DataAqc.plc.WriteBool(Address("冲程压边"), value);
-                ushort m45Address = (ushort)ModbusAddressHelper.ConvertToModbusAddresss("M45").HexAddress;
-                DataAqc.plc.WriteBool(m45Address, value);
+                ushort strokeAddress = DataAqc.UseM45ForStrokeStamping
+                    ? (ushort)ModbusAddressHelper.ConvertToModbusAddresss("M45").HexAddress
+                    : Address("冲程压边");
+                DataAqc.plc.WriteBool(strokeAddress, value);
             }
             catch (Exception ex)
             {

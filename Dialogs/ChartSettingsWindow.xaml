@@ -128,7 +128,7 @@
                     <StackPanel Orientation="Horizontal"
                                 HorizontalAlignment="Left"
                                 Margin="0,0,0,16">
-                        <CheckBox Content="重置数据不清空曲线图"
+                        <CheckBox Content="重置数据时保留曲线"
                                   IsChecked="{Binding KeepPlotOnReset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   FontSize="16"
                                   Checked="SettingCheckBox_Changed"
@@ -138,7 +138,7 @@
                                 Margin="8,0,0,0"
                                 VerticalAlignment="Center"
                                 Background="Transparent"
-                                ToolTip="勾选后，点击数据重置不会清空曲线图，下一次试验会使用新颜色绘制新曲线。">
+                                ToolTip="勾选后，重置数据时保留已有曲线，下一次试验会使用新颜色绘制新曲线。">
                             <iconPacks:PackIconPhosphorIcons Kind="QuestionBold"
                                                              Width="16"
                                                              Height="16"

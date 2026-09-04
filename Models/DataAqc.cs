@@ -33,6 +33,7 @@ namespace TensileNeW.Models
         public static event Action<int>? UiBatchApplied;
         public static event Action ChartCleared;
         public static event Action? DataCollectionEnded;
+        public static event Action? DataCollectionStarted;
         public static bool _simlatueRunFlag = false;
 
         /// <summary>
@@ -40,6 +41,15 @@ namespace TensileNeW.Models
         /// 避免与主窗口探测流程同时争用 PLC 连接锁或旧 socket 状态。探测结束后必须恢复为 false。
         /// </summary>
         public static volatile bool AutoReconnectSuspended = false;
+
+        private const float M45MinimumVersion = 2026.068f;
+        private static volatile bool _useM45ForStrokeStamping;
+
+        /// <summary>
+        /// PLC 版本达到 2026.068 时使用 M45 控制冲程压边；版本未知或更低时使用 M30。
+        /// 该值只在每次 TCP 连接建立后读取一次 D40 时更新。
+        /// </summary>
+        public static bool UseM45ForStrokeStamping => _useM45ForStrokeStamping;
 
         /// <summary>
         /// 初始化本地状态（PLC 变量表和 plc 客户端对象），不发起网络连接。
@@ -81,6 +91,7 @@ namespace TensileNeW.Models
                 //D260 实时拉伸位移  数据读 Float
                 //D46 实时拉伸力 数据读 Float 
                 //D66 主推力 数据读 Float
+                //D40 调试变量 数据读 Float
 
                 //M10 数据重置    布尔
                 //M30 冲程压边 布尔
@@ -99,6 +110,7 @@ namespace TensileNeW.Models
                 PLCVariables.Add(new PLCVariable { Name = "停机比例设定", Address = "D416", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
 
                 PLCVariables.Add(new PLCVariable { Name = "实时拉伸力", Address = "D46", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
+                PLCVariables.Add(new PLCVariable { Name = "D40", Address = "D40", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "拉伸时间", Address = "D48", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "实时压边力", Address = "D54", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
                 PLCVariables.Add(new PLCVariable { Name = "主推力", Address = "D66", DataType = "Float", CurrentValue = "0.000", WriteValue = "0.000" });
@@ -143,6 +155,7 @@ namespace TensileNeW.Models
                 lock (PlcConnectionLock)
                 {
                     plc.Connect();
+                    ReadVersionOnceAfterConnection();
                 }
                 logger.Info("连接PLC成功！");
                 return true;
@@ -163,6 +176,7 @@ namespace TensileNeW.Models
                     plc.AbortConnection();
                     Thread.Sleep(100);
                     plc.Connect();
+                    ReadVersionOnceAfterConnection();
                 }
                 logger.Info("重新连接PLC成功！");
                 return true;
@@ -189,6 +203,8 @@ namespace TensileNeW.Models
                 bool beginScan = false;
                 DateTime beginScanTime = DateTime.Now;
                 int IndexCount = 0;
+                bool previousDataResetValue = false;
+                bool previousFullResetValue = false;
                 while (!DataAqc._cts.IsCancellationRequested)
                 {
                     try
@@ -240,14 +256,26 @@ namespace TensileNeW.Models
                                     y4Value),
                                 null,
                                 false,
+                                false,
                                 false));
+
+                            bool dataResetValue = mBoolValue[9];
+                            if ((dataResetValue && !previousDataResetValue) ||
+                                (fullResetValue && !previousFullResetValue))
+                            {
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, false, true));
+                            }
+
+                            previousDataResetValue = dataResetValue;
+                            previousFullResetValue = fullResetValue;
 
                             if (mBoolValue[36] && !beginScan)
                             {
                                 beginScan = true;
                                 beginScanTime = DateTime.Now;
                                 IndexCount = 0;
-                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false));
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, true, false, false));
+                                DataCollectionStarted?.Invoke();
                             }
 
                             if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)
@@ -263,13 +291,14 @@ namespace TensileNeW.Models
                                         Time = d46FValue[1].ToString("F3")
                                     },
                                     false,
+                                    false,
                                     false));
                             }
 
                             if (beginScan && !mBoolValue[36])
                             {
                                 beginScan = false;
-                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true));
+                                AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, true, false));
                             }
 
                         }
@@ -359,24 +388,30 @@ namespace TensileNeW.Models
                 }
             }
 
-            List<Loadmodel> points = batch.Where(item => item.LoadPoint is not null).Select(item => item.LoadPoint!).ToList();
-
-            dispatcher.BeginInvoke(() => ApplyBatchOnUiThread(batch, points));
+            dispatcher.BeginInvoke(() => ApplyBatchOnUiThread(batch));
         }
 
-        private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch, IReadOnlyList<Loadmodel> points)
+        private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch)
         {
+            List<Loadmodel> appliedPoints = [];
             foreach (AcquisitionBatchItem item in batch)
             {
-                if (item.Started)
+                if (item.Reset)
                 {
                     loadModels.Clear();
                     ChartCleared?.Invoke();
+                    appliedPoints.Clear();
                 }
 
                 if (item.Ended)
                 {
                     DataCollectionEnded?.Invoke();
+                }
+
+                if (item.LoadPoint is not null)
+                {
+                    loadModels.Add(item.LoadPoint);
+                    appliedPoints.Add(item.LoadPoint);
                 }
             }
 
@@ -386,13 +421,17 @@ namespace TensileNeW.Models
                 ApplyPlcSnapshot(latestSnapshot);
             }
 
-            if (points.Count > 0)
+            if (appliedPoints.Count > 0)
             {
-                loadModels.AddRange(points);
-                LoadDataBatchChanged?.Invoke(points);
+                LoadDataBatchChanged?.Invoke(appliedPoints);
             }
 
             UiBatchApplied?.Invoke(batch.Count(item => item.Snapshot is not null));
+        }
+
+        public static void RequestDataResetClear()
+        {
+            AcquisitionQueue.Enqueue(new AcquisitionBatchItem(null, null, false, false, true));
         }
 
         private static void ApplyPlcSnapshot(PlcSnapshot snapshot)
@@ -438,8 +477,33 @@ namespace TensileNeW.Models
             PLCVariables.First(t => t.Name == "压边释放线圈").CurrentValue = snapshot.YValues[3].ToString();
         }
 
-        private sealed record AcquisitionBatchItem(PlcSnapshot? Snapshot, Loadmodel? LoadPoint, bool Started, bool Ended);
+        private sealed record AcquisitionBatchItem(PlcSnapshot? Snapshot, Loadmodel? LoadPoint, bool Started, bool Ended, bool Reset);
         private sealed record PlcSnapshot(bool[] MValues, float[]? D400Values, ushort? D410Value, float[] D46Values, float D249Value, float D260Value, float[]? D362Values, bool FullResetValue, bool[] YValues);
+
+        private static void ReadVersionOnceAfterConnection()
+        {
+            _useM45ForStrokeStamping = false;
+            try
+            {
+                float version = plc.ReadFloat((ushort)ModbusAddressHelper.ConvertToModbusAddresss("D40").HexAddress);
+                _useM45ForStrokeStamping = float.IsFinite(version) && version >= M45MinimumVersion;
+                PLCVariable? versionVariable = PLCVariables.FirstOrDefault(t => t.Name == "D40");
+                if (versionVariable is not null)
+                {
+                    versionVariable.CurrentValue = version.ToString("F3");
+                }
+                logger.Info("读取 PLC 版本 D40={Version:F3}，冲程压边使用 {Address}。", version, _useM45ForStrokeStamping ? "M45" : "M30");
+            }
+            catch (Exception ex)
+            {
+                PLCVariable? versionVariable = PLCVariables.FirstOrDefault(t => t.Name == "D40");
+                if (versionVariable is not null)
+                {
+                    versionVariable.CurrentValue = "0.000";
+                }
+                logger.Warn(ex, "读取 PLC 版本 D40 失败，冲程压边使用 M30。" );
+            }
+        }
 
 
 
