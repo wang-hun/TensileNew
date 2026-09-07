@@ -278,7 +278,7 @@ namespace TensileNeW.Models
                                 DataCollectionStarted?.Invoke();
                             }
 
-                            if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 5)
+                            if (beginScan && (DateTime.Now - beginScanTime).TotalMinutes <= 10)
                             {
                                 AcquisitionQueue.Enqueue(new AcquisitionBatchItem(
                                     null,
