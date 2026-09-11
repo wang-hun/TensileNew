@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
+    private const string CurveAnalysisExecutableName = "数据分析.exe";
     private const double AppHeaderHeight = 39;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
@@ -107,6 +108,7 @@ public partial class MainWindow : Window
     private readonly LoadPlotController _loadPlotController;
     private readonly VisionDeviceClient _visionDeviceClient = new();
     private readonly VisionDetectionController _visionDetectionController;
+    private bool _curveAnalysisAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
@@ -161,6 +163,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        InitializeCurveAnalysisButton();
         _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
         _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
         _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
@@ -1194,6 +1197,43 @@ public partial class MainWindow : Window
     }
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
     private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
+
+    private void InitializeCurveAnalysisButton()
+    {
+        _curveAnalysisAvailable = File.Exists(GetCurveAnalysisExecutablePath());
+        CurveAnalysisButton.Visibility = _curveAnalysisAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        System.Windows.Controls.Grid.SetColumn(ColorSchemesButton, _curveAnalysisAvailable ? 5 : 4);
+        System.Windows.Controls.Grid.SetColumn(VariablesButton, _curveAnalysisAvailable ? 6 : 5);
+    }
+
+    private static string GetCurveAnalysisExecutablePath() =>
+        Path.Combine(AppContext.BaseDirectory, CurveAnalysisExecutableName);
+
+    private void CurveAnalysis_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_curveAnalysisAvailable)
+        {
+            return;
+        }
+
+        try
+        {
+            string executablePath = GetCurveAnalysisExecutablePath();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = executablePath,
+                WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "Failed to start curve analysis application.");
+            ShowError("数据分析程序启动失败");
+        }
+    }
 
     private async void Reconnect_Click(object sender, RoutedEventArgs e)
     {

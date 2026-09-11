@@ -13,6 +13,7 @@ internal static class InstallerService
 {
     private const string PayloadResourceName = "EcsInstaller.Payload.payload.zip";
     private const string AppExeName = "ECS.exe";
+    private const string CurveAnalysisExeName = "数据分析.exe";
     private const string FallbackPackageDirectoryName = "ECS";
 
     public static bool IsTrialPackage => GetPayloadPackageDirectoryName()
@@ -73,6 +74,11 @@ internal static class InstallerService
             {
                 reportProgress("正在创建桌面快捷方式");
                 CreateShortcut(exePath);
+                string curveAnalysisPath = Path.Combine(installPath, CurveAnalysisExeName);
+                if (File.Exists(curveAnalysisPath))
+                {
+                    CreateShortcut(curveAnalysisPath);
+                }
             }
 
             return exePath;
@@ -259,9 +265,10 @@ internal static class InstallerService
 
     private static void CreateShortcut(string exePath)
     {
+        string shortcutName = Path.GetFileNameWithoutExtension(exePath);
         string shortcutPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            "ECS.lnk");
+            shortcutName + ".lnk");
 
         Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
         if (shellType is null)
