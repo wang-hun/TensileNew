@@ -9,6 +9,7 @@ namespace InstallerBuilder;
 internal static class Program
 {
     private const string InstallerAssemblyName = "ECS-Installer";
+    private const string CurveAnalysisExecutableName = "数据分析.exe";
 
     private static int Main()
     {
@@ -52,6 +53,7 @@ internal static class Program
                 $"run --project {Quote(builderProjectPath)} --no-launch-profile -- pack " +
                 $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(visionModuleEnabled ? "Y" : "N")}");
 
+            EnsurePayloadFileExists(payloadRoot, CurveAnalysisExecutableName);
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
 
             DeleteDirectoryIfExists(publishDirectory);
@@ -248,6 +250,15 @@ internal static class Program
         if (!File.Exists(path))
         {
             throw new FileNotFoundException("Required project was not found.", path);
+        }
+    }
+
+    private static void EnsurePayloadFileExists(string payloadRoot, string fileName)
+    {
+        string filePath = Path.Combine(payloadRoot, fileName);
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException("The installer payload is missing the required file.", filePath);
         }
     }
 
