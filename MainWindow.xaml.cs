@@ -1292,7 +1292,8 @@ public partial class MainWindow : Window
     {
         for (int attempt = 0; attempt < NetworkConnectRetryCount; attempt++)
         {
-            if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+            TimeSpan remaining = NetworkProbeUiTimeout - probeStopwatch.Elapsed;
+            if (remaining <= TimeSpan.Zero)
             {
                 return false;
             }
@@ -1304,12 +1305,18 @@ public partial class MainWindow : Window
 
             if (attempt < NetworkConnectRetryCount - 1)
             {
-                await Task.Delay(NetworkConnectRetryInterval);
+                await Task.Delay(Min(NetworkConnectRetryInterval, remaining));
             }
         }
 
         return false;
     }
+
+    private static bool IsNetworkProbeTimedOut(Stopwatch probeStopwatch) =>
+        probeStopwatch.Elapsed >= NetworkProbeUiTimeout;
+
+    private static TimeSpan Min(TimeSpan left, TimeSpan right) =>
+        left <= right ? left : right;
 
     private void ShowConnectionErrorDialog()
     {
@@ -1348,7 +1355,7 @@ public partial class MainWindow : Window
                 NetworkProbeResult? lastFailure = null;
                 foreach (NetworkProbeCandidate candidate in candidates)
                 {
-                    if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
                     {
                         warningMessage = "网络探测超时，请检查设备线路后重试。";
                         break;
@@ -1362,7 +1369,24 @@ public partial class MainWindow : Window
                         continue;
                     }
 
-                    await Task.Delay(NetworkAddressApplyDelay);
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                        await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                        break;
+                    }
+
+                    TimeSpan remainingDelay = NetworkProbeUiTimeout - probeStopwatch.Elapsed;
+                    if (remainingDelay <= TimeSpan.Zero)
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                        await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                        break;
+                    }
+
+                    await Task.Delay(Min(NetworkAddressApplyDelay, remainingDelay));
                     waitWindow.SetWaitText($"正在通过 {candidate.AdapterName} 连接设备...");
                     bool connected = await TryConnectWithRetriesAsync(probeStopwatch);
                     if (connected)
@@ -1383,6 +1407,11 @@ public partial class MainWindow : Window
 
                     waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
                     await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        break;
+                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(successMessage) && string.IsNullOrWhiteSpace(warningMessage))
