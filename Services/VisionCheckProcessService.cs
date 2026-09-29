@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NLog;
 
 namespace TensileNeW.Services;
 
@@ -17,7 +20,10 @@ public sealed class VisionCheckProcessService : IDisposable
     private const int GwlExStyle = -20;
     private const long WsExAppWindow = 0x00040000L;
     private const long WsExToolWindow = 0x00000080L;
+    private const uint CreateNoWindow = 0x08000000;
+    private const uint StartfUseShowWindow = 0x00000001;
 
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private Process? _process;
 
     public bool IsStarted => _process is { HasExited: false };
@@ -26,32 +32,29 @@ public sealed class VisionCheckProcessService : IDisposable
     {
         if (IsStarted)
         {
+            Logger.Info("VisionCheck is already running, PID={0}.", _process!.Id);
             return true;
         }
 
         string executablePath = Path.Combine(AppContext.BaseDirectory, "Vision", "VisionCheck.exe");
         if (!File.Exists(executablePath))
         {
+            Logger.Info("VisionCheck executable not found: {0}", executablePath);
             return false;
         }
 
-        ProcessStartInfo startInfo = new()
-        {
-            FileName = executablePath,
-            WorkingDirectory = Path.GetDirectoryName(executablePath)!,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
-        };
-
-        Process? process = Process.Start(startInfo);
+        Logger.Info("Starting VisionCheck hidden: {0}", executablePath);
+        Process? process = StartHiddenProcess(executablePath);
         if (process is null)
         {
+            Logger.Error("VisionCheck failed to start: {0}", executablePath);
             return false;
         }
 
         _process = process;
+        Logger.Info("VisionCheck process started, PID={0}.", process.Id);
         await Task.Run(() => HideProcessWindowWhenReady(process, cancellationToken), cancellationToken);
+        Logger.Info("VisionCheck startup handling completed, PID={0}, running={1}.", process.Id, !process.HasExited);
         return !process.HasExited;
     }
 
@@ -59,6 +62,38 @@ public sealed class VisionCheckProcessService : IDisposable
     {
         Stop();
         GC.SuppressFinalize(this);
+    }
+
+    private static Process? StartHiddenProcess(string executablePath)
+    {
+        STARTUPINFO startupInfo = new()
+        {
+            cb = Marshal.SizeOf<STARTUPINFO>(),
+            dwFlags = StartfUseShowWindow,
+            wShowWindow = SwHide
+        };
+        StringBuilder commandLine = new($"\"{executablePath}\"");
+
+        bool created = CreateProcess(
+            executablePath,
+            commandLine,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            false,
+            CreateNoWindow,
+            IntPtr.Zero,
+            Path.GetDirectoryName(executablePath),
+            ref startupInfo,
+            out PROCESS_INFORMATION processInformation);
+        if (!created)
+        {
+            Logger.Error("CreateProcess failed for VisionCheck, Win32Error={0}.", Marshal.GetLastWin32Error());
+            return null;
+        }
+
+        CloseHandle(processInformation.hThread);
+        CloseHandle(processInformation.hProcess);
+        return Process.GetProcessById((int)processInformation.dwProcessId);
     }
 
     private static void HideProcessWindowWhenReady(Process process, CancellationToken cancellationToken)
@@ -73,23 +108,48 @@ public sealed class VisionCheckProcessService : IDisposable
         }
         catch (TimeoutException)
         {
-            // Some GUI processes do not enter an idle state; continue with handle polling.
+            // Some GUI processes do not enter an idle state.
         }
 
         Stopwatch stopwatch = Stopwatch.StartNew();
-        while (!process.HasExited && stopwatch.Elapsed < TimeSpan.FromSeconds(5))
+        while (!process.HasExited && stopwatch.Elapsed < TimeSpan.FromSeconds(10))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            process.Refresh();
-            IntPtr windowHandle = process.MainWindowHandle;
-            if (windowHandle != IntPtr.Zero)
+            IntPtr[] windowHandles = FindTopLevelWindows(process.Id);
+            if (windowHandles.Length > 0)
             {
-                HideWindow(windowHandle);
+                foreach (IntPtr windowHandle in windowHandles)
+                {
+                    HideWindow(windowHandle);
+                    Logger.Info("Hidden VisionCheck window, handle={0}, PID={1}.", windowHandle, process.Id);
+                }
+
                 return;
             }
 
             Thread.Sleep(50);
         }
+
+        if (!process.HasExited)
+        {
+            Logger.Warn("No top-level VisionCheck window found; keeping process in background, PID={0}.", process.Id);
+        }
+    }
+
+    private static IntPtr[] FindTopLevelWindows(int processId)
+    {
+        List<IntPtr> windowHandles = [];
+        EnumWindows((windowHandle, _) =>
+        {
+            GetWindowThreadProcessId(windowHandle, out uint ownerProcessId);
+            if (ownerProcessId == processId)
+            {
+                windowHandles.Add(windowHandle);
+            }
+
+            return true;
+        }, IntPtr.Zero);
+        return windowHandles.ToArray();
     }
 
     private static void HideWindow(IntPtr windowHandle)
@@ -115,24 +175,28 @@ public sealed class VisionCheckProcessService : IDisposable
         {
             if (process.HasExited)
             {
-                process.Dispose();
+                Logger.Info("VisionCheck process already exited, PID={0}.", process.Id);
                 return;
             }
 
+            Logger.Info("Stopping VisionCheck because the application is exiting, PID={0}.", process.Id);
             process.CloseMainWindow();
             if (!process.WaitForExit(1500) && !process.HasExited)
             {
+                Logger.Warn("VisionCheck did not exit within the grace period; killing process tree, PID={0}.", process.Id);
                 process.Kill(entireProcessTree: true);
                 process.WaitForExit(1500);
             }
+
+            Logger.Info("VisionCheck process stopped, PID={0}.", process.Id);
         }
         catch (InvalidOperationException)
         {
-            // The process exited between the state checks.
+            Logger.Info("VisionCheck exited while shutdown was in progress, PID={0}.", process.Id);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Shutdown must not be blocked by a third-party process.
+            Logger.Warn(ex, "Exception while stopping VisionCheck; process may still be running, PID={0}.", process.Id);
         }
         finally
         {
@@ -142,6 +206,14 @@ public sealed class VisionCheckProcessService : IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EnumWindows(EnumWindowsProc enumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
@@ -155,6 +227,22 @@ public sealed class VisionCheckProcessService : IDisposable
     [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
     private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr value);
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CreateProcess(
+        string? applicationName,
+        StringBuilder? commandLine,
+        IntPtr processAttributes,
+        IntPtr threadAttributes,
+        bool inheritHandles,
+        uint creationFlags,
+        IntPtr environment,
+        string? currentDirectory,
+        ref STARTUPINFO startupInfo,
+        out PROCESS_INFORMATION processInformation);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
     private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex) =>
         IntPtr.Size == 8
             ? GetWindowLongPtr64(hWnd, nIndex)
@@ -164,4 +252,36 @@ public sealed class VisionCheckProcessService : IDisposable
         IntPtr.Size == 8
             ? SetWindowLongPtr64(hWnd, nIndex, value)
             : SetWindowLong32(hWnd, nIndex, value);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct STARTUPINFO
+    {
+        public int cb;
+        public string? lpReserved;
+        public string? lpDesktop;
+        public string? lpTitle;
+        public int dwX;
+        public int dwY;
+        public int dwXSize;
+        public int dwYSize;
+        public int dwXCountChars;
+        public int dwYCountChars;
+        public int dwFillAttribute;
+        public uint dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_INFORMATION
+    {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public uint dwProcessId;
+        public uint dwThreadId;
+    }
 }

@@ -47,6 +47,7 @@ public partial class App : Application
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         StartupWaitWindow? waitWindow = null;
+        MainWindow? mainWindow = null;
 
         try
         {
@@ -63,6 +64,10 @@ public partial class App : Application
              * ====================================================================
              */
             RAM.Init();
+            // This branch is the visual-special build: visual detection is active without a password prompt.
+            RAM.SettingModel.VisionModuleEnabled = true;
+            RAM.SettingModel.UseVisionDetection = true;
+            Logger.Info("Visual-special branch enabled visual detection by default.");
             ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
@@ -93,11 +98,15 @@ public partial class App : Application
             await waitWindow.SetWaitTextAsync("GENBON");
             await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(800)));
 
-            MainWindow mainWindow = new(connected, cameraStartupResult)
+            mainWindow = new MainWindow(connected, cameraStartupResult)
             {
                 HasMissingManualOffice = manualStartupResult.HasMissingOffice
             };
             MainWindow = mainWindow;
+
+            // VisionCheck must be started and connected while the startup wait window is still visible.
+            await waitWindow.SetWaitTextAsync("正在启动视觉设备，请稍后...");
+            await mainWindow.InitializeVisionDuringStartupAsync();
 
             waitWindow.Close();
             waitWindow = null;
@@ -113,6 +122,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             Logger.Error(ex, "程序启动失败。");
+            mainWindow?.DisposeStartupResources();
             waitWindow?.Close();
             HandyMessageBox.Error($"程序启动失败：{ex.Message}", "TensileNeW");
             Shutdown();

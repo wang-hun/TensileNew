@@ -14,7 +14,7 @@
     <Version>2.3.2.2609</Version>
     <AssemblyVersion>2.3.2.2609</AssemblyVersion>
     <FileVersion>2.3.2.2609</FileVersion>
-    <InformationalVersion>V2.3.2.2609 R</InformationalVersion>
+    <InformationalVersion>V2.3.2.2609 R-视觉特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

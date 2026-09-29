@@ -320,7 +320,6 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
-        Dispatcher.BeginInvoke(InitializeVisionAfterMainWindowShownAsync);
     }
 
     private void LoadHelpDocument()
@@ -889,35 +888,48 @@ public partial class MainWindow : Window
         await ApplySelectedCameraAsync();
     }
 
-    private async Task InitializeVisionAfterMainWindowShownAsync()
+    internal async Task InitializeVisionDuringStartupAsync()
     {
-        if (_isClosing || !RAM.SettingModel.VisionModuleEnabled || !RAM.SettingModel.UseVisionDetection)
+        if (_isClosing)
         {
             return;
         }
 
         try
         {
+            Logger.Info("开始启动视觉组件。");
             if (!await _visionCheckProcessService.StartAsync())
             {
+                Logger.Info("视觉组件未启动，跳过视觉设备自动连接。");
                 return;
             }
 
+            Logger.Info(
+                "视觉组件已启动，开始连接视觉设备：{0}:{1}",
+                RAM.SettingModel.VisionDeviceIp,
+                RAM.SettingModel.VisionDevicePort);
             bool connected = await _visionDeviceClient.ConnectAsync(
                 RAM.SettingModel.VisionDeviceIp,
                 RAM.SettingModel.VisionDevicePort,
                 TimeSpan.FromSeconds(5));
             UpdateVisionConnectionUi();
-            Logger.Info("VisionCheck 启动完成，视觉设备连接结果：{0}", connected);
+            Logger.Info("视觉设备自动连接完成，结果：{0}", connected ? "成功" : "失败");
         }
         catch (OperationCanceledException)
         {
+            Logger.Warn("视觉组件启动被取消。");
         }
         catch (Exception ex)
         {
             Logger.Warn(ex, "VisionCheck 启动或视觉设备连接失败。");
             UpdateVisionConnectionUi();
         }
+    }
+
+    internal void DisposeStartupResources()
+    {
+        _visionCheckProcessService.Dispose();
+        _ = _visionDeviceClient.DisposeAsync();
     }
 
     private void ShowCameraSelectionDialog()
