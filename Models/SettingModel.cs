@@ -93,14 +93,14 @@ namespace TensileNeW.Models
         /// Controls whether the optional vision module UI and behavior are enabled.
         /// The module remains part of the application when this is false.
         /// </summary>
-        private bool _VisionModuleEnabled;
+        private bool _VisionModuleEnabled = true;
         public bool VisionModuleEnabled
         {
             get => _VisionModuleEnabled;
             set => SetProperty(ref _VisionModuleEnabled, value);
         }
 
-        private bool _UseVisionDetection;
+        private bool _UseVisionDetection = true;
         public bool UseVisionDetection
         {
             get => _UseVisionDetection;

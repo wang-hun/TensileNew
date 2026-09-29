@@ -108,6 +108,7 @@ public partial class MainWindow : Window
     private readonly LoadPlotController _loadPlotController;
     private readonly VisionDeviceClient _visionDeviceClient = new();
     private readonly VisionDetectionController _visionDetectionController;
+    private readonly VisionCheckProcessService _visionCheckProcessService = new();
     private bool _curveAnalysisAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -319,6 +320,7 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
+        Dispatcher.BeginInvoke(InitializeVisionAfterMainWindowShownAsync);
     }
 
     private void LoadHelpDocument()
@@ -693,6 +695,7 @@ public partial class MainWindow : Window
         _plotWindow?.Close();
         _cameraPreviewWindow?.Close();
         ReleaseCameraInBackground();
+        _visionCheckProcessService.Dispose();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _visionDeviceClient.ConnectionStateChanged -= VisionDeviceClient_ConnectionStateChanged;
@@ -884,6 +887,37 @@ public partial class MainWindow : Window
         }
 
         await ApplySelectedCameraAsync();
+    }
+
+    private async Task InitializeVisionAfterMainWindowShownAsync()
+    {
+        if (_isClosing || !RAM.SettingModel.VisionModuleEnabled || !RAM.SettingModel.UseVisionDetection)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _visionCheckProcessService.StartAsync())
+            {
+                return;
+            }
+
+            bool connected = await _visionDeviceClient.ConnectAsync(
+                RAM.SettingModel.VisionDeviceIp,
+                RAM.SettingModel.VisionDevicePort,
+                TimeSpan.FromSeconds(5));
+            UpdateVisionConnectionUi();
+            Logger.Info("VisionCheck 启动完成，视觉设备连接结果：{0}", connected);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "VisionCheck 启动或视觉设备连接失败。");
+            UpdateVisionConnectionUi();
+        }
     }
 
     private void ShowCameraSelectionDialog()
