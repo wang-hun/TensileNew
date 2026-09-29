@@ -25,6 +25,14 @@ public sealed class VisionCheckProcessService : IDisposable
 
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private Process? _process;
+    private CancellationTokenSource? _windowHiderCancellation;
+    private Task? _windowHiderTask;
+    private static readonly IntPtr HwndBottom = new(1);
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpFrameChanged = 0x0020;
+    private const uint SwpHideWindow = 0x0080;
 
     public bool IsStarted => _process is { HasExited: false };
 
@@ -53,8 +61,18 @@ public sealed class VisionCheckProcessService : IDisposable
 
         _process = process;
         Logger.Info("VisionCheck process started, PID={0}.", process.Id);
-        await Task.Run(() => HideProcessWindowWhenReady(process, cancellationToken), cancellationToken);
-        Logger.Info("VisionCheck startup handling completed, PID={0}, running={1}.", process.Id, !process.HasExited);
+        CancellationTokenSource windowHiderCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _windowHiderCancellation = windowHiderCancellation;
+        _windowHiderTask = Task.Run(
+            () => HideProcessWindowsLoop(process, windowHiderCancellation.Token),
+            windowHiderCancellation.Token);
+        await Task.Run(() => WaitForInputIdle(process), cancellationToken);
+        await Task.Delay(200, cancellationToken);
+        Logger.Info(
+            "VisionCheck startup handling completed, PID={0}, running={1}, hidden-window-monitor=active.",
+            process.Id,
+            !process.HasExited);
         return !process.HasExited;
     }
 
@@ -96,7 +114,7 @@ public sealed class VisionCheckProcessService : IDisposable
         return Process.GetProcessById((int)processInformation.dwProcessId);
     }
 
-    private static void HideProcessWindowWhenReady(Process process, CancellationToken cancellationToken)
+    private static void WaitForInputIdle(Process process)
     {
         try
         {
@@ -110,29 +128,24 @@ public sealed class VisionCheckProcessService : IDisposable
         {
             // Some GUI processes do not enter an idle state.
         }
+    }
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        while (!process.HasExited && stopwatch.Elapsed < TimeSpan.FromSeconds(10))
+    private static void HideProcessWindowsLoop(Process process, CancellationToken cancellationToken)
+    {
+        HashSet<IntPtr> loggedWindowHandles = [];
+        while (!process.HasExited && !cancellationToken.IsCancellationRequested)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             IntPtr[] windowHandles = FindTopLevelWindows(process.Id);
-            if (windowHandles.Length > 0)
+            foreach (IntPtr windowHandle in windowHandles)
             {
-                foreach (IntPtr windowHandle in windowHandles)
+                HideWindow(windowHandle);
+                if (loggedWindowHandles.Add(windowHandle))
                 {
-                    HideWindow(windowHandle);
                     Logger.Info("Hidden VisionCheck window, handle={0}, PID={1}.", windowHandle, process.Id);
                 }
-
-                return;
             }
 
             Thread.Sleep(50);
-        }
-
-        if (!process.HasExited)
-        {
-            Logger.Warn("No top-level VisionCheck window found; keeping process in background, PID={0}.", process.Id);
         }
     }
 
@@ -159,13 +172,38 @@ public sealed class VisionCheckProcessService : IDisposable
         long style = exStyle.ToInt64();
         style = (style & ~WsExAppWindow) | WsExToolWindow;
         SetWindowLongPtr(windowHandle, GwlExStyle, new IntPtr(style));
-        ShowWindow(windowHandle, SwHide);
+        SetWindowPos(
+            windowHandle,
+            HwndBottom,
+            0,
+            0,
+            0,
+            0,
+            SwpNoActivate | SwpNoMove | SwpNoSize | SwpFrameChanged | SwpHideWindow);
     }
 
     private void Stop()
     {
         Process? process = _process;
         _process = null;
+        CancellationTokenSource? windowHiderCancellation = _windowHiderCancellation;
+        _windowHiderCancellation = null;
+        Task? windowHiderTask = _windowHiderTask;
+        _windowHiderTask = null;
+        windowHiderCancellation?.Cancel();
+        try
+        {
+            windowHiderTask?.Wait(500);
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug(ex, "VisionCheck window hider did not stop cleanly.");
+        }
+        finally
+        {
+            windowHiderCancellation?.Dispose();
+        }
+
         if (process is null)
         {
             return;
@@ -206,6 +244,16 @@ public sealed class VisionCheckProcessService : IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags);
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 

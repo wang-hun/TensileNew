@@ -39,6 +39,8 @@ public partial class MainWindow : Window
     private static readonly TimeSpan NetworkAddressApplyDelay = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan NetworkConnectRetryInterval = TimeSpan.FromSeconds(1);
     private const int NetworkConnectRetryCount = 5;
+    private static readonly TimeSpan VisionConnectRetryInterval = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan VisionConnectAttemptTimeout = TimeSpan.FromSeconds(2);
     private static GrowlInfo MakeInfo(string message) => new()
     {
         Message = message,
@@ -109,6 +111,9 @@ public partial class MainWindow : Window
     private readonly VisionDeviceClient _visionDeviceClient = new();
     private readonly VisionDetectionController _visionDetectionController;
     private readonly VisionCheckProcessService _visionCheckProcessService = new();
+    private readonly CancellationTokenSource _visionAutoReconnectCancellation = new();
+    private Task? _visionAutoReconnectTask;
+    private readonly object _visionReconnectSync = new();
     private bool _curveAnalysisAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -167,6 +172,7 @@ public partial class MainWindow : Window
         InitializeCurveAnalysisButton();
         _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
         _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
+        _visionDeviceClient.ConnectionClosed += VisionDeviceClient_ConnectionClosed;
         _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
         VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
@@ -320,6 +326,7 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
+        StartVisionAutoReconnect();
     }
 
     private void LoadHelpDocument()
@@ -694,10 +701,12 @@ public partial class MainWindow : Window
         _plotWindow?.Close();
         _cameraPreviewWindow?.Close();
         ReleaseCameraInBackground();
+        _visionAutoReconnectCancellation.Cancel();
         _visionCheckProcessService.Dispose();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         _visionDeviceClient.ConnectionStateChanged -= VisionDeviceClient_ConnectionStateChanged;
+        _visionDeviceClient.ConnectionClosed -= VisionDeviceClient_ConnectionClosed;
         _viewModel.Setting.PropertyChanged -= Setting_PropertyChanged;
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
@@ -888,7 +897,7 @@ public partial class MainWindow : Window
         await ApplySelectedCameraAsync();
     }
 
-    internal async Task InitializeVisionDuringStartupAsync()
+    internal async Task StartVisionProcessDuringStartupAsync()
     {
         if (_isClosing)
         {
@@ -897,37 +906,91 @@ public partial class MainWindow : Window
 
         try
         {
-            Logger.Info("开始启动视觉组件。");
+            Logger.Info("启动阶段只启动视觉组件，不执行视觉 TCP 连接。");
             if (!await _visionCheckProcessService.StartAsync())
             {
-                Logger.Info("视觉组件未启动，跳过视觉设备自动连接。");
-                return;
+                Logger.Info("视觉组件未启动，跳过主窗口显示后的视觉自动连接。");
             }
-
-            Logger.Info(
-                "视觉组件已启动，开始连接视觉设备：{0}:{1}",
-                RAM.SettingModel.VisionDeviceIp,
-                RAM.SettingModel.VisionDevicePort);
-            bool connected = await _visionDeviceClient.ConnectAsync(
-                RAM.SettingModel.VisionDeviceIp,
-                RAM.SettingModel.VisionDevicePort,
-                TimeSpan.FromSeconds(5));
-            UpdateVisionConnectionUi();
-            Logger.Info("视觉设备自动连接完成，结果：{0}", connected ? "成功" : "失败");
-        }
-        catch (OperationCanceledException)
-        {
-            Logger.Warn("视觉组件启动被取消。");
         }
         catch (Exception ex)
         {
-            Logger.Warn(ex, "VisionCheck 启动或视觉设备连接失败。");
-            UpdateVisionConnectionUi();
+            Logger.Warn(ex, "启动阶段启动视觉组件失败。");
+        }
+    }
+
+    private void StartVisionAutoReconnect()
+    {
+        lock (_visionReconnectSync)
+        {
+            if (_visionAutoReconnectTask is { IsCompleted: false })
+            {
+                return;
+            }
+
+            Logger.Info("启动主窗口显示后的视觉自动连接/重连任务。");
+            _visionAutoReconnectTask = ConnectVisionAfterMainWindowShownAsync();
+        }
+    }
+
+    private async Task ConnectVisionAfterMainWindowShownAsync()
+    {
+        if (_isClosing || !_visionCheckProcessService.IsStarted)
+        {
+            Logger.Warn(
+                "主窗口显示后未执行视觉连接：程序关闭={0}，VisionCheck运行={1}。",
+                _isClosing,
+                _visionCheckProcessService.IsStarted);
+            return;
+        }
+
+        Logger.Info(
+            "主窗口已显示，开始视觉设备自动连接：{0}:{1}",
+            RAM.SettingModel.VisionDeviceIp,
+            RAM.SettingModel.VisionDevicePort);
+
+        try
+        {
+            int attempt = 0;
+            while (!_isClosing && !_visionAutoReconnectCancellation.IsCancellationRequested)
+            {
+                if (!_visionCheckProcessService.IsStarted)
+                {
+                    Logger.Warn("视觉自动重连停止：VisionCheck 进程已退出。");
+                    return;
+                }
+
+                attempt++;
+                Logger.Info("视觉设备自动连接尝试 {0}。", attempt);
+                bool connected = await _visionDeviceClient.ConnectAsync(
+                    RAM.SettingModel.VisionDeviceIp,
+                    RAM.SettingModel.VisionDevicePort,
+                    VisionConnectAttemptTimeout,
+                    _visionAutoReconnectCancellation.Token);
+                UpdateVisionConnectionUi();
+
+                if (connected)
+                {
+                    Logger.Info("视觉设备自动连接成功，尝试次数：{0}。", attempt);
+                    return;
+                }
+
+                Logger.Warn("视觉设备自动连接失败，将在 {0}ms 后重试。", VisionConnectRetryInterval.TotalMilliseconds);
+                await Task.Delay(VisionConnectRetryInterval, _visionAutoReconnectCancellation.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.Info("视觉设备自动连接/重连已取消。");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "视觉设备自动连接/重连异常。");
         }
     }
 
     internal void DisposeStartupResources()
     {
+        _visionAutoReconnectCancellation.Cancel();
         _visionCheckProcessService.Dispose();
         _ = _visionDeviceClient.DisposeAsync();
     }
@@ -1593,6 +1656,12 @@ public partial class MainWindow : Window
     private void VisionDeviceClient_ConnectionStateChanged()
     {
         Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
+    }
+
+    private void VisionDeviceClient_ConnectionClosed()
+    {
+        Logger.Warn("视觉设备连接已断开，启动自动重连。");
+        Dispatcher.BeginInvoke(StartVisionAutoReconnect);
     }
 
     private void Setting_PropertyChanged(object? sender, PropertyChangedEventArgs e)

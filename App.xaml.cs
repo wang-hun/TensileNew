@@ -105,8 +105,8 @@ public partial class App : Application
             MainWindow = mainWindow;
 
             // VisionCheck must be started and connected while the startup wait window is still visible.
-            await waitWindow.SetWaitTextAsync("正在启动视觉设备，请稍后...");
-            await mainWindow.InitializeVisionDuringStartupAsync();
+            await waitWindow.SetWaitTextAsync("正在连接视觉设备，请稍后...");
+            await mainWindow.StartVisionProcessDuringStartupAsync();
 
             waitWindow.Close();
             waitWindow = null;
