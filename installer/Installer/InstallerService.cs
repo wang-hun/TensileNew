@@ -13,7 +13,7 @@ internal static class InstallerService
 {
     private const string PayloadResourceName = "EcsInstaller.Payload.payload.zip";
     private const string AppExeName = "ECS.exe";
-    private const string CurveAnalysisExeName = "数据分析.exe";
+    private const string DacuExeName = "DACU.exe";
     private const string FallbackPackageDirectoryName = "ECS";
 
     public static bool IsTrialPackage => GetPayloadPackageDirectoryName()
@@ -74,10 +74,10 @@ internal static class InstallerService
             {
                 reportProgress("正在创建桌面快捷方式");
                 CreateShortcut(exePath);
-                string curveAnalysisPath = Path.Combine(installPath, CurveAnalysisExeName);
-                if (File.Exists(curveAnalysisPath))
+                string dacuPath = Path.Combine(installPath, DacuExeName);
+                if (File.Exists(dacuPath))
                 {
-                    CreateShortcut(curveAnalysisPath);
+                    CreateShortcut(dacuPath);
                 }
             }
 

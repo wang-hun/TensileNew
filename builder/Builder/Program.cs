@@ -12,7 +12,7 @@ internal static class Program
 {
     private const string ManualsSourceDirectory = @"E:\ECS说明书";
     private const string ManualsOutputDirectoryName = "manuals";
-    private const string CurveAnalysisExecutablePath = @"E:\CurveAnalysis\bin\Release\publish\数据分析.exe";
+    private const string DacuExecutablePath = @"E:\CurveAnalysis\bin\Release\publish\DACU.exe";
     private const string DefaultRuntimeIdentifier = "win-x64";
 
     private static int Main(string[] args)
@@ -104,7 +104,7 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         EnsureSingleFileLayout(packageDirectory, assemblyName);
         CopyManualsDirectory(packageDirectory);
-        CopyCurveAnalysisExecutable(packageDirectory);
+        CopyDacuExecutable(packageDirectory);
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
@@ -289,12 +289,12 @@ internal static class Program
         CopyDirectory(sourceDirectory, targetDirectory);
     }
 
-    private static void CopyCurveAnalysisExecutable(string packageDirectory)
+    private static void CopyDacuExecutable(string packageDirectory)
     {
-        string sourcePath = Path.GetFullPath(CurveAnalysisExecutablePath);
+        string sourcePath = Path.GetFullPath(DacuExecutablePath);
         if (!File.Exists(sourcePath))
         {
-            throw new FileNotFoundException("Curve analysis executable was not found.", sourcePath);
+            throw new FileNotFoundException("DACU executable was not found.", sourcePath);
         }
 
         string targetPath = Path.Combine(packageDirectory, Path.GetFileName(sourcePath));
