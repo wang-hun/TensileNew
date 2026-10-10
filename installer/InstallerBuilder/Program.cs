@@ -34,9 +34,18 @@ internal static class Program
     {
         string mainProjectPath = Path.Combine(repositoryRoot, "TensileNeW.csproj");
         string builderProjectPath = Path.Combine(repositoryRoot, "builder", "Builder", "Builder.csproj");
+        string builderDllPath = Path.Combine(
+            repositoryRoot,
+            "builder",
+            "Builder",
+            "bin",
+            "Debug",
+            "net8.0-windows10.0.19041.0",
+            "Builder.dll");
         string installerProjectPath = Path.Combine(repositoryRoot, "installer", "Installer", "Installer.csproj");
         EnsureFileExists(mainProjectPath);
         EnsureFileExists(builderProjectPath);
+        EnsureFileExists(builderDllPath);
         EnsureFileExists(installerProjectPath);
 
         string workingRoot = Path.Combine(Path.GetTempPath(), "EcsInstallerBuilder", Guid.NewGuid().ToString("N"));
@@ -49,8 +58,9 @@ internal static class Program
         {
             Directory.CreateDirectory(payloadRoot);
             Console.WriteLine("正在生成安装器内容物...");
-            RunDotnet(
-                $"run --project {Quote(builderProjectPath)} --no-launch-profile -- pack " +
+            RunProcess(
+                "dotnet",
+                $"exec {Quote(builderDllPath)} pack " +
                 $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(visionModuleEnabled ? "Y" : "N")}");
 
             EnsurePayloadFileExists(payloadRoot, DacuExecutableName);
@@ -59,8 +69,10 @@ internal static class Program
             DeleteDirectoryIfExists(publishDirectory);
             Directory.CreateDirectory(publishDirectory);
             Console.WriteLine("正在发布安装器...");
-            RunDotnet(
+            RunProcess(
+                "dotnet",
                 $"publish {Quote(installerProjectPath)} -c Release -r win-x64 --self-contained true " +
+                "--no-restore " +
                 "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
                 $"-p:InstallerPayloadZip={Quote(payloadZip)} " +
                 $"-p:Version={Quote(projectVersion.Version)} -p:AssemblyVersion={Quote(projectVersion.Version)} " +
@@ -194,11 +206,16 @@ internal static class Program
 
     private static void RunDotnet(string arguments)
     {
+        RunProcess("dotnet", arguments);
+    }
+
+    private static void RunProcess(string fileName, string arguments)
+    {
         using Process process = new()
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "dotnet",
+                FileName = fileName,
                 Arguments = arguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -255,11 +272,22 @@ internal static class Program
 
     private static void EnsurePayloadFileExists(string payloadRoot, string fileName)
     {
-        string filePath = Path.Combine(payloadRoot, fileName);
-        if (!File.Exists(filePath))
+        string[] matches = Directory
+            .EnumerateFiles(payloadRoot, fileName, SearchOption.AllDirectories)
+            .ToArray();
+        if (matches.Length == 0)
         {
-            throw new FileNotFoundException("The installer payload is missing the required file.", filePath);
+            throw new FileNotFoundException(
+                "The installer payload is missing the required file.",
+                Path.Combine(payloadRoot, fileName));
         }
+
+        if (matches.Length > 1)
+        {
+            throw new InvalidOperationException(
+                $"The installer payload contains multiple copies of the required file: {fileName}");
+        }
+
     }
 
     private static void DeleteDirectoryIfExists(string path)
