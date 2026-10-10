@@ -264,10 +264,28 @@ internal static class Program
 
     private static void DeleteDirectoryIfExists(string path)
     {
-        if (Directory.Exists(path))
+        if (!Directory.Exists(path))
         {
-            Directory.Delete(path, recursive: true);
+            return;
         }
+
+        ClearReadOnlyAttributes(path);
+        Directory.Delete(path, recursive: true);
+    }
+
+    private static void ClearReadOnlyAttributes(string path)
+    {
+        foreach (string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        foreach (string directory in Directory.EnumerateDirectories(path, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(directory, FileAttributes.Normal);
+        }
+
+        File.SetAttributes(path, FileAttributes.Normal);
     }
 
     private static void DeleteFileIfExists(string path)
