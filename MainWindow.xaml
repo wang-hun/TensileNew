@@ -364,7 +364,7 @@
                 <TextBlock Text="试验指导" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="CurveAnalysisButton" Grid.Column="4" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="CurveAnalysis_Click" ToolTip="打开数据分析" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="DacuButton" Grid.Column="4" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="Dacu_Click" ToolTip="打开 DACU" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconLucide Kind="ChartSpline" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="数据分析" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />

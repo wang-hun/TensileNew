@@ -30,7 +30,7 @@ public partial class MainWindow : Window
 {
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
-    private const string CurveAnalysisExecutableName = "数据分析.exe";
+    private const string DacuExecutableName = "DACU.exe";
     private const double AppHeaderHeight = 39;
     private const double HelpZoomStep = 0.1;
     private const double HelpMinZoom = 0.5;
@@ -108,7 +108,7 @@ public partial class MainWindow : Window
     private readonly LoadPlotController _loadPlotController;
     private readonly VisionDeviceClient _visionDeviceClient = new();
     private readonly VisionDetectionController _visionDetectionController;
-    private bool _curveAnalysisAvailable;
+    private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
     private int _logoClickCount;
@@ -163,7 +163,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        InitializeCurveAnalysisButton();
+        InitializeDacuButton();
         _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
         _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
         _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
@@ -1198,29 +1198,29 @@ public partial class MainWindow : Window
     private void Variables_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Variables";
     private void ColorSchemes_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "ColorSchemes";
 
-    private void InitializeCurveAnalysisButton()
+    private void InitializeDacuButton()
     {
-        _curveAnalysisAvailable = File.Exists(GetCurveAnalysisExecutablePath());
-        CurveAnalysisButton.Visibility = _curveAnalysisAvailable
+        _dacuAvailable = File.Exists(GetDacuExecutablePath());
+        DacuButton.Visibility = _dacuAvailable
             ? Visibility.Visible
             : Visibility.Collapsed;
-        System.Windows.Controls.Grid.SetColumn(ColorSchemesButton, _curveAnalysisAvailable ? 5 : 4);
-        System.Windows.Controls.Grid.SetColumn(VariablesButton, _curveAnalysisAvailable ? 6 : 5);
+        System.Windows.Controls.Grid.SetColumn(ColorSchemesButton, _dacuAvailable ? 5 : 4);
+        System.Windows.Controls.Grid.SetColumn(VariablesButton, _dacuAvailable ? 6 : 5);
     }
 
-    private static string GetCurveAnalysisExecutablePath() =>
-        Path.Combine(AppContext.BaseDirectory, CurveAnalysisExecutableName);
+    private static string GetDacuExecutablePath() =>
+        Path.Combine(AppContext.BaseDirectory, DacuExecutableName);
 
-    private void CurveAnalysis_Click(object sender, RoutedEventArgs e)
+    private void Dacu_Click(object sender, RoutedEventArgs e)
     {
-        if (!_curveAnalysisAvailable)
+        if (!_dacuAvailable)
         {
             return;
         }
 
         try
         {
-            string executablePath = GetCurveAnalysisExecutablePath();
+            string executablePath = GetDacuExecutablePath();
             Process.Start(new ProcessStartInfo
             {
                 FileName = executablePath,
@@ -1230,8 +1230,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.Warn(ex, "Failed to start curve analysis application.");
-            ShowError("数据分析程序启动失败");
+            Logger.Warn(ex, "Failed to start DACU application.");
+            ShowError("DACU 程序启动失败");
         }
     }
 
@@ -1292,7 +1292,8 @@ public partial class MainWindow : Window
     {
         for (int attempt = 0; attempt < NetworkConnectRetryCount; attempt++)
         {
-            if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+            TimeSpan remaining = NetworkProbeUiTimeout - probeStopwatch.Elapsed;
+            if (remaining <= TimeSpan.Zero)
             {
                 return false;
             }
@@ -1304,12 +1305,18 @@ public partial class MainWindow : Window
 
             if (attempt < NetworkConnectRetryCount - 1)
             {
-                await Task.Delay(NetworkConnectRetryInterval);
+                await Task.Delay(Min(NetworkConnectRetryInterval, remaining));
             }
         }
 
         return false;
     }
+
+    private static bool IsNetworkProbeTimedOut(Stopwatch probeStopwatch) =>
+        probeStopwatch.Elapsed >= NetworkProbeUiTimeout;
+
+    private static TimeSpan Min(TimeSpan left, TimeSpan right) =>
+        left <= right ? left : right;
 
     private void ShowConnectionErrorDialog()
     {
@@ -1348,7 +1355,7 @@ public partial class MainWindow : Window
                 NetworkProbeResult? lastFailure = null;
                 foreach (NetworkProbeCandidate candidate in candidates)
                 {
-                    if (probeStopwatch.Elapsed >= NetworkProbeUiTimeout)
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
                     {
                         warningMessage = "网络探测超时，请检查设备线路后重试。";
                         break;
@@ -1362,7 +1369,24 @@ public partial class MainWindow : Window
                         continue;
                     }
 
-                    await Task.Delay(NetworkAddressApplyDelay);
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                        await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                        break;
+                    }
+
+                    TimeSpan remainingDelay = NetworkProbeUiTimeout - probeStopwatch.Elapsed;
+                    if (remainingDelay <= TimeSpan.Zero)
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
+                        await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                        break;
+                    }
+
+                    await Task.Delay(Min(NetworkAddressApplyDelay, remainingDelay));
                     waitWindow.SetWaitText($"正在通过 {candidate.AdapterName} 连接设备...");
                     bool connected = await TryConnectWithRetriesAsync(probeStopwatch);
                     if (connected)
@@ -1383,6 +1407,11 @@ public partial class MainWindow : Window
 
                     waitWindow.SetWaitText($"正在清理 {candidate.AdapterName}，请稍后...");
                     await NetworkAdapterProbeService.RunElevatedRemoveAddressAsync(candidate);
+                    if (IsNetworkProbeTimedOut(probeStopwatch))
+                    {
+                        warningMessage = "网络探测超时，请检查设备线路后重试。";
+                        break;
+                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(successMessage) && string.IsNullOrWhiteSpace(warningMessage))

@@ -9,7 +9,7 @@ namespace InstallerBuilder;
 internal static class Program
 {
     private const string InstallerAssemblyName = "ECS-Installer";
-    private const string CurveAnalysisExecutableName = "数据分析.exe";
+    private const string DacuExecutableName = "DACU.exe";
 
     private static int Main()
     {
@@ -53,7 +53,7 @@ internal static class Program
                 $"run --project {Quote(builderProjectPath)} --no-launch-profile -- pack " +
                 $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(visionModuleEnabled ? "Y" : "N")}");
 
-            EnsurePayloadFileExists(payloadRoot, CurveAnalysisExecutableName);
+            EnsurePayloadFileExists(payloadRoot, DacuExecutableName);
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
 
             DeleteDirectoryIfExists(publishDirectory);
