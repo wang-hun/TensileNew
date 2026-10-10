@@ -297,7 +297,7 @@ public partial class MainWindow : Window
 
         if (!_connectedAtStartup)
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 ShowError("连接失败，请检查线路！");
                 ShowConnectionErrorDialog();
@@ -306,7 +306,7 @@ public partial class MainWindow : Window
 
         if (HasMissingManualOffice)
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 ShowWarning(ManualDocumentService.MissingOfficeMessage);
                 Dialog.Show(new ManualDocumentUnavailableDialog());
@@ -315,10 +315,10 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(_cameraStartupResult.FailureMessage))
         {
-            Dispatcher.BeginInvoke(() => ShowCameraConnectionError(_cameraStartupResult.FailureMessage));
+            _ = Dispatcher.BeginInvoke(() => ShowCameraConnectionError(_cameraStartupResult.FailureMessage));
         }
 
-        Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
+        _ = Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
     }
 
     private void LoadHelpDocument()

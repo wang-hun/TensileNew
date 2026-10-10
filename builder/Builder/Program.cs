@@ -96,7 +96,7 @@ internal static class Program
         Console.WriteLine($"Publishing {projectPath}");
         RunProcess(
             "dotnet",
-            $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
+            $"publish --nologo --no-restore {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
             "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
             $"-p:DebugType=None -p:DebugSymbols=false -o {Quote(packageDirectory)}");
 
