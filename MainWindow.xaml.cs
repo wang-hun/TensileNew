@@ -286,16 +286,18 @@ public partial class MainWindow : Window
         };
         DataAqc.ChartCleared += () => Dispatcher.Invoke(ResetPlot);
         _viewModel.LoadItems.ListChanged += LoadItems_ListChanged;
-        if (_connectedAtStartup)
-        {
-            // 连接成功后先把当前选中配方写入并校验，再启动采集，避免启动采集读请求与配方写入交错。
-            await WriteStartupRecipeAsync();
-        }
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
         LoadHelpDocument();
 
-        if (!_connectedAtStartup)
+        // 启动连接可能在超时边界之后才完成，不能使用 App 启动阶段的瞬时返回值决定失败提示。
+        // 先启动正常采集链路，再在主窗口已显示的生命周期内确认当前连接并写入配方。
+        bool connected = await WaitForPlcConnectionAsync();
+        if (connected)
+        {
+            await WriteStartupRecipeAsync();
+        }
+        else
         {
             _ = Dispatcher.BeginInvoke(() =>
             {
@@ -357,6 +359,29 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(() => ShowError("连接断开，请检查连接线路。"));
         }
+    }
+
+    private static async Task<bool> WaitForPlcConnectionAsync()
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (IsPlcConnected())
+            {
+                return true;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+
+        return IsPlcConnected();
+    }
+
+    private static bool IsPlcConnected()
+    {
+        return DataAqc.plc?.Client is { Connected: true }
+            && bool.TryParse(DataAqc.plc.ConnectState, out bool connected)
+            && connected;
     }
 
     private async Task WriteStartupRecipeAsync()
