@@ -49,8 +49,27 @@ public partial class TwoStageSpeedDialog : Window
     }
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(RecipeNameBox.Text) || !TryRead(_first, out var first) || !TryRead(_second, out var second)) { MessageBox.Show("请输入有效的配方名称和参数。", "二段速"); return; }
-        Result = new RecipeModel { RecipeName = RecipeNameBox.Text.Trim(), IsTwoStageSpeed = true, FirstStageParameters = first, SecondStageParameters = second, StrokeStampingForce = first.StrokeStampingForce, ClosedLoopStampingForce = first.ClosedLoopStampingForce, ShutdownDelay = first.ShutdownDelay, ShutdownRatio = first.ShutdownRatio, Speed = first.Speed, TensileDistanceLimit = first.TensileDistanceLimit };
+        if (string.IsNullOrWhiteSpace(RecipeNameBox.Text) || !TryRead(_first, out var first) || !TryRead(_second, out var second))
+        {
+            ErrorTextBlock.Text = "请输入有效的配方名称和参数。";
+            ErrorTextBlock.Visibility = Visibility.Visible;
+            return;
+        }
+
+        ErrorTextBlock.Visibility = Visibility.Collapsed;
+        Result = new RecipeModel
+        {
+            RecipeName = RecipeNameBox.Text.Trim(),
+            IsTwoStageSpeed = true,
+            FirstStageParameters = first,
+            SecondStageParameters = second,
+            StrokeStampingForce = first.StrokeStampingForce,
+            ClosedLoopStampingForce = first.ClosedLoopStampingForce,
+            ShutdownDelay = first.ShutdownDelay,
+            ShutdownRatio = first.ShutdownRatio,
+            Speed = first.Speed,
+            TensileDistanceLimit = first.TensileDistanceLimit
+        };
         DialogResult = true;
     }
     private void Cancel_Click(object sender, RoutedEventArgs e) { DialogResult = false; }

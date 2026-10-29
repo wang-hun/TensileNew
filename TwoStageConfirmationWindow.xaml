@@ -1,0 +1,69 @@
+<Window x:Class="TensileNeW.TwoStageConfirmationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="二段速试验"
+        Width="480"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ShowInTaskbar="False"
+        Background="{DynamicResource AppSurfaceBackgroundBrush}"
+        FontFamily="Microsoft YaHei">
+    <Border Background="{DynamicResource AppSurfaceBackgroundBrush}"
+            BorderBrush="{DynamicResource AppLayoutBorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid Background="{DynamicResource AppSidebarBackgroundBrush}"
+                  MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <TextBlock Text="二段速试验"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+                <Button Width="36"
+                        Height="36"
+                        Padding="0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,4,0"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
+                        Content="×"
+                        FontSize="22"
+                        Click="Close_Click" />
+            </Grid>
+            <TextBlock x:Name="PromptTextBlock"
+                       Grid.Row="1"
+                       Text="拉伸流程已停止，是否开始二段速试验？"
+                       FontSize="17"
+                       FontWeight="Bold"
+                       TextWrapping="Wrap"
+                       Margin="24,22,24,0"
+                       Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="24,24,24,24">
+                <Button Style="{StaticResource ButtonPrimary}"
+                        Content="是"
+                        Width="88"
+                        Height="34"
+                        Margin="0,0,8,0"
+                        Click="Yes_Click" />
+                <Button Style="{StaticResource ButtonDanger}"
+                        Content="否"
+                        Width="88"
+                        Height="34"
+                        Click="No_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

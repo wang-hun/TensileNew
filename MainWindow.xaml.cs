@@ -28,6 +28,14 @@ namespace TensileNeW;
 
 public partial class MainWindow : Window
 {
+    private enum TwoStageTrialState
+    {
+        None,
+        WaitingForSecondStageConfirmation,
+        SwitchingToSecondStage,
+        SecondStageActive,
+        SwitchingToFirstStage
+    }
     private const string GrowlToken = "MainGrowl";
     private const int SettingsUnlockClickCount = 6;
     private const string DacuExecutableName = "DACU.exe";
@@ -107,8 +115,10 @@ public partial class MainWindow : Window
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
     private readonly NewVisionProcessingService _newVisionProcessingService;
-    private bool _twoStageSecondStageActive;
-    private bool _twoStagePromptOpen;
+    private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
+    private TwoStageTrialState _twoStageState;
+    private bool? _twoStagePreviousAutoReset;
+    private bool _twoStageAutomaticResetPending;
     private bool _newVisionUiInitialized;
     private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
@@ -1646,8 +1656,14 @@ public partial class MainWindow : Window
         await _viewModel.PulseAsync("拉伸释放");
         if (ReleaseTensileResetCheckBox.IsChecked == true)
         {
-            await _viewModel.PulseAsync("数据重置");
-            DataAqc.RequestDataResetClear();
+            if (ShouldDeferTwoStageAutomaticReset)
+            {
+                _twoStageAutomaticResetPending = true;
+            }
+            else
+            {
+                await PerformDataResetAsync();
+            }
         }
     }
     private async void Stop_Click(object sender, RoutedEventArgs e)
@@ -1656,10 +1672,19 @@ public partial class MainWindow : Window
     }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
-        if (_twoStageSecondStageActive)
+        await PerformDataResetAsync();
+    }
+
+    private async Task PerformDataResetAsync()
+    {
+        if (_twoStageState != TwoStageTrialState.None)
         {
-            await SwitchToFirstStageAsync();
+            if (!await SwitchToFirstStageAsync())
+            {
+                return;
+            }
         }
+
         await _viewModel.PulseAsync("数据重置");
         DataAqc.RequestDataResetClear();
     }
@@ -1692,7 +1717,7 @@ public partial class MainWindow : Window
         RecipeModel? source = _viewModel.SelectedRecipe;
         if (!_newVisionProcessingService.IsEnabled || source == null)
         {
-            ShowWarning("Please enable new vision processing first.");
+            ShowWarning("请先打开新视觉处理。");
             return;
         }
 
@@ -1704,63 +1729,128 @@ public partial class MainWindow : Window
 
         if (!_viewModel.AddRecipe(dialog.Result.RecipeName, dialog.Result))
         {
-            ShowWarning("Recipe name already exists.");
+            ShowWarning("配方名称已存在。");
             return;
         }
 
-        ShowSuccess("Two-stage recipe saved.");
+        ShowSuccess("二段速配方已保存。");
     }
 
     private async Task SwitchToSecondStageAsync()
     {
-        RecipeModel? recipe = _viewModel.SelectedRecipe;
-        if (recipe is not { IsTwoStageSpeed: true } || recipe.SecondStageParameters == null)
+        if (_twoStageState != TwoStageTrialState.WaitingForSecondStageConfirmation)
         {
             return;
         }
 
-        _twoStageSecondStageActive = true;
-        ReleaseTensileResetCheckBox.IsChecked = false;
-        if (!await _viewModel.WriteRecipeAsync(recipe.SecondStageParameters))
+        await _twoStageTransitionLock.WaitAsync();
+        try
         {
-            _twoStageSecondStageActive = false;
-            ReleaseTensileResetCheckBox.IsChecked = true;
-            ShowError("Failed to write second-stage recipe.");
-            return;
-        }
+            RecipeModel? recipe = _viewModel.SelectedRecipe;
+            if (recipe is not { IsTwoStageSpeed: true } || recipe.SecondStageParameters == null)
+            {
+                _twoStageState = TwoStageTrialState.None;
+                return;
+            }
 
-        await _viewModel.PulseAsync("\u538b\u8fb9");
-        await _viewModel.PulseAsync("\u62c9\u4f38");
+            _twoStageState = TwoStageTrialState.SwitchingToSecondStage;
+            _twoStagePreviousAutoReset = ReleaseTensileResetCheckBox.IsChecked;
+            ReleaseTensileResetCheckBox.IsChecked = false;
+
+            if (!await _viewModel.WriteRecipeAsync(recipe.SecondStageParameters))
+            {
+                _twoStageState = TwoStageTrialState.None;
+                RestoreTwoStageAutoResetSetting();
+                ShowError("二段速配方写入失败。");
+                return;
+            }
+
+            await _viewModel.PulseAsync("压边");
+            await _viewModel.PulseAsync("拉伸");
+            _twoStageState = TwoStageTrialState.SecondStageActive;
+            RestoreTwoStageAutoResetSetting();
+        }
+        finally
+        {
+            _twoStageTransitionLock.Release();
+        }
     }
 
-    private async Task SwitchToFirstStageAsync()
+    private async Task<bool> SwitchToFirstStageAsync()
     {
-        RecipeModel? recipe = _viewModel.SelectedRecipe;
-        if (recipe is { IsTwoStageSpeed: true } && recipe.FirstStageParameters != null)
+        await _twoStageTransitionLock.WaitAsync();
+        try
         {
-            await _viewModel.WriteRecipeAsync(recipe.FirstStageParameters);
-        }
+            if (_twoStageState == TwoStageTrialState.None)
+            {
+                return true;
+            }
 
-        _twoStageSecondStageActive = false;
-        ReleaseTensileResetCheckBox.IsChecked = true;
+            RecipeModel? recipe = _viewModel.SelectedRecipe;
+            _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
+            if (recipe is { IsTwoStageSpeed: true } && recipe.FirstStageParameters != null &&
+                !await _viewModel.WriteRecipeAsync(recipe.FirstStageParameters))
+            {
+                ShowError("一段速配方写回失败，未执行数据重置。");
+                return false;
+            }
+
+            _twoStageState = TwoStageTrialState.None;
+            RestoreTwoStageAutoResetSetting();
+            return true;
+        }
+        finally
+        {
+            _twoStageTransitionLock.Release();
+        }
     }
 
-    private void ShowTwoStagePrompt()
+    private async void ShowTwoStagePrompt()
     {
-        if (_twoStagePromptOpen || _twoStageSecondStageActive || !_newVisionProcessingService.IsEnabled || _viewModel.SelectedRecipe is not { IsTwoStageSpeed: true })
+        if (_twoStageState != TwoStageTrialState.WaitingForSecondStageConfirmation)
         {
             return;
         }
 
-        _twoStagePromptOpen = true;
-        MessageBoxResult result = System.Windows.MessageBox.Show(this, "Start second stage?", "Two-stage speed", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        _twoStagePromptOpen = false;
-        if (result == MessageBoxResult.Yes)
+        if (!_newVisionProcessingService.IsEnabled || _viewModel.SelectedRecipe is not { IsTwoStageSpeed: true })
         {
+            _twoStageState = TwoStageTrialState.None;
+            _twoStageAutomaticResetPending = false;
+            RestoreTwoStageAutoResetSetting();
+            return;
+        }
+
+        var dialog = new TwoStageConfirmationWindow { Owner = this };
+        dialog.ConfigurePrompt("二段速试验", "拉伸流程已停止，是否开始二段速试验？");
+        bool? result = dialog.ShowDialog();
+        if (result == true)
+        {
+            _twoStageAutomaticResetPending = false;
             _ = SwitchToSecondStageAsync();
+            return;
         }
+
+        bool resetAfterDecline = _twoStageAutomaticResetPending;
+        _twoStageAutomaticResetPending = false;
+        _twoStageState = TwoStageTrialState.None;
+        RestoreTwoStageAutoResetSetting();
+        if (resetAfterDecline)
+        {
+            await PerformDataResetAsync();
+            return;
+        }
+
+        ScheduleAutomaticSave();
     }
 
+    private void RestoreTwoStageAutoResetSetting()
+    {
+        if (_twoStagePreviousAutoReset.HasValue)
+        {
+            ReleaseTensileResetCheckBox.IsChecked = _twoStagePreviousAutoReset.Value;
+            _twoStagePreviousAutoReset = null;
+        }
+    }
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
     {
         if (!_viewModel.IsSelectedRecipeEditable)
@@ -2098,8 +2188,13 @@ public partial class MainWindow : Window
         await SaveDataAndReportAsync(allowDatabaseFallback: false);
     }
 
-    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback)
+    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback, bool automatic = false)
     {
+        if (automatic && IsTwoStageTransitioning)
+        {
+            return;
+        }
+
         if (!EnsureTrialDataSaveAvailable())
         {
             return;
@@ -2225,37 +2320,61 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnDataCollectionEnded()
+    private async void OnDataCollectionEnded()
     {
-        if (!_twoStageSecondStageActive && _newVisionProcessingService.IsEnabled && _viewModel.SelectedRecipe is { IsTwoStageSpeed: true })
+        if (_isClosing)
         {
-            _ = Dispatcher.BeginInvoke(ShowTwoStagePrompt);
+            return;
         }
-        // The existing consumer has already queued its UI updates before this state transition.
-        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
+
+        if (_twoStageState == TwoStageTrialState.None &&
+            _newVisionProcessingService.IsEnabled &&
+            _viewModel.SelectedRecipe is { IsTwoStageSpeed: true })
         {
+            _twoStageState = TwoStageTrialState.WaitingForSecondStageConfirmation;
             await DelayOneSecondWithHighResolutionTimerAsync();
+            if (_twoStageState == TwoStageTrialState.WaitingForSecondStageConfirmation)
+            {
+                ShowTwoStagePrompt();
+            }
+            return;
+        }
 
-            if (_isClosing || _twoStageSecondStageActive || DataAqc.loadModels.Count == 0)
-            {
-                return;
-            }
+        await DelayOneSecondWithHighResolutionTimerAsync();
+        ScheduleAutomaticSave();
+    }
 
-            string policy = _viewModel.Setting.AutoSavePolicy;
-            if (policy == SettingModel.AutoSaveAlwaysYes)
-            {
-                _ = SaveDataAndReportAsync(allowDatabaseFallback: true);
-            }
-            else if (policy == SettingModel.AutoSaveAskEveryTime)
-            {
-                ShowAutomaticSavePrompt();
-            }
-        }));
+    private bool ShouldDeferTwoStageAutomaticReset =>
+        _newVisionProcessingService.IsEnabled &&
+        _viewModel.SelectedRecipe is { IsTwoStageSpeed: true } &&
+        _twoStageState != TwoStageTrialState.SecondStageActive;
+
+    private bool IsTwoStageTransitioning =>
+        _twoStageState is TwoStageTrialState.WaitingForSecondStageConfirmation
+            or TwoStageTrialState.SwitchingToSecondStage
+            or TwoStageTrialState.SwitchingToFirstStage;
+
+    private void ScheduleAutomaticSave()
+    {
+        if (_isClosing || IsTwoStageTransitioning || DataAqc.loadModels.Count == 0)
+        {
+            return;
+        }
+
+        string policy = _viewModel.Setting.AutoSavePolicy;
+        if (policy == SettingModel.AutoSaveAlwaysYes)
+        {
+            _ = SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
+        }
+        else if (policy == SettingModel.AutoSaveAskEveryTime)
+        {
+            ShowAutomaticSavePrompt();
+        }
     }
 
     private void ShowAutomaticSavePrompt()
     {
-        if (_autoSavePromptOpen)
+        if (_autoSavePromptOpen || IsTwoStageTransitioning)
         {
             return;
         }
@@ -2281,7 +2400,7 @@ public partial class MainWindow : Window
 
             if (dialog.ShouldSave)
             {
-                _ = Dispatcher.InvokeAsync(() => _ = SaveDataAndReportAsync(allowDatabaseFallback: true));
+                _ = Dispatcher.InvokeAsync(() => _ = SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true));
             }
         };
         dialog.ShowDialog();
