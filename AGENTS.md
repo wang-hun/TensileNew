@@ -187,7 +187,7 @@ Spend time on thinking; you do not need to use the commentary channel to report 
 
 发布包必须是严格绿色版：拷贝到一台没有 .NET 或其他额外运行时环境的 Windows 电脑后，解压即可运行，不允许弹出安装 .NET 8 或其他运行时的系统提示。
 
-`builder/` 打包主项目时必须使用 `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` 生成单文件自包含包，不能退回框架依赖发布，也不能改回多文件 `lib/` 收纳布局。即使 `Builder.exe` 自身用 Debug 运行，生成的目标程序也必须是 Release。
+`builder/` 打包主项目时必须使用 `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` 生成单文件自包含包，不能退回框架依赖发布，也不能改回多文件 `lib/` 收纳布局。即使 `Builder.exe` 自身用 Debug 运行，生成的目标程序也必须是 Release。 发布命令必须允许针对 `win-x64` 执行还原，不能使用会复用无 RID 资产文件的 `--no-restore`；否则在已有 `obj/project.assets.json` 不含 `net8.0-windows10.0.19041.0/win-x64` 时会导致打包失败。 主项目必须声明 `RuntimeIdentifiers` 包含 `win-x64`，并在打包前让还原生成对应 RID 资产。
 
 单文件发布会把全部托管程序集、.NET 运行时和原生库（SkiaSharp、e_sqlite3、glfw3 等）打进唯一的 `{AssemblyName}.exe`，因此发布目录根部不再有散落的业务或第三方 DLL，也不再有 `lib/`、`runtimes/`、`ECS.dll`、`ECS.deps.json`、`ECS.runtimeconfig.json`。builder 必须断言根部 `*.dll` 数量为 0，否则视为单文件发布回退失败并报错，不能输出残留多文件包。
 
