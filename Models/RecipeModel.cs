@@ -9,6 +9,36 @@ using System.Threading.Tasks;
 
 namespace TensileNeW.Models
 {
+    public sealed class RecipeStageParameters
+    {
+        public float StrokeStampingForce { get; set; }
+        public float ClosedLoopStampingForce { get; set; }
+        public ushort ShutdownDelay { get; set; }
+        public float ShutdownRatio { get; set; }
+        public float Speed { get; set; }
+        public float TensileDistanceLimit { get; set; }
+
+        public static RecipeStageParameters FromRecipe(RecipeModel recipe) => new()
+        {
+            StrokeStampingForce = recipe.StrokeStampingForce,
+            ClosedLoopStampingForce = recipe.ClosedLoopStampingForce,
+            ShutdownDelay = recipe.ShutdownDelay,
+            ShutdownRatio = recipe.ShutdownRatio,
+            Speed = recipe.Speed,
+            TensileDistanceLimit = recipe.TensileDistanceLimit
+        };
+
+        public RecipeStageParameters Clone() => new()
+        {
+            StrokeStampingForce = StrokeStampingForce,
+            ClosedLoopStampingForce = ClosedLoopStampingForce,
+            ShutdownDelay = ShutdownDelay,
+            ShutdownRatio = ShutdownRatio,
+            Speed = Speed,
+            TensileDistanceLimit = TensileDistanceLimit
+        };
+    }
+
     /// <summary>
     /// 配方
     /// </summary>
@@ -67,15 +97,30 @@ namespace TensileNeW.Models
                 ShutdownDelay = ShutdownDelay,
                 ShutdownRatio = ShutdownRatio,
                 Speed = Speed,
-                TensileDistanceLimit = TensileDistanceLimit
+                TensileDistanceLimit = TensileDistanceLimit,
+                IsTwoStageSpeed = IsTwoStageSpeed,
+                FirstStageParameters = FirstStageParameters?.Clone(),
+                SecondStageParameters = SecondStageParameters?.Clone()
             };
         }
+
+        public RecipeStageParameters GetFirstStageParameters() =>
+            FirstStageParameters?.Clone() ?? RecipeStageParameters.FromRecipe(this);
+
+        public RecipeStageParameters GetSecondStageParameters() =>
+            SecondStageParameters?.Clone() ?? RecipeStageParameters.FromRecipe(this);
 
         /// <summary>
         /// 内置默认配方只参与运行时列表展示，不写入用户 Setting.json。
         /// </summary>
         [JsonIgnore]
         public bool IsBuiltInRecipe { get; set; }
+
+        public bool IsTwoStageSpeed { get; set; }
+
+        public RecipeStageParameters? FirstStageParameters { get; set; }
+
+        public RecipeStageParameters? SecondStageParameters { get; set; }
 
         /// <summary>
         ///   冲程压边力设定
@@ -155,4 +200,3 @@ namespace TensileNeW.Models
 
     }
 }
-

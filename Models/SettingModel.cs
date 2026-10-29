@@ -89,6 +89,15 @@ namespace TensileNeW.Models
             set => SetProperty(ref _CameraDeviceName, value);
         }
 
+        public bool NewVisionProcessingIncluded { get; set; }
+
+        private bool _NewVisionProcessingEnabled;
+        public bool NewVisionProcessingEnabled
+        {
+            get => _NewVisionProcessingEnabled;
+            set => SetProperty(ref _NewVisionProcessingEnabled, value);
+        }
+
         /// <summary>
         /// Controls whether the optional vision module UI and behavior are enabled.
         /// The module remains part of the application when this is false.
@@ -181,4 +190,3 @@ namespace TensileNeW.Models
 
 
 }
-

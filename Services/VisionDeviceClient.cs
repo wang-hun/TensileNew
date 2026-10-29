@@ -6,6 +6,7 @@ using System.Threading;
 
 namespace TensileNeW.Services;
 
+[Obsolete("The legacy vision device integration is retired and is not part of the product UI.")]
 public sealed class VisionDeviceClient : IAsyncDisposable
 {
     private readonly Channel<VisionDeviceMessage> _messageQueue = Channel.CreateUnbounded<VisionDeviceMessage>(new UnboundedChannelOptions

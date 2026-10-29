@@ -1,4 +1,4 @@
-﻿using HandyControl.Data;
+using HandyControl.Data;
 using Microsoft.Win32;
 using Haukcode.HighResolutionTimer;
 using NLog;
@@ -106,8 +106,10 @@ public partial class MainWindow : Window
     private bool _autoSavePromptOpen;
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
-    private readonly VisionDeviceClient _visionDeviceClient = new();
-    private readonly VisionDetectionController _visionDetectionController;
+    private readonly NewVisionProcessingService _newVisionProcessingService;
+    private bool _twoStageSecondStageActive;
+    private bool _twoStagePromptOpen;
+    private bool _newVisionUiInitialized;
     private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -160,18 +162,18 @@ public partial class MainWindow : Window
         _cameraCaptureService = _cameraStartupResult.CaptureService;
         _viewModel = new MainViewModel(_cameraStartupResult.Devices);
         _autoTrackLatestPoint = _viewModel.Setting.AutoTrackLatestPoint;
+        _newVisionProcessingService = new NewVisionProcessingService();
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
         InitializeDacuButton();
-        _visionDetectionController = new VisionDetectionController(_visionDeviceClient, () => _viewModel.PulseAsync("停止"));
-        _visionDeviceClient.ConnectionStateChanged += VisionDeviceClient_ConnectionStateChanged;
-        _viewModel.Setting.PropertyChanged += Setting_PropertyChanged;
-        VisionSettingsButton.Visibility = _viewModel.Setting.VisionModuleEnabled ? Visibility.Visible : Visibility.Collapsed;
+        bool newVisionIncluded = NewVisionProcessingService.IsIncludedByPackage;
+        NewVisionProcessingPanel.Visibility = newVisionIncluded ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNewVisionUi();
+        _newVisionUiInitialized = true;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
-        DataAqc.DataCollectionStarted += OnDataCollectionStarted;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
@@ -194,7 +196,6 @@ public partial class MainWindow : Window
         HelpSearchModeComboBox.ItemsSource = HelpSearchModes;
         HelpSearchModeComboBox.SelectedIndex = 1;
         UpdateHelpZoomText();
-        UpdateVisionConnectionUi();
         InitializeCameraPreview();
     }
 
@@ -720,13 +721,9 @@ public partial class MainWindow : Window
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
-        _visionDeviceClient.ConnectionStateChanged -= VisionDeviceClient_ConnectionStateChanged;
-        _viewModel.Setting.PropertyChanged -= Setting_PropertyChanged;
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
-        DataAqc.DataCollectionStarted -= OnDataCollectionStarted;
-        _ = _visionDetectionController.DisposeAsync();
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -1584,88 +1581,7 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(new Action(async () => await RunDebugAlgorithmDataImportAsync()));
         };
-        dialog.VisionModuleEnableRequested += (_, _) => SetVisionModuleEnabled(true);
-        dialog.VisionModuleDisableRequested += (_, _) => SetVisionModuleEnabled(false);
         dialog.ShowDialog();
-    }
-
-    private void SetVisionModuleEnabled(bool enabled)
-    {
-        RAM.SettingModel.VisionModuleEnabled = enabled;
-        RAM.SaveSettingModel();
-        VisionSettingsButton.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
-        UpdateVisionConnectionUi();
-        ShowInfo(enabled ? "视觉检测模块已启用" : "视觉检测模块已关闭");
-    }
-
-    private void VisionDeviceClient_ConnectionStateChanged()
-    {
-        Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
-    }
-
-    private void Setting_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(SettingModel.UseVisionDetection) or nameof(SettingModel.VisionModuleEnabled))
-        {
-            Dispatcher.BeginInvoke(UpdateVisionConnectionUi);
-        }
-    }
-
-    private void UpdateVisionConnectionUi()
-    {
-        bool enabled = RAM.SettingModel.UseVisionDetection;
-        bool connected = _visionDeviceClient.IsConnected;
-        VisionConnectionGroup.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
-        VisionConnectionIndicator.Background = connected
-            ? new SolidColorBrush(Color.FromRgb(47, 179, 68))
-            : new SolidColorBrush(Color.FromRgb(224, 49, 49));
-        VisionConnectionIndicator.ToolTip = connected ? "Vision device connected" : "Vision device disconnected";
-        VisionConnectionButtonText.Text = connected ? "断开" : "连接";
-        VisionConnectionButton.ToolTip = connected ? "Disconnect vision device" : "Connect vision device";
-    }
-
-    private async void VisionConnectionToggle_Click(object sender, RoutedEventArgs e)
-    {
-        if (!RAM.SettingModel.UseVisionDetection)
-        {
-            return;
-        }
-
-        VisionConnectionButton.IsEnabled = false;
-        try
-        {
-            if (_visionDeviceClient.IsConnected)
-            {
-                await _visionDeviceClient.DisconnectAsync();
-                ShowInfo("视觉设备已断开");
-            }
-            else
-            {
-                bool connected = await _visionDeviceClient.ConnectAsync(
-                    RAM.SettingModel.VisionDeviceIp,
-                    RAM.SettingModel.VisionDevicePort,
-                    TimeSpan.FromSeconds(5));
-                ShowSuccess(connected ? "视觉设备已连接" : "视觉设备连接失败");
-            }
-        }
-        finally
-        {
-            UpdateVisionConnectionUi();
-            VisionConnectionButton.IsEnabled = true;
-        }
-    }
-
-    private void VisionSettings_Click(object sender, RoutedEventArgs e)
-    {
-        if (RAM.SettingModel.VisionModuleEnabled)
-        {
-            var visionWindow = new VisionDetectionSettingsWindow(_visionDeviceClient)
-            {
-                Owner = this,
-                DataContext = RAM.SettingModel
-            };
-            visionWindow.ShowDialog();
-        }
     }
 
     private async Task RunDebugAlgorithmDataImportAsync()
@@ -1724,7 +1640,6 @@ public partial class MainWindow : Window
     private async void StartTensile_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("拉伸");
-        await _visionDetectionController.OnTensileRequestedAsync();
     }
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
     {
@@ -1738,14 +1653,114 @@ public partial class MainWindow : Window
     private async void Stop_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("停止");
-        await _visionDetectionController.OnStopRequestedAsync();
     }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
+        if (_twoStageSecondStageActive)
+        {
+            await SwitchToFirstStageAsync();
+        }
         await _viewModel.PulseAsync("数据重置");
         DataAqc.RequestDataResetClear();
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
+    private void NewVisionProcessingSwitch_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_newVisionUiInitialized || _newVisionProcessingService == null || NewVisionProcessingCheckBox == null)
+        {
+            return;
+        }
+
+        _newVisionProcessingService.SetEnabled(NewVisionProcessingCheckBox.IsChecked == true);
+        UpdateNewVisionUi();
+        _viewModel.SaveSettings();
+    }
+
+    private void UpdateNewVisionUi()
+    {
+        if (TwoStageSpeedButton == null || _newVisionProcessingService == null)
+        {
+            return;
+        }
+
+        TwoStageSpeedButton.Visibility = _newVisionProcessingService.IsEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+    private void TwoStageSpeed_Click(object sender, RoutedEventArgs e)
+    {
+        RecipeModel? source = _viewModel.SelectedRecipe;
+        if (!_newVisionProcessingService.IsEnabled || source == null)
+        {
+            ShowWarning("Please enable new vision processing first.");
+            return;
+        }
+
+        var dialog = new TwoStageSpeedDialog(source) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.Result == null)
+        {
+            return;
+        }
+
+        if (!_viewModel.AddRecipe(dialog.Result.RecipeName, dialog.Result))
+        {
+            ShowWarning("Recipe name already exists.");
+            return;
+        }
+
+        ShowSuccess("Two-stage recipe saved.");
+    }
+
+    private async Task SwitchToSecondStageAsync()
+    {
+        RecipeModel? recipe = _viewModel.SelectedRecipe;
+        if (recipe is not { IsTwoStageSpeed: true } || recipe.SecondStageParameters == null)
+        {
+            return;
+        }
+
+        _twoStageSecondStageActive = true;
+        ReleaseTensileResetCheckBox.IsChecked = false;
+        if (!await _viewModel.WriteRecipeAsync(recipe.SecondStageParameters))
+        {
+            _twoStageSecondStageActive = false;
+            ReleaseTensileResetCheckBox.IsChecked = true;
+            ShowError("Failed to write second-stage recipe.");
+            return;
+        }
+
+        await _viewModel.PulseAsync("\u538b\u8fb9");
+        await _viewModel.PulseAsync("\u62c9\u4f38");
+    }
+
+    private async Task SwitchToFirstStageAsync()
+    {
+        RecipeModel? recipe = _viewModel.SelectedRecipe;
+        if (recipe is { IsTwoStageSpeed: true } && recipe.FirstStageParameters != null)
+        {
+            await _viewModel.WriteRecipeAsync(recipe.FirstStageParameters);
+        }
+
+        _twoStageSecondStageActive = false;
+        ReleaseTensileResetCheckBox.IsChecked = true;
+    }
+
+    private void ShowTwoStagePrompt()
+    {
+        if (_twoStagePromptOpen || _twoStageSecondStageActive || !_newVisionProcessingService.IsEnabled || _viewModel.SelectedRecipe is not { IsTwoStageSpeed: true })
+        {
+            return;
+        }
+
+        _twoStagePromptOpen = true;
+        MessageBoxResult result = System.Windows.MessageBox.Show(this, "Start second stage?", "Two-stage speed", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        _twoStagePromptOpen = false;
+        if (result == MessageBoxResult.Yes)
+        {
+            _ = SwitchToSecondStageAsync();
+        }
+    }
+
     private async void WriteRecipe_Click(object sender, RoutedEventArgs e)
     {
         if (!_viewModel.IsSelectedRecipeEditable)
@@ -2188,7 +2203,6 @@ public partial class MainWindow : Window
             ShowSuccess("数据和试验报告保存成功");
             saved = true;
             _viewModel.AdvanceTrialSerialNumber();
-            await _visionDetectionController.OnSaveCompletedAsync();
         }
         catch (Exception ex)
         {
@@ -2213,13 +2227,16 @@ public partial class MainWindow : Window
 
     private void OnDataCollectionEnded()
     {
-        _ = _visionDetectionController.OnDataCollectionEndedAsync();
+        if (!_twoStageSecondStageActive && _newVisionProcessingService.IsEnabled && _viewModel.SelectedRecipe is { IsTwoStageSpeed: true })
+        {
+            _ = Dispatcher.BeginInvoke(ShowTwoStagePrompt);
+        }
         // The existing consumer has already queued its UI updates before this state transition.
         _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
         {
             await DelayOneSecondWithHighResolutionTimerAsync();
 
-            if (_isClosing || DataAqc.loadModels.Count == 0)
+            if (_isClosing || _twoStageSecondStageActive || DataAqc.loadModels.Count == 0)
             {
                 return;
             }
@@ -2234,11 +2251,6 @@ public partial class MainWindow : Window
                 ShowAutomaticSavePrompt();
             }
         }));
-    }
-
-    private void OnDataCollectionStarted()
-    {
-        _ = _visionDetectionController.OnDataCollectionStartedAsync();
     }
 
     private void ShowAutomaticSavePrompt()

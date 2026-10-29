@@ -163,6 +163,7 @@ internal static class Program
         }
 
         settings["VisionModuleEnabled"] = enabled;
+        settings["NewVisionProcessingIncluded"] = enabled;
         File.WriteAllText(settingPath, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 

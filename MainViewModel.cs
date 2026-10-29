@@ -303,12 +303,25 @@ public sealed class MainViewModel : ObservableObject
         });
     }
 
-    public async Task<bool> WriteRecipeAsync()
+    public async Task<bool> WriteRecipeAsync(RecipeStageParameters? stageParameters = null)
     {
         var recipe = SelectedRecipe;
         if (recipe == null)
         {
             return false;
+        }
+
+        RecipeModel writeRecipe = recipe;
+        if (stageParameters != null)
+        {
+            writeRecipe = recipe.CloneForUser();
+            writeRecipe.StrokeStampingForce = stageParameters.StrokeStampingForce;
+            writeRecipe.ClosedLoopStampingForce = stageParameters.ClosedLoopStampingForce;
+            writeRecipe.ShutdownDelay = stageParameters.ShutdownDelay;
+            writeRecipe.ShutdownRatio = stageParameters.ShutdownRatio;
+            writeRecipe.Speed = stageParameters.Speed;
+            writeRecipe.TensileDistanceLimit = stageParameters.TensileDistanceLimit;
+            recipe = writeRecipe;
         }
 
         try
@@ -329,7 +342,7 @@ public sealed class MainViewModel : ObservableObject
                     DataAqc.plc.WriteFloat(Address("拉伸位移上限"), recipe.TensileDistanceLimit);
                     DataAqc.plc.WriteFloat(Address("停机比例设定"), recipe.ShutdownRatio);
                     DataAqc.plc.WriteUShort(Address("停机延时设定"), recipe.ShutdownDelay);
-                    return VerifyRecipeWritten(recipe);
+                    return VerifyRecipeWritten(writeRecipe);
                 }
                 catch (Exception ex)
                 {
