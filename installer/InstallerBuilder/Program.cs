@@ -19,8 +19,8 @@ internal static class Program
         {
             string repositoryRoot = FindRepositoryRoot();
             PackageMode packageMode = AskPackageMode();
-            bool visionModuleEnabled = AskVisionModuleEnabled();
-            PackageInstaller(repositoryRoot, packageMode, visionModuleEnabled);
+            bool newVisionProcessingIncluded = AskNewVisionProcessingEnabled();
+            PackageInstaller(repositoryRoot, packageMode, newVisionProcessingIncluded);
             return 0;
         }
         catch (Exception ex)
@@ -30,7 +30,7 @@ internal static class Program
         }
     }
 
-    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode, bool visionModuleEnabled)
+    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode, bool newVisionProcessingIncluded)
     {
         string mainProjectPath = Path.Combine(repositoryRoot, "TensileNeW.csproj");
         string builderProjectPath = Path.Combine(repositoryRoot, "builder", "Builder", "Builder.csproj");
@@ -61,7 +61,7 @@ internal static class Program
             RunProcess(
                 "dotnet",
                 $"exec {Quote(builderDllPath)} pack " +
-                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(visionModuleEnabled ? "Y" : "N")}");
+                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(newVisionProcessingIncluded ? "Y" : "N")}");
 
             EnsurePayloadFileExists(payloadRoot, DacuExecutableName);
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
@@ -90,11 +90,11 @@ internal static class Program
         }
     }
 
-    private static bool AskVisionModuleEnabled()
+    private static bool AskNewVisionProcessingEnabled()
     {
         while (true)
         {
-            Console.Write("是否启用视觉检测模块？(Y/N): ");
+            Console.Write("是否包含新视觉处理模块？(Y/N): ");
             string? answer = Console.ReadLine()?.Trim();
             if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
             {

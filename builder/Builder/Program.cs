@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Xml.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
@@ -28,8 +28,8 @@ internal static class Program
                 string defaultOutputRoot = Path.Combine(AppContext.BaseDirectory, "publish");
 
                 PackageMode packageMode = AskPackageMode();
-                bool visionModuleEnabled = AskVisionModuleEnabled();
-                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, visionModuleEnabled);
+                bool newVisionProcessingIncluded = AskNewVisionProcessingEnabled();
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, newVisionProcessingIncluded);
                 return 0;
             }
 
@@ -44,10 +44,10 @@ internal static class Program
                 PackageMode packageMode = args.Length >= 5
                     ? ParsePackageMode(args[4], args.Length >= 6 ? args[5] : null)
                     : AskPackageMode();
-                bool visionModuleEnabled = args.Length >= 7
-                    ? ParseVisionModuleEnabled(args[6])
-                    : AskVisionModuleEnabled();
-                PackageExternalProject(args[1], args[2], args[3], packageMode, visionModuleEnabled);
+                bool newVisionProcessingIncluded = args.Length >= 7
+                    ? ParseNewVisionProcessingEnabled(args[6])
+                    : AskNewVisionProcessingEnabled();
+                PackageExternalProject(args[1], args[2], args[3], packageMode, newVisionProcessingIncluded);
                 return 0;
             }
 
@@ -61,7 +61,7 @@ internal static class Program
         }
     }
 
-    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool visionModuleEnabled)
+    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool newVisionProcessingIncluded)
     {
         projectPath = Path.GetFullPath(projectPath);
         outputRoot = Path.GetFullPath(outputRoot);
@@ -108,7 +108,7 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
-        WriteVisionModuleSetting(packageDirectory, visionModuleEnabled);
+        WriteNewVisionProcessingSetting(packageDirectory, newVisionProcessingIncluded);
         TrialPackageConfiguration.Write(
             Path.Combine(packageDirectory, TrialPackageConfiguration.FileName),
             packageMode switch
@@ -122,11 +122,11 @@ internal static class Program
         Console.WriteLine($"Packaged external project to {packageDirectory}");
     }
 
-    private static bool AskVisionModuleEnabled()
+    private static bool AskNewVisionProcessingEnabled()
     {
         while (true)
         {
-            Console.Write("是否启用视觉检测模块？(Y/N): ");
+            Console.Write("是否包含新视觉处理模块？(Y/N): ");
             string? answer = Console.ReadLine()?.Trim();
             if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
             {
@@ -142,14 +142,14 @@ internal static class Program
         }
     }
 
-    private static bool ParseVisionModuleEnabled(string choice) => choice.Trim() switch
+    private static bool ParseNewVisionProcessingEnabled(string choice) => choice.Trim() switch
     {
         "Y" or "y" => true,
         "N" or "n" => false,
-        _ => throw new ArgumentException("视觉检测模块选择必须是 Y 或 N。", nameof(choice))
+        _ => throw new ArgumentException("新视觉处理模块选择必须是 Y 或 N。", nameof(choice))
     };
 
-    private static void WriteVisionModuleSetting(string packageDirectory, bool enabled)
+    private static void WriteNewVisionProcessingSetting(string packageDirectory, bool enabled)
     {
         string settingPath = Path.Combine(packageDirectory, "Setting.json");
         JsonObject settings;
@@ -161,8 +161,7 @@ internal static class Program
         {
             settings = new JsonObject();
         }
-
-        settings["VisionModuleEnabled"] = enabled;
+        settings.Remove("VisionModuleEnabled");
         settings["NewVisionProcessingIncluded"] = enabled;
         File.WriteAllText(settingPath, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
