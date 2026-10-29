@@ -120,6 +120,7 @@ public partial class MainWindow : Window
     private bool? _twoStagePreviousAutoReset;
     private bool _twoStageDeferredAutoReset;
     private int _dataResetGeneration;
+    private TwoStageConfirmationWindow? _twoStageConfirmationWindow;
     private bool _newVisionUiInitialized;
     private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
@@ -1699,6 +1700,7 @@ public partial class MainWindow : Window
     private async void OnTrialDataCleared()
     {
         _dataResetGeneration++;
+        _twoStageConfirmationWindow?.Close();
         TrialDataStore.CancelCaptureContinuation();
         _twoStageDeferredAutoReset = false;
         if (_twoStageState != TwoStageTrialState.None)
@@ -1883,7 +1885,22 @@ public partial class MainWindow : Window
 
         var dialog = new TwoStageConfirmationWindow { Owner = this };
         dialog.ConfigurePrompt("二段速试验", "拉伸流程已停止，是否开始二段速试验？");
-        bool? result = dialog.ShowDialog();
+        int resetGeneration = _dataResetGeneration;
+        _twoStageConfirmationWindow = dialog;
+        bool? result;
+        try
+        {
+            result = dialog.ShowDialog();
+        }
+        finally
+        {
+            _twoStageConfirmationWindow = null;
+        }
+
+        if (resetGeneration != _dataResetGeneration || _twoStageState != TwoStageTrialState.WaitingForSecondStageConfirmation)
+        {
+            return;
+        }
         if (result == true)
         {
             _twoStageDeferredAutoReset = false;
@@ -2380,6 +2397,13 @@ public partial class MainWindow : Window
     private async void OnDataCollectionEnded()
     {
         if (_isClosing)
+        {
+            return;
+        }
+
+        if (DataAqc.CurrentCollectionWasReset &&
+            (_twoStageState != TwoStageTrialState.None ||
+             (_newVisionProcessingService.IsEnabled && _viewModel.SelectedRecipe is { IsTwoStageSpeed: true })))
         {
             return;
         }

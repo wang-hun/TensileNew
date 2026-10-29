@@ -33,6 +33,7 @@ namespace TensileNeW.Models
         public static event Action<int>? UiBatchApplied;
         public static event Action ChartCleared;
         public static event Action? DataCollectionEnded;
+        public static bool CurrentCollectionWasReset { get; private set; }
         public static event Action? DataCollectionStarted;
         public static bool _simlatueRunFlag = false;
 
@@ -394,10 +395,22 @@ namespace TensileNeW.Models
         private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch)
         {
             List<Loadmodel> appliedPoints = [];
+            bool resetSignalActive = false;
             foreach (AcquisitionBatchItem item in batch)
             {
+                if (item.Snapshot is not null)
+                {
+                    resetSignalActive = item.Snapshot.MValues[9] || item.Snapshot.FullResetValue;
+                }
+
+                if (item.Started)
+                {
+                    CurrentCollectionWasReset = resetSignalActive;
+                }
+
                 if (item.Reset)
                 {
+                    CurrentCollectionWasReset = true;
                     loadModels.Clear();
                     ChartCleared?.Invoke();
                     appliedPoints.Clear();
