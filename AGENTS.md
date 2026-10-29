@@ -1,343 +1,67 @@
-DO NOT send optional commentary.
-Spend time on thinking; you do not need to use the commentary channel to report progress to me .
-
-
-# AGENTS.md
-
-本文件是本仓库的本地协作说明，用于让后续维护者和自动化编码代理快速理解项目结构、关键约束和验证方式。它不应作为产品功能文档对外发布。
-
-## 项目概览
-
-这是一个基于 WPF 的 .NET 8 Windows 桌面程序，项目文件为 `TensileNeW.csproj`，程序集名为 `ECS`。程序面向拉伸/成形试验设备，核心职责包括：
-
-- 通过 Modbus TCP 连接台达 PLC。
-- 读取实时力、位移、速度、压边力、拉伸时间等 PLC 数据。
-- 写入配方参数和线圈控制指令。
-- 展示实时曲线、数据表格、配方管理、试验说明文档和测试报告相关界面。
-
-主窗口和主要交互在 `MainWindow.xaml`、`MainWindow.xaml.cs` 和 `MainViewModel.cs` 中。应用启动入口在 `App.xaml.cs`。
-
-## Demo 工程隔离
-
-`demo/` 是与产品程序并列的独立 WPF 示例工程，项目文件为 `demo/Demo.csproj`，程序集名为 `demo`。它用于演示可扩展的设备连接、采集接口、曲线、摄像头、PDF 和导出框架，不是 `ECS` 产品程序的一部分。
-
-- 产品构建、发布、绿色版打包和安装器只以 `TensileNeW.csproj` / `ECS` 为目标；不得把 `demo/` 编入产品项目、builder、installer 或产品发布包。
-- 修改 `demo/` 时必须遵守 `demo/AGENTS.md`；其中的空采集映射、示例数据、PDF-only 阅读边界和 demo 标识不得回流到产品程序。
-- 修改产品代码时不要以 demo 页面、配置或示例曲线作为产品行为依据。需要验证 demo 时单独运行 `dotnet build .\demo\Demo.csproj`，并把 demo 的 `bin/`、`obj/` 和运行数据视为独立验证产物。
-
-## 目录职责
-
-- `Models/`：运行状态、配置、配方、PLC 变量、试验数据等模型。`RAM.cs` 负责加载和保存 `Setting.json`，`DataAqc.cs` 负责 PLC 变量初始化、连接、采集循环和数据队列。
-- `Tools/`：PLC 通信和工具类。当前实际通信类是 `DeltaPLC2.cs`，使用 `NModbus`；`DeltaPLC.cs` 是旧的手工 Modbus TCP 实现，当前不作为运行主路径。
-- `Services/`：曲线控制、说明文档缓存、试验报告、试验数据存储等服务。
-- `Dialogs/`：设置、配方、数据窗口、曲线窗口、启动等待窗口等 WPF 弹窗。
-- `Controls/`：复用控件，例如说明文档查看器；文档预览只保留 PDF、Word、PPT 内嵌显示，不再引入 WebView/WebView2 这类内嵌浏览器依赖。
-- `Themes/`：颜色方案和主题资源。
-- `Assets/`：图标、Logo、默认配方和字体资源。
-- `manuals/`：发布包中的试验指导文档目录，支持 PDF、Word、PPT 文档通过 XPS 预览控件内嵌显示。Word/PPT 的 XPS 权威缓存位于 `%LocalAppData%\ECS\manual-cache`；启动和按需转换时优先按说明书文件名及内容签名命中该目录，命中后复制到运行目录的 `manual-cache`，未命中才生成并写入 AppData 后复制到运行目录。
-- `demo/`：独立示例工程，不参与本产品项目编译、发布或安装器打包；其维护规则见 `demo/AGENTS.md`。
-- `SamplingCapture/`：独立控制台采样诊断工具。它直接以 M37 数据采集标志控制采集，在采集期间仅将 D46（力、时间、压边力）和 D260（位移）追加到内存，M37 结束后一次性将与产品原始数据相同的五列 Excel 保存到 `D:\data`。它不能同时与产品程序连接同一 PLC，且不参与产品项目编译、发布、builder 或安装器打包。
-- `builder/`：打包/发布辅助项目，不参与主项目编译。
-- `installer/`：独立 WPF 安装器项目。安装器构建时先调用 `builder/` 生成绿色版发布目录，再把发布目录压缩并嵌入安装器 EXE；安装器运行时必须独立工作，不再依赖 builder。
-
-## 启动流程
-
-`App.xaml.cs` 的 `Application_Startup` 是启动主线：
-
-1. 调用 `RAM.Init()` 读取或创建配置。
-2. 应用主题和七段数码字体资源。
-3. 调用 `DataAqc.InitVariables()` 初始化 PLC 变量和 `DeltaPLC2` 客户端对象。
-4. 显示 `StartupWaitWindow`，准备试验指导文档缓存。
-5. 调用 `TryConnectWithTimeoutAsync()`，后台执行 `DataAqc.TryConnect()` 连接 PLC。
-6. 创建并显示 `MainWindow`，将启动连接结果传入窗口。
-
-保存数据及报告时使用 `BackgroundStartupWaitWindow` 在独立 STA Dispatcher 上显示等待动画；保存流程不得通过等待主 UI Render 或同步延时来驱动该动画。无实时表格数据时，保存按钮直接返回；判断依据是 `DataAqc.loadModels` 是否为空，不得用已被消费者排空的 `_queue` 判断。
-
-需要在启动时增加前置检查时，优先挂在 `DataAqc.TryConnect()` 之前，避免阻塞 UI 线程。
-
-## PLC 通信
-
-当前 PLC 通信链路：
-
-- 配置 IP：`RAM.SettingModel.PLC_IP`，默认值在 `Models/SettingModel.cs`。
-- 初始化位置：`Models/DataAqc.cs` 的 `DataAqc.InitVariables()`。
-- 通信类：`Tools/DeltaPLC2.cs`。
-- 协议：Modbus TCP。
-- 默认端口：502。
-- 默认 Unit ID / Slave ID：1。
-- 地址转换：`Tools/ModbusAddressHelper.cs`。
-- 主界面“冲程压边”按下/松开时，必须在后台即时写入控制线圈，不得改为脉冲或延迟写入。PLC TCP 连接成功后只读取一次版本寄存器 `D40`（浮点格式 `2026.068`），并缓存本次连接的判断结果：版本号大于等于 `2026.068` 时仅写 `M45`；无版本号、读取失败或版本低于 `2026.068` 时仅写 `M30`。处理按键时只能使用已缓存的结果，不得再次读取或询问 `D40`。重连建立新连接后允许重新读取一次。修改该控制路径时必须同步维护 `DataAqc` 的连接后版本读取/缓存、`MainViewModel.SetStrokeStampingAsync()` 与主窗口按键事件。
-
-`DataAqc.Refresh()` 会循环读取 PLC 数据并更新 `PLCVariables`、采集队列和曲线数据。PLC 连接、重连和采集循环涉及后台线程，修改时要注意线程安全、UI Dispatcher 调用和连接状态判断。
-
-当前数据消费使用 `DataAqc.StartConsumers()` 的 50ms 周期：消费者会排空采集队列并形成一个批次，UI 线程在 `ApplyBatchOnUiThread()` 中只将该批次最后一个 `PlcSnapshot` 应用于实时数值。主窗口右上角“采样率”显示的是最近 20 个 UI 批次内全部 `PlcSnapshot` 的总数，单位为 `tick/s`，不是固定的 UI 刷新频率，也不是仅在试验采集期间产生的 `Loadmodel` 数量。统计通过 `UiBatchApplied` 在既有批次处理完成后旁路接收该批次快照数；不得为统计目的改动 PLC 采样循环、`StartConsumers()` 周期、队列排空、数据库写入、曲线绘制或 UI 刷新调度。
-
-## 本地正弦曲线调试
-
-用户可能会临时要求恢复正弦曲线调试功能，用于在没有连接设备时验证曲线图、数据表格和 `TrialDataStore` 的真实数据链路。这个功能是本地调试辅助，不应作为产品功能保存并提交；实现后必须明确告知当前工作区存在未提交调试改动。
-
-一比一参考实现保存在分支 `debug/sine-generator-reference` 的提交 `d032605`（`保存无设备正弦调试实现参考`）。后续需要复现时，优先查看这个提交的 diff：`git show d032605`。该提交只作为实现参考，不应合并或提交到 `master` 作为产品功能。
-
-硬性边界：
-
-- 只允许在设备未连接时生成调试数据。只要 `DataAqc.plc?.Client.Connected == true` 且 `DataAqc.plc.ConnectState` 能解析为 `true`，启动时必须跳过，运行中必须立即停止。
-- 不允许修改 `DataAqc.Refresh()`、`DeltaPLC2`、PLC 连接、重连、自动重连、采集周期或 PLC 读写逻辑。唯一允许在 `DataAqc` 增加的是不进入采集循环的公共调试清空入口，用于复用现有 `ChartCleared` 事件。
-- 不允许在采集循环里增加调试判断，以免影响真实采集周期精度。
-- `DataAqc.Refresh()` 中现有 `M111`“完全复位”读取和触发逻辑属于真实设备重置链路，会与 `M10`“数据重置”一样清空队列、清空 `loadModels` 并触发 `ChartCleared`。恢复或调整正弦曲线调试时不要删除、绕过或改写这条 M111 逻辑；调试功能只在主窗口“数据重置”按钮路径上额外拦截运行中的本地调试重置。
-- 不允许直接改曲线控制器、直接写 `DataAqc.loadModels`、直接触发 `LoadDataChanged` 或直接写 `TrialDataStore`。
-- 调试数据必须走 `DataAqc.Enqueue(loadModel)`。这样会自然进入 `TrialDataStore.EnqueuePoint()`、消费者队列、主窗口数据表格、主窗口曲线和独立曲线窗口。
-- 自动播放曲线图不能通过手动调用 `AutoScale()` 实现。调试功能必须在启动时把 PLC 变量表中的 `数据采集标志` 设为 `True`，停止时设为 `False`，让 `LoadPlotController.AutoScaleWhileCollecting()` 的现有判断自然通过。
-- 数据重置不能直接操作曲线控制器。调试运行时点击主窗口“数据重置”，必须只走调试专用清空入口触发 `DataAqc.ChartCleared`，让主窗口曲线和独立曲线窗口沿用现有重置事件链。
-- 不写入 `Setting.json`，不持久化开关状态，不随程序自动启动。
-
-固定触发方式：
-
-- 管理员密码窗口仍保持五位输入。
-- `SINON` 启动正弦调试数据。
-- `SINOF` 停止正弦调试数据。注意是五位 `SINOF`，不是 `SINOFF`。
-- 触发入口是 `SettingsPinDialog` / `SettingsPinWindow`，不要新增公开按钮或菜单。
-
-文件级复现步骤：
-
-1. 新增 `Services/SineDebugDataService.cs`。
-2. 在服务里定义 `SineDebugDataResult`，至少包含 `Started`、`Stopped`、`AlreadyRunning`、`NotRunning`、`SkippedBecauseConnected`。
-3. `SineDebugDataService` 构造函数接收主窗口 `Dispatcher`，内部用 `DispatcherTimer` 周期生成数据。推荐周期 `50ms`。
-4. 服务公开 `Start()` 和 `Stop()`。`Start()` 先检查 PLC 连接，已连接则返回 `SkippedBecauseConnected`；已运行则返回 `AlreadyRunning`；否则启动定时器。`Stop()` 停止定时器。
-5. `Start()` 启动定时器前必须调用服务内部 `SetDataCollectingFlag(true)`，把 `DataAqc.PLCVariables` 中名称为 `数据采集标志` 的 `CurrentValue` 设为 `True`。`Stop()` / `StopTimer()` 必须调用 `SetDataCollectingFlag(false)`。
-6. 定时器 Tick 内再次检查 PLC 连接，若已连接，立即停止并返回，不再生成点。
-7. 服务内部保留 `_formulaOffset`，初始值为 `1`。Tick 内生成：
-   - `force = 10 * (Math.Sin(x / 2) + _formulaOffset)`
-   - `Loadmodel.RealForce = (float)force`
-   - `Loadmodel.RealDistance = (float)x`
-   - `Loadmodel.Index` 从当前 `DataAqc.loadModels.Count` 后继续递增
-   - `Loadmodel.RealPress = 0`
-   - `Loadmodel.Time` 可使用调试计时秒数 `Stopwatch.Elapsed.TotalSeconds.ToString("F3")`
-8. Tick 末尾只调用 `DataAqc.Enqueue(loadModel)`，不要调用其他绘图或存储接口。
-9. 在 `Models/DataAqc.cs` 增加公共方法 `ClearDebugLoadData()`，方法内容只能是：清空 `_queue`、清空 `loadModels`、触发 `ChartCleared?.Invoke()`。不要在 `Refresh()` 循环中加入任何调试判断。
-10. 在 `SineDebugDataService` 增加 `ResetIfRunning()`：未运行返回 `false`；运行中调用 `DataAqc.ClearDebugLoadData()`，把 `_index = 0`、`_x = 0`、`_formulaOffset += 2`，重启计时，并保持 `数据采集标志=True`，然后返回 `true`。
-11. 调试重置后的函数必须从 `10 * (Math.Sin(x / 2) + 1)` 变为 `10 * (Math.Sin(x / 2) + 3)`；之后每次重置继续把常量加 2，即 `+5`、`+7`，以此类推。
-12. 在 `Dialogs/SettingsPinDialog.xaml.cs` 增加常量 `SINON`、`SINOF`，增加 `SineDebugStartRequested`、`SineDebugStopRequested` 事件，识别密码后触发事件并关闭弹窗。
-13. 在 `Dialogs/SettingsPinWindow.xaml.cs` 透传 `SineDebugStartRequested`、`SineDebugStopRequested`。
-14. 在 `MainWindow.xaml.cs` 增加字段 `_sineDebugDataService`，构造函数 `InitializeComponent()` 后实例化：`new SineDebugDataService(Dispatcher)`。
-15. 在 `LogoImage_MouseLeftButtonDown` 创建 `SettingsPinWindow` 后订阅启动/停止事件，分别调用主窗口私有方法处理结果。
-16. 主窗口处理启动/停止结果时只显示 Growl 提示，不做 PLC 操作：启动成功、已运行、设备已连接跳过、停止成功、未运行。
-17. 在 `MainWindow.Reset_Click` 开头增加特殊条件：如果 `_sineDebugDataService.ResetIfRunning()` 返回 `true`，只调用 `_viewModel.AdvanceTrialSerialNumber()` 后 `return`；不要调用 `_viewModel.PulseAsync("数据重置")`。如果返回 `false`，保留原始重置逻辑不变。
-
-验收检查：
-
-- `SINON` 在未连接设备时，主数据表格持续新增点，曲线图跟随现有 `DataAqc.LoadDataChanged` 刷新，独立曲线窗口也能刷新。
-- `SINON` 启动后，现有“自动播放曲线图”必须可工作；检查点是 `数据采集标志=True` 后 `LoadPlotController.AutoScaleWhileCollecting()` 的原始条件成立，而不是新增手动 `AutoScale()` 调用。
-- 调试运行时点击“数据重置”，主窗口曲线和独立曲线窗口都必须收到 `ChartCleared` 并重置；后续新数据必须让 `LoadPlotController` 创建一条新颜色曲线。
-- 第一次调试曲线公式为 `10 * (Math.Sin(x / 2) + 1)`；第一次重置后新曲线公式为 `10 * (Math.Sin(x / 2) + 3)`；再重置后为 `+5`，以后每次重置常量继续 `+2`。
-- 数据库写入路径来自 `DataAqc.Enqueue()` 内部的 `TrialDataStore.EnqueuePoint()`，不应存在额外写库调用。
-- 连接设备后再次输入 `SINON` 应提示跳过；调试生成过程中一旦设备连接，定时器应停止。
-- `dotnet build .\TensileNeW.csproj` 必须通过；允许保留项目既有警告。
-- 不提交这个调试功能相关改动；如用户要求提交，必须先提醒它被标记为本地调试辅助，按本节规则不应保存并提交。
-
-## 启动网络检查和探测
-
-程序启动加载动画窗口 `StartupWaitWindow` 期间会异步执行多项启动逻辑，包括试验指导文档缓存、字体准备和连接设备。连接设备前会先检查已连接的有线网卡是否存在与 `RAM.SettingModel.PLC_IP` 同网段的 IPv4 地址；如果没有同网段地址，启动阶段不申请管理员权限、不修改网络，直接跳过连接并进入主窗口失败状态。
-
-主窗口显示连接失败弹窗 `ConnectionErrorDialog` 时提供“网络探测”入口。用户点击后，程序通过 UAC 启动同一 EXE 的提权探测进程，由 `Services/NetworkAdapterProbeService.cs` 依次处理所有已连接的有线网卡并跳过 Wi-Fi：
-
-- 给当前有线网卡添加与 PLC 同网段的额外 IPv4 地址，目标是不修改原有地址。
-- 提权进程只负责添加或移除候选额外 IPv4 地址，不负责连接 PLC，也不能占用 PLC 的 TCP 连接。
-- 主进程在每次候选 IP 添加成功后，使用现有 `DataAqc` / `DeltaPLC2` 通信链路尝试连接 PLC。
-- 如果主进程连接失败，移除本次刚添加的额外 IP，再尝试下一个候选地址；如果成功，保留这个额外 IP。
-
-修改此逻辑时要特别注意：只能删除本次探测新增的额外 IP，不能删除或修改用户原有 IP；不要同时给多个网卡保留同一设备网段地址；提权探测失败、用户取消 UAC、设置失败和所有端口失败都需要给出可理解的提示。网络探测问题应限制在网络配置和主窗口探测流程内处理，不应修改 `DeltaPLC2` 等底层 PLC 通讯封装的连接接口。PLC/TCP 连接权始终属于主进程：提权进程不能探测或持有 PLC TCP 连接，更不能让主进程同时再开第二条 PLC 连接。
-
-网络探测可能耗时，必须接入 `StartupWaitWindow` 这类加载动画窗口反馈进度。主 UI 线程只能负责显示窗口、更新提示和处理结果，耗时连接、探测、提权进程等待、PLC 重连等操作必须放在后台任务或异步等待中执行，不能使用同步阻塞等待卡住动画绘制或主窗口响应。
-网络探测等待必须有明确超时边界：主窗口等待提权网络配置进程、单次 `netsh` 命令和主进程单次 PLC 连接尝试都不能无限等待；超时后必须关闭等待窗口并给出失败提示。
-网络探测期间必须暂停 `DataAqc.Refresh()` 里的自动重连，避免后台自动重连与主窗口探测连接同时争用 PLC 连接锁或旧 socket 状态；探测结束后再恢复自动重连。当前实现是 `DataAqc.AutoReconnectSuspended` 标志位：主窗口 `RunNetworkProbeAndReconnectAsync` 在探测开始前置 `true`，`finally` 里恢复 `false`；`Refresh()` 主循环开头和异常分支都会判断该标志，命中则跳过本轮读取和 `TryReconnect()`，避免争用 `PlcConnectionLock`。修改探测或采集循环时必须保留这一对暂停/恢复点。
-另外，`netsh add address` 之后 Windows 路由表/源地址选择存在几百毫秒的就绪窗口，单次连接尝试不够稳定。`MainWindow.TryConnectWithRetriesAsync` 在每个候选 IP 上做有限次数的连接重试（每次间隔约 1 秒），并在每次重试前检查整体探测超时；调整探测节奏时不要把候选 IP 退化回单次尝试。
-
-## 配置和运行数据
-
-- `Setting.json`：运行时配置文件，由 `RAM.Init()` 在程序目录读取或创建。
-- `SettingModel.RuntimeDataDeletePolicy` 控制退出时是否删除本次运行的临时数据库，选项为“始终是/每次询问/始终否”，默认值为“始终是”；它与 `RuntimeDataSavePolicy`（退出时导出运行数据）相互独立。退出询问必须复用现有运行数据询问窗体和关闭流程，不能改变导出逻辑。
-- `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。配置包含试用标记、启动次数和数据保存次数；仅试用版会在启动后递增启动次数，并在“保存数据和报告”或回放页“保存数据表格”完成后递增数据保存次数，完整版不读写这些计数。试用版的启动次数恰为 5、20、50、100 时，主窗口显示后弹出一次购买完整版提示，不执行其他操作。系统设置页始终显示当前版本，只有试用版显示这两项计数。非调试启动时，试用包以 `%LocalAppData%\ECS\package.config` 为权威副本：该副本存在则覆盖修复运行目录中缺失或内容不一致的文件；副本不存在时，试用包会将运行目录文件复制到该处，运行目录文件也不存在时先创建新的试用文件。运行目录自带完整版文件时，先检查 AppData 是否同为有效完整版：不是则由运行目录文件覆盖 AppData；是则由 AppData 文件覆盖修复运行目录。附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
-- `package.config` 的试用标记、计数后允许追加权限文件同步跳过标记；旧文件没有该字段时按原有同步逻辑处理。携带该标记的非试用包只读取运行目录中的标记，完全跳过 `%LocalAppData%\ECS\package.config` 的读取、写入、复制、同步和覆盖；说明书缓存仍与权限文件无关，保持原有缓存逻辑。
-- builder 生成试用包时，仅在输出目录名末尾追加 `-试用版`；非试用包保持原有目录名。builder 首先通过 `Y/N` 选择是否试用，回答 `N` 后再选择 `1`（带完整版权限配置文件）或 `2`（不带完整版权限配置文件）。
-- 安装器生成 payload 时由安装器自己的可见 UTF-8 控制台执行与 builder 相同的两步选择，并将两个选择作为参数传给 builder；builder 收到完整参数后不得再次询问。
-- 试用包最多保存 100 次数据。系统设置页保存次数显示为 `当前次数/100`；主窗口“保存数据和报告”和回放页“保存数据表格”必须在写文件前拒绝第 101 次及之后的保存。第 10、25、40、50、75、90、100 次成功保存后复用试用提示弹窗，明确说明试用版只能保存 100 次。
-- `Assets/DefaultRecipe.json`：内置默认配方资源，构建时复制到输出目录。
-- `NLog.config`：日志配置，构建时复制到输出目录。
-- `TrialDataStore` 相关数据、日志、临时数据库等属于运行或验证产物，不应留在仓库中。
-
-## 算法整合数据导出
-
-主窗口“保存数据和报告”按钮下方提供“额外保存算法整合数据”复选框，默认勾选。勾选时，保存流程在原始数据 Excel 和试验报告之外，额外生成一个独立 Excel 文件，命名为 `{原基础文件名}_算法整合数据.xlsx`；不要把算法整合结果插入原始 Excel，也不要改变报告中的原始曲线截图。
-
-算法实现位于 `Services/DisplacementResamplingService.cs`。位移间隔按 `速度设定 / 20` 计算，速度为 `1mm/s` 时对应 `0.05mm`；速度解析失败时才回退到 `0.05mm`。横轴使用 `Loadmodel.RealDistance`，力值使用相邻原始点线性插值得到，压边力和时间字段作为辅助列同步插值或透传。导出范围需要覆盖原始位移范围外侧的整间隔边界：起点向下取整、终点向上取整，边界点使用首尾相邻两点做线性外推，不能只保留内部插值点。保存事件中应先对 `DataAqc.loadModels` 做快照，再在线程池中生成额外文件，避免 UI 线程卡顿，也避免计算过程中实时采集列表继续变化影响本次算法数据。
-
-隐藏调试入口：管理员密码窗口输入 `datai` 时，主窗口会弹出原始数据 Excel 文件选择框，选择 `.xlsx` / `.xls` 后由 `Services/DebugAlgorithmExcelService.cs` 读取第一张表并复用 `DisplacementResamplingService.SaveResampledDataToFile()` 生成同目录 `{原文件名}_整合数据_debug.xlsx`。该入口只用于离线验证算法整合数据，不应改变正常“保存数据和报告”流程，不应写入 `Setting.json`，也不应直接读写实时采集队列。
-
-修改配置模型时，需要同时考虑旧 `Setting.json` 的兼容性，避免空值导致启动失败。
-
-## 版本管理
-
-- 应用版本统一维护在 `TensileNeW.csproj` 的 `Version`、`AssemblyVersion`、`FileVersion` 和 `InformationalVersion`。
-- 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`Version`、`AssemblyVersion` 和 `FileVersion` 必须保持该四段纯数字格式。`InformationalVersion` 使用带 `V` 前缀的显示格式，并在版本号后以空格追加发布标识，例如 `V2.2.0.2608 R`。
-- 发布标识统一使用 `R` 或 `B`：`R` 为商用发布版，表示大更新；`B` 为测试版，表示用于 debug 和试机调试的小更新。更新版本时必须同步维护 `InformationalVersion` 中的发布标识；`builder/` 读取该字段生成发布目录名，因此不得在打包产物中手工追加或替换标识。
-- 主窗口标题运行时读取程序集 `InformationalVersion`，不要在 XAML 中硬编码版本号。
-- `builder/` 专门负责打包发布，打包目录名由 builder 读取主项目的 `InformationalVersion` 生成；更新版本时优先修改主项目版本元数据，不要在 builder 输出目录或生成产物里手工改版本。
-
-## 绿色版打包
-
-发布包必须是严格绿色版：拷贝到一台没有 .NET 或其他额外运行时环境的 Windows 电脑后，解压即可运行，不允许弹出安装 .NET 8 或其他运行时的系统提示。
-
-`builder/` 打包主项目时必须使用 `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true` 生成单文件自包含包，不能退回框架依赖发布，也不能改回多文件 `lib/` 收纳布局。即使 `Builder.exe` 自身用 Debug 运行，生成的目标程序也必须是 Release。 发布命令必须允许针对 `win-x64` 执行还原，不能使用会复用无 RID 资产文件的 `--no-restore`；否则在已有 `obj/project.assets.json` 不含 `net8.0-windows10.0.19041.0/win-x64` 时会导致打包失败。 主项目必须声明 `RuntimeIdentifiers` 包含 `win-x64`，并在打包前让还原生成对应 RID 资产。
-
-单文件发布会把全部托管程序集、.NET 运行时和原生库（SkiaSharp、e_sqlite3、glfw3 等）打进唯一的 `{AssemblyName}.exe`，因此发布目录根部不再有散落的业务或第三方 DLL，也不再有 `lib/`、`runtimes/`、`ECS.dll`、`ECS.deps.json`、`ECS.runtimeconfig.json`。builder 必须断言根部 `*.dll` 数量为 0，否则视为单文件发布回退失败并报错，不能输出残留多文件包。
-
-发布目录根部允许且应当保留的项：`{AssemblyName}.exe`（单文件主程序）、`NLog.config`、启动诊断脚本 `start-{AssemblyName}.cmd`、`Assets/`、`manuals/`。运行 EXE 后系统会在临时目录解包原生库，这是单文件机制的正常行为，不要尝试改成自定义解包目录。
-
-由于单文件已内嵌运行时，不再需要把依赖 DLL 移动到 `lib/`，也不再需要改写 `.deps.json` 的运行时路径；相关收纳和改写逻辑已从 builder 删除，不要重新引入。`hostfxr.dll`、`hostpolicy.dll`、`coreclr.dll`、`clrjit.dll`、`System.Private.CoreLib.dll` 等启动核心文件同样被打进单文件，不会出现在根部。
-
-启动诊断脚本是绿色版的一部分，不能删。`builder/` 必须生成并保留 `start-{AssemblyName}.cmd`，脚本负责切到程序目录、运行 EXE、写入 `{AssemblyName}-startup.log`，并在非零退出码时显示日志和暂停，便于在无环境机器上排查启动失败。清理发布产物时可以删除 `.pdb`、`.xml`、`createdump.exe` 和无用语言资源目录，但不能删除 `.cmd`、启动日志或其他用于排查运行失败的工具。
-
-验证绿色版时，除构建成功外，还要检查发布目录根部 `*.dll` 数量为 0、`{AssemblyName}.exe` 存在、`NLog.config` 存在、`start-{AssemblyName}.cmd` 存在；必要时在无 .NET 的干净 Windows 环境实机验证单文件 EXE 能直接启动。
-
-注意单文件模式下 `System.Reflection.Assembly.Location` 会返回空字符串（编译器 IL3000 警告），涉及程序目录定位的代码必须优先使用 `Environment.ProcessPath` 或 `AppContext.BaseDirectory`，不能依赖 `Assembly.Location`。当前 `ManualDocumentService` 已用 `Environment.ProcessPath` 优先，修改这些路径逻辑时要保持单文件兼容。
-
-调试 builder 时不要把 `outputRoot` 指到仓库根目录：builder 会把 `outputRoot` 的上级目录当成历史发布目录清理，可能误删仓库里的 `NLog.config` 等文件。验证时应使用仓库外的临时目录作为输出根。
-
-## 独立安装器
-
-`installer/Installer` 是独立安装器项目，`installer/InstallerBuilder` 是独立控制台打包程序。界面和部署逻辑不应塞进主程序。InstallerBuilder 在运行时询问试用版本，调用 `builder/Builder` 生成绿色版 payload、压缩为临时 `payload.zip`、再发布安装器到自身运行目录的 `publish/`；WPF 安装器项目本身不得在 MSBuild 目标中自动生成 payload 或 publish。用户运行安装器 EXE 时不能再要求 builder、源码仓库或 .NET SDK 存在。
-
-安装器运行时职责：
-
-- 显示写死的安装界面、纯线条 Logo 和部署动画，不读取主程序主题。
-- 欢迎页标题中的 `ECS` 保持原有居中布局；仅试用安装包在其右侧显示不参与标题布局的紫色“试用版”悬浮气泡。完整版不显示该气泡。
-- 允许用户选择部署路径，默认使用当前用户可写路径，尽量避免管理员权限。
-- 可选创建当前用户桌面快捷方式，不写注册表，不注册卸载项。
-- 释放嵌入的绿色版发布包后，静默生成 Word/PPT 说明文件的 XPS 缓存；没有 Office/WPS 或转换失败时必须静默跳过，不弹错误提示。
-- 完成后显示“部署成功”，提供“启动 ECS”和“关闭”。
-
-验证安装器时，不能从 `installer/Installer/bin/Debug`、普通 `bin/Release` 或项目中间目录拿交付物；这些普通 build 产物可能依赖运行时，也不会内嵌 payload，不是最终安装器。最终交付物由 `InstallerBuilder` 运行并发布到其运行目录下的 `publish/ECS-Installer.exe`，该目录必须没有散落 DLL。安装器构建过程中的 payload zip 只能临时生成在系统临时目录，不能保存在 `installer/` 源码目录、仓库 `bin/` 或其他可提交位置。运行后应能释放 `ECS.exe`、`NLog.config`、`start-ECS.cmd`、`Assets/`、`manuals/` 并可创建桌面快捷方式。不要把安装验证产生的临时部署目录、缓存文件或日志留在仓库中。
-
-## 编码规则
-
-- 所有新增或修改的文件必须使用 UTF-8 编码，避免引入乱码。
-- 发现已有文件存在乱码，或文件编码不符合 UTF-8 时，应当将该文件修复为 UTF-8，并确保中文内容恢复为可读文本。
-- 修改 XAML、C#、JSON、BAS 生成逻辑时，注意中文文案和注释在 PowerShell 控制台里可能显示受代码页影响；以文件实际 UTF-8 内容为准。
-- 不要仅凭 PowerShell 控制台显示判断中文文件已经损坏；必要时用支持 UTF-8 的编辑器或二进制/编码检查方式确认。
-
-## 修改约束
-
-- 保持现有 WPF、HandyControl、MahApps、ScottPlot 和 MVVM Toolkit 的使用方式，不为局部修改引入新的 UI 框架或大规模重构。
-- 修改主界面 UI 前必须先确认所在 Grid/Border 的固定宽高、Margin、Padding 和可用空间，新增按钮、图标或文字后要按实际可用宽度核算总宽高，避免折叠、遮挡、显示不全或挤压相邻控件。
-- 设置页右侧各分区的可用宽高以其外层容器的实际内容区域为准；不得为了视觉留白擅自给该区域、其直接 Grid 或 Border 新增 Padding、Margin、BorderThickness，或保留无业务作用的既有内外边距。版本号、试用版打开次数、保存次数及任何系统设置字段必须完整可见，不能被右缘或下缘裁切。
-- 修改设置页布局时，必须同时按最小支持分辨率和常用高分辨率静态核算右侧第一分区：逐项列出全部 RowDefinition 高度、控件 Height、控件 Margin/Padding、Grid/Border 的 Padding/Margin/BorderThickness，以及 Viewbox 缩放后的垂直剩余空间。所有行和外边距的合计高度不得超过固定内容区高度；任何一项导致版本号、打开次数或保存次数不可完整显示，均不得提交该布局。
-- 对已经发生下缘裁切的设置页，修复优先级是先删除新增或无作用的 Padding/Margin/BorderThickness，再调整行高或缩放；禁止通过扩大固定内容区、继续压缩字体、截断文本、隐藏试用信息或扩大窗口最小尺寸来掩盖容器留白造成的问题。
-- 新增弹窗、列表和局部面板时，默认不要添加装饰性外框或边框，尤其不要把 `AppLayoutBorderBrush`、`AppStartupWaitBorderBrush` 等主题强调色当作普通容器边框使用；只有现有控件模板或明确设计需要边界时才保留必要分隔线。
-- 主界面按钮应优先复用现有 `ActionButtonStyle`、`IndicatorActionButtonStyle`、`ButtonPrimary`、`ButtonDanger` 等本地样式和动态主题资源；除非确有必要，不要临时手写一套背景色、边框色、字体或高度，避免破坏主题一致性。
-- 在 DataGrid、曲线图、预览区等内容控件上叠放小按钮时，必须给表头文字、滚动条和内容区域预留空间；不能让按钮覆盖关键数据、列标题或交互区域。必要时通过缩小按钮、调整列宽、增加右侧 Padding/Margin 或使用独立工具列解决。
-- 隐藏某个 UI 开关时，不应只隐藏文字和选择框后留下空白承载行；要同时评估承载它的行高、背景块和相邻按钮布局是否还需要保留、压缩或移位。
-- 修改 XAML 布局后，除 `dotnet build .\TensileNeW.csproj` 外，还应人工检查关键窗口在目标尺寸下是否存在裁切、重叠、折叠、显示不全和主题不一致；无法运行界面时必须在回复中明确说明只做了静态尺寸核算和构建验证。
-- 修改 PLC 通信逻辑时，要确认是否影响启动连接、手动重连、自动重连和采集循环。
-- 修改配方逻辑时，要确认内置配方和用户配方的保存边界。`RAM.NormalizeUserRecipes()` 会过滤内置配方，避免把内置配方写入用户配置。
-- 修改试验指导文档逻辑时，要确认 `manuals/` 资源复制、缓存生成、PDF/Word/PPT 内嵌预览和缺少 Office/WPS 时的降级提示。
-- 修改曲线或数据表逻辑时，要确认主窗口内嵌显示和独立窗口显示都能正常工作。
-- 如果新增了本文件没有提及的新功能、新逻辑或新文件，应同步更新 `AGENTS.md`，补充职责、约束和验证注意事项。
-
-## 验证和清理
-
-常用验证命令：
-
-```powershell
-dotnet build .\TensileNeW.csproj
-```
-
-如果为了隔离验证输出而指定临时输出目录，验证后必须清理对应目录。
-
-不要把验证、构建或检查产生的中间产物留在仓库里，包括但不限于：
-
-- 临时 `bin` 子目录。
-- 临时 `obj` 子目录。
-- 临时数据库。
-- 临时 Basic 文件。
-- 日志文件。
-- 发布或打包过程产生的临时目录。
-
-删除任何验证产物前，必须确认目标路径位于本仓库或明确的临时目录内。不要对不确定路径执行递归删除。
-
-## Git 注意事项
-
-- `AGENTS.md` 。
-- 更新 `AGENTS.md` 后不需要验证它是否出现在 `git diff`；以文件实际内容为准。
-- 仓库可能存在用户未提交的工作区变更。不要回退、覆盖或格式化与当前任务无关的文件。
-- `release` 分支用于保存此前所有发布版本组成的版本链，每个版本应是一个以版本号命名的压缩提交，例如 `V1.1.2.2606`。不要把 `master` 的全部开发提交历史直接 merge 进 `release`，也不要生成包含整条 `master` 历史的 merge commit。
-- 发布新版本到 `release` 时，先确认 `release` 当前最新发布提交与 `master` 对应旧版本提交的文件树一致，再把从该旧版本到当前版本的最终文件树压成一个新提交。新提交必须以 `release` 当前最新发布提交为唯一父提交，确保 `release` 历史继续保留此前所有版本，再追加当前版本。
-- 如果 `release` 的发布版本是由 `master` 旧版本压缩得到，两个分支可能没有共同祖先；这种情况下不要使用 `git merge --allow-unrelated-histories` 把历史硬合进来。应使用等价文件树确认后创建单父压缩提交，并在操作后比较 `release` 与 `master` 当前文件树无差异。
-
-## 摄像头采集和预览
-
-摄像头功能使用 Windows 官方 WinRT API，不引入第三方摄像头库。核心封装在 `Services/CameraCaptureService.cs`：
-
-- 设备枚举使用 `DeviceInformation.FindAllAsync(DeviceClass.VideoCapture)`，配置保存设备 `Id` 和 `Name`。
-- 连接使用 `MediaCapture.InitializeAsync()`，通过 `MediaCaptureInitializationSettings.VideoDeviceId` 指定已选择设备。
-- 帧读取使用 `MediaFrameReader`，帧数据统一转换为 `SoftwareBitmap` 的 `Bgra8/Premultiplied` 格式，再写入 WPF `WriteableBitmap`。
-- WPF 不直接渲染摄像头原始帧；不要绕过 `SoftwareBitmap.Convert` 和 `WriteableBitmap` 这条转换链。
-
-启动阶段在 PLC 连接尝试之后、主窗口创建之前扫描摄像头，并接入 `StartupWaitWindow` 等待提示。首次启动且扫描到摄像头但配置为空时，必须弹出 `CameraSelectionWindow` 让用户选择，并把选择保存到 `Setting.json`。后续启动如果扫描到已保存设备则自动连接；如果保存的设备未扫描到或连接失败，主窗口显示摄像头连接失败弹窗，但不应阻塞 PLC 和主程序启动。
-
-系统设置页的摄像头下拉框绑定启动时扫描到的设备列表，保存时更新 `SettingModel.CameraDeviceId` / `CameraDeviceName` 并按当前选择重连预览。主页左侧试验参数下方显示摄像头预览，双击预览区域打开 `CameraPreviewWindow` 独立预览窗口；独立窗口必须使用当前主题标题栏，并允许拖动和调整大小。主页摄像头预览右侧的刷新按钮只在当前流断开或无画面时异步重连；正常播放时点击不做任何操作，重连结果只通过主窗口 Growl 提示。
-
-首次选择摄像头的 `CameraSelectionWindow` 必须沿用 HandyControl `Dialog.Show` 的弹窗风格，并在下拉框下方提供小预览画面。该预览必须借用主窗口持有的唯一 `CameraCaptureService` 实例，下拉框切换时异步切换同一条连接；用户确认后主窗口直接接管这条已打开连接，不允许释放后再重连，也不允许创建第二个摄像头服务实例与正式预览争用同一个摄像头。
-
-摄像头采集和 UI 刷新必须保持异步，不要在 UI 线程同步等待 `MediaCapture.InitializeAsync()`、`MediaFrameReader.StartAsync()` 或帧读取。摄像头连接失败不能影响 `DataAqc.Refresh()`、PLC 自动重连、曲线刷新和试验数据采集。
-
-### 帧管线性能约束
-
-高分辨率摄像头（8K 时单帧 BGRA 约 126 MiB）会通过内存分配间接拖慢采集线程：每帧一个大数组会落到大对象堆并触发 gen2 GC，而 GC 挂起阶段会停住 `DataAqc.Refresh()` 所在的托管线程，使其错过 `HighResolutionTimer` 触发点并导致采样率下降。以下约束用于避免这条因果链，修改帧管线时必须保留：
-
-- **不允许每帧分配像素缓冲。** `CameraCaptureService` 用 `_pixelBuffers` 双缓冲轮转复用，只在帧尺寸变化时重新分配。双缓冲的正确性依赖渲染闸门保证同时最多只有一帧在等 UI 线程；不要在保留单缓冲的前提下去掉闸门，也不要在去掉双缓冲的前提下保留闸门。
-- **丢帧必须发生在像素处理之前。** `OnFrameArrived` 开头用 `ShouldDropFrameBeforeDecode()` 判断，命中则 `TryAcquireLatestFrame()?.Dispose()` 直接丢弃。不要退回到"先转换拷贝、再在发布阶段丢弃"的顺序。
-- **不允许为统一 alpha 模式做整帧转换。** 视频帧没有 alpha，`Bgra8/Ignore` 与 `Bgra8/Premultiplied` 字节相同，WPF 侧使用 `PixelFormats.Bgr32` 消费。只有当帧不是 `Bgra8` 时才调用 `SoftwareBitmap.Convert`。不要改回 `Pbgra32`，否则会重新引入每帧一次的全帧转换。
-- **读取帧数据用 `LockBuffer` + `IMemoryBufferByteAccess` 一次拷贝完成**，不要退回 `Windows.Storage.Streams.Buffer` + `DataReader` 的两次拷贝方案。stride 必须取 `BitmapPlaneDescription.Stride`，不能假定为 `width * 4`；高分辨率帧存在行填充。
-- **访问 `IMemoryBufferByteAccess` 有两个必须避开的陷阱**，两者都会导致每帧抛异常、画面完全黑屏：
-  - 不能用 `[ComImport]` 声明接口再直接强制转换 `IMemoryBufferReference`。CsWinRT 通过自己的封送层投射 WinRT 对象，不走经典 COM 互操作，强转会抛 `InvalidCastException: Invalid cast from 'WinRT.IInspectable'`。
-  - 也不能用 `Marshal.GetIUnknownForObject()` 取指针。它返回的是 CsWinRT 包装对象，不暴露原生接口，`QueryInterface` 会以 `E_NOINTERFACE` 失败。
-  - 正确做法是 `((IWinRTObject)reference).NativeObject.ThisPtr` 取原生指针（借用，不额外 AddRef），再手动 `Marshal.QueryInterface` 并按 vtable 槽位 3 调用 `GetBuffer`。见 `MemoryBufferByteAccess`。
-- **写入 `WriteableBitmap` 用 `Lock()` / `BackBuffer` / `AddDirtyRect()`**，不要改回 `WritePixels()`（会多一次全帧拷贝）。目标与源 stride 可能不同，必须保留逐行拷贝分支。
-- 项目为此开启了 `AllowUnsafeBlocks`。
-
-### 自适应帧分辨率
-
-帧格式必须按实际显示需求从设备 `SupportedFormats` 中选择，不得沿用设备默认（通常是最高）分辨率，也**不得硬编码上限**把高清摄像头压回固定分辨率。8K 摄像头的意义在于高清采集，将来会扩展实时区域放大等功能，因此在消费者确实需要 8K 时必须能流 8K。
-
-- 消费者通过 `CameraCaptureService.ReportDisplayDemand(consumerKey, pixelWidth, pixelHeight)` 上报自己**当前实际渲染尺寸**（DIP 乘以 `TransformToDevice` 得到设备像素），传 0 表示撤销需求。
-- 服务取所有活跃消费者需求的逐轴最大值，选择**能覆盖该需求的最小**设备格式；需求超过设备全部格式时用最高分辨率；无活跃消费者时用最小格式。
-- 当前三个消费者及其 key：主页预览 `home-preview`、独立预览窗口 `preview-window`、首次选择弹窗 `selection-preview`。三者共享同一个 `WriteableBitmap`，所以分辨率由最大者决定。独立预览窗口可调整大小并可最大化到任意显示器，是需求最高的消费者；它必须在 `OnClosed` 撤销需求，否则流会一直停在放大后的尺寸。
-- 新增摄像头画面消费者时必须一并上报需求并在销毁时撤销，否则该消费者会显示被放大的低分辨率画面，或反过来让整条流长期停在过高分辨率。
-- 格式切换通过 `QueueFormatReevaluation()` 串行化到后台任务链，UI 线程不得同步等待 `SetFormatAsync`。设备拒绝切换时保持当前格式并只记警告，不影响正在进行的预览。
-- 需要排查设备真实能力时，把日志级别开到 Debug，`LogSupportedFormats()` 会输出每个格式的 subtype、分辨率和帧率。
-
-## 新视觉与二段速扩展规则
-
-- 摄像头功能与新视觉处理完全独立。新视觉开关位于系统设置页“摄像头”设置行的下方，但该布局位置不表示摄像头依赖；不得通过摄像头服务、摄像头连接状态或摄像头采集流程控制新视觉。
-- 旧的 `VisionDeviceClient`、`VisionDetectionController` 及其检测开始、检测停止、特定消息停机和旧视觉设备连接生命周期均已废弃。产品主窗口不得再订阅、调用或显示这些旧入口；保留旧类型仅用于兼容历史源码和配置时，必须标记为过时。
-- 新视觉唯一入口为 `Services/NewVisionProcessingService.cs`。当前只负责模块是否包含、运行时开关和后续扩展入口，不实现检测通信、开始检测、停止检测或特定消息停机逻辑。
-- `Setting.json` 的 `NewVisionProcessingIncluded` 表示发布包是否包含新视觉模块；`NewVisionProcessingEnabled` 表示运行时开关。旧配置缺少这两个字段时按 `false` 兼容。附加调试器时新视觉模块视为已包含并默认打开，但不得借此恢复旧视觉流程。
-- 新视觉未包含时系统设置页不显示新视觉开关；包含时显示。二段速仅在新视觉运行时开关打开时可配置和执行。
-- 普通配方格式和普通配方生成逻辑不得修改。二段速是独立的新配方类型，使用 `IsTwoStageSpeed`、`FirstStageParameters` 和 `SecondStageParameters` 保存两套六参数；缺少这些字段的历史 JSON 必须继续按普通配方加载。
-- 二段速入口位于试验参数中“写入配置参数”按钮右侧。保存前显示配方名称及一段速、二段速两组六参数，初始值复制当前配方参数；配方列表用“二段速”气泡标签标识。
-- 二段速确认只能挂在 `DataAqc.DataCollectionEnded` 试验结束事件。必须由用户明确点击“是”后才切换二段速并开始后续试验；拒绝时不得写入二段速、调用压边或调用拉伸。
-- 二段速切换顺序固定为：写入二段速配方、调用“压边”、再调用“拉伸”。仅切换期间抑制自动保存和自动数据重置；采集、曲线、实时表格和数据库始终走原有路径，不得延迟或阻断。
-- 真实数据重置执行前，如果当前二段速试验已切换到第二段，必须先写回一段速参数；普通配方和旧流程保持原样。二段速标签和参数不得改写旧配方记录。
-- 打包工具必须把新视觉包含标记写入 `Setting.json`，且不得仅依赖旧 `VisionModuleEnabled` 判断新视觉；安装器和 demo 不得把摄像头或旧视觉逻辑回流到新视觉模块。
-二段速状态机实现细则：
-
-- 二段速确认必须使用产品现有 WPF 弹窗风格，不得调用 `System.Windows.MessageBox`，按钮文案固定使用中文“是/否”；编辑窗口的校验错误也必须在产品窗口内显示，不得弹系统英文提示。
-- 二段速状态必须至少区分普通状态、等待用户确认、切换一段到二段、二段执行中和切回一段；禁止用单个“二段已激活”布尔值代替这些阶段。
-- `DataAqc.DataCollectionEnded` 是二段速确认的唯一业务入口。确认窗口显示期间不得自动保存；用户选择“否”不得写二段参数、不得调用压边、不得调用拉伸。用户选择“是”后才允许按“写二段参数 → 压边 → 拉伸”的顺序执行。
-- 当前采集周期内一旦发生数据重置或完全复位，该周期后续停止不询问二段速；重置发生在确认窗口等待期间时立即关闭确认并作废结果。重置后恢复一段参数，下一次新的采集周期重新判断；未重置时用户选“否”不阻止下次采集停止再次询问。
-- 二段速切换期间必须暂存并恢复用户原有的自动数据重置复选框值。切换期间禁止自动数据重置和自动保存；二段执行结束后自动保存可以按原策略运行，真实数据重置前必须先写回一段参数。
-- 二段速是一次完整试验，一段和二段都必须实时采集、绘图和入库；一段结束时只暂停并询问是否进入二段，不得自动保存报告、表格或重置数据。释放拉伸请求的自动数据重置必须暂存到用户拒绝二段或二段结束之后，并等待自动保存流程结束后执行。用户手动数据重置仍是实际重置。
-- `TrialDataStore.ContinueNextCapture()` 仅在用户确认二段并写入参数后设置，使第二次 PLC 采集继续归入本次试验的数据库会话；切换失败或实际重置时取消。不得延迟 `EnqueuePoint`、消费者批次或曲线刷新。
-- 已成功写入二段参数后，试验参数栏显示对应的二段参数；真实重置并成功写回一段参数后恢复显示一段参数。显示使用运行时副本，不得把二段参数覆盖持久化的一段参数。
-- 二段速配方继续使用独立字段 `IsTwoStageSpeed`、`FirstStageParameters`、`SecondStageParameters`。普通配方 JSON、普通配方生成、普通配方写入和普通试验路径不得被改写；旧 JSON 缺少新字段时必须继续按普通配方处理。
-- 新增二段速窗口的布局必须使用固定的两列六行参数网格、现有按钮样式和主题资源；新增确认窗口不得改变主界面原有 Grid 的行列、间距或控件位置。
+# 仓库导航（ECS）
+
+本文件是入口索引。按“业务流程 → 子目录 `AGENTS.md` → 文件 / 类 / 函数”定位修改边界；子指南应与实现保持同步。项目是 .NET 8 WPF Windows 产品，主项目为 `TensileNeW.csproj`（程序集 `ECS`）。
+
+## 从流程定位代码
+
+| 流程 | 从这里开始 | 主要下游 | 详细边界 |
+|---|---|---|---|
+| 启动、主题、配置、PLC 首连 | `App.xaml.cs` → `App.Application_Startup()`、`TryConnectWithTimeoutAsync()` | `RAM.Init()`、`DataAqc.InitVariables()`、`StartupWaitWindow`、`MainWindow()` | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
+| 主窗口交互与职责分区 | `MainWindow.xaml` 事件绑定 → `MainWindow.xaml.cs` / `MainWindow.MainWindow()` | 下列 partial、`MainViewModel`、Services | `MainWindow/AGENTS.md` |
+| 主窗口帮助 / 文档 | `MainWindow.xaml` → 帮助事件 | `MainWindow/MainWindow.Help.cs` → `ManualDocumentService` → `HelpDocumentViewer` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
+| PLC / 实时采集 | `MainViewModel.cs` → PLC 写入命令；`Models/DataAqc.cs` → `InitVariables()`、`TryConnect()`、`Refresh()`、`StartConsumers()` | `Tools/DeltaPLC2.cs`、`ModbusAddressHelper.cs`、`TrialDataStore` | `Models/AGENTS.md`、`Tools/AGENTS.md` |
+| 网络探测与恢复连接 | `MainWindow/MainWindow.Network.cs` → `RunNetworkProbeAndReconnectAsync()`、`TryConnectWithRetriesAsync()` | `NetworkAdapterProbeService`、`DataAqc.AutoReconnectSuspended` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
+| 曲线 / 实时表格 / 回放 | `MainWindow.xaml.cs` → `InitializePlot()`、`LoadItems_ListChanged()`、`RenderPlayback()` | `LoadPlotController`、`TrialDataStore`、`PlotWindow` | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
+| 摄像头 | `MainWindow.xaml.cs` → `InitializeCameraPreview()`、`ApplySelectedCameraAsync()` | `CameraCaptureService`、选择 / 预览窗口 | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
+| 试验控制 / 二段速 / 复位 | `MainWindow.xaml.cs` → `StartTensile_Click()`、`Reset_Click()`、`SwitchToSecondStageAsync()` | `MainViewModel`、`DataAqc`、视觉服务 | `MainWindow/AGENTS.md`、`Models/AGENTS.md` |
+| 实时数据、算法整合、报告与回放导出 | `MainWindow.xaml.cs` → `SaveDataAndReportAsync()`、`SavePlaybackData_Click()` | `DisplacementResamplingService`、`TrialDataStore`、`TestReportService` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
+| 配置 / 配方 | `MainViewModel.cs`、`Models/RAM.cs`、`SettingModel.cs`、`RecipeModel.cs` | Settings / recipe dialogs | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
+| PIN 隐藏入口 | `MainWindow.xaml.cs` → `LogoImage_MouseLeftButtonDown()` | `SettingsPinDialog` / `SettingsPinWindow`、离线导入服务 | `Dialogs/AGENTS.md`、`Services/AGENTS.md` |
+| 产品发布 / 绿色包 | `builder/Builder` | 主项目 publish、启动脚本、内容断言 | `builder/AGENTS.md` |
+| 安装器 | `installer/InstallerBuilder` → `installer/Installer` | 临时 payload、独立部署 EXE | `installer/AGENTS.md` |
+| 独立示例 | `demo/Demo.csproj` | demo 自有页面、服务和资源 | `demo/AGENTS.md`；不属于产品 |
+
+## 主窗口拆分图
+
+`MainWindow.xaml.cs` 是 UI 协调中心，不是业务服务。当前文件保留窗口装配、生命周期、摄像头、曲线、试验控制、二段速、回放和保存；已按高内聚事件域拆出：
+
+- `MainWindow/MainWindow.Help.cs`：说明书导航、预览、搜索、缩放。
+- `MainWindow/MainWindow.Network.cs`：页面切换、DACU 入口、网络探测 / 重连 UI 协调。
+- `MainWindow/MainWindow.InputValidation.cs`：配方数值输入规范化和校验显示。
+- 具体函数索引及允许的跨层依赖见 `MainWindow/AGENTS.md`。
+
+partial 仍共享 `MainWindow` 字段，不等于完成服务级解耦。后续应把有独立状态 / 生命周期的逻辑迁至 `Services/` 或 `MainViewModel`，并通过明确输入输出、事件或接口协作；不要再制造对整个窗口控件树的依赖。
+
+## PLC 与实时数据：不可破坏的契约
+
+- 当前链路：`RAM.SettingModel.PLC_IP` → `DataAqc.InitVariables()` → `DeltaPLC2`（NModbus）→ `DataAqc.Refresh()` / 消费者 → UI。端口 502、Unit ID 1；地址由 `ModbusAddressHelper` 转换。旧 `DeltaPLC.cs` 不在主路径。
+- 冲程压边按下 / 松开必须后台即时写线圈。连接成功只读一次 D40（浮点版本 `2026.068`）并缓存判断：版本不低于该值只写 M45；缺失、读取失败或较低只写 M30。按键不得重读 D40；重连可重新读取一次。涉及 `DataAqc`、`MainViewModel.SetStrokeStampingAsync()` 和按键事件需一起核验。
+- 采样率显示旁路接收 `UiBatchApplied` 最近 20 批全部 `PlcSnapshot` 数量，单位 tick/s。不得为此改采样周期、消费者 50ms 周期、队列消费、数据库写入、曲线或 UI 调度。
+- `Refresh()` 中 M111 完全复位是设备真实链路，不能绕开。网络探测必须暂停自动重连并在 `finally` 恢复；PLC TCP 连接只由主进程持有。
+
+## 数据导出边界
+
+- 实时保存无表格数据时按 `DataAqc.loadModels` 是否为空直接返回，不能用已被消费者排空的 `_queue` 判断。
+- 保存数据 / 报告的等待动画由独立 STA Dispatcher 的 `BackgroundStartupWaitWindow` 驱动；保存前先快照实时点，再在线程池运行算法导出。
+- 算法整合文件单独命名 `{基础名}_算法整合数据.xlsx`，不能插入原始 Excel 或改变报告截图。`DisplacementResamplingService` 步长=速度设定/20（1mm/s → 0.05mm），速度解析失败才回退 0.05mm；范围外整间隔边界须线性外推。离线 PIN 导入只读所选 Excel 第一张表，并复用该服务。
+- 试用保存次数、文件名及拒绝第 101 次规则维护在 package / 保存入口；权限状态不得用于引入其他限制。定位 `MainWindow.xaml.cs` 保存入口和试用状态服务，再读 `Services/AGENTS.md`。
+
+## 本地调试功能（仅明确要求时）
+
+正弦生成器是临时本地调试辅助，不应成为产品功能，也不得提交。参考实现：`git show d032605`（仅参考，不合并）。触发仅限 PIN 五位码 `SINON` 启动、`SINOF` 停止；不得新增按钮或持久化开关。
+
+- 服务放 `Services/SineDebugDataService.cs`，构造传入主窗口 Dispatcher，使用约 50ms `DispatcherTimer`；已连接时拒绝启动，运行中一旦连接立即停止。只在未连接设备时工作。
+- 点公式 `force = 10 * (Math.Sin(x / 2) + offset)`，初始 offset=1；每次调试专用复位 offset 加 2，x/index 归零并重启计时。力、位移、压边力、时间按原调试契约填充。
+- 数据必须经 `DataAqc.Enqueue()`，采集标志通过 PLC 变量 `数据采集标志` 设 True/False，让既有自动缩放条件自然成立；不手动调用 AutoScale、不直接操作控制器 / `loadModels` / `TrialDataStore` / `LoadDataChanged`。
+- 唯一允许给 `DataAqc` 增加的是调试专用 `ClearDebugLoadData()`：只清 `_queue`、`loadModels` 并触发 `ChartCleared`。`MainWindow.Reset_Click()` 调试运行时只走此入口并推进试验序列号，常规重置保持原样。
+- PIN 事件透传经过 `SettingsPinDialog`、`SettingsPinWindow`；主窗只显示启动 / 停止 / 已运行 / 已连接跳过 / 未运行提示，不因调试入口操作 PLC。
+- 具体文件级复现与验收还需对照 `Models/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md`；若实施，明确告知工作区有未提交调试改动。
+
+## 工程隔离、编码与验证
+
+- 产品只构建 `TensileNeW.csproj`；`demo/`、`SamplingCapture/`、builder、installer 均为独立工程 / 工具。不得将其编入产品发布包。修改 demo 另读 `demo/AGENTS.md`。
+- 发布必须是 win-x64 Release、自包含单文件；根部 DLL 数量为 0，EXE、`NLog.config`、`start-{AssemblyName}.cmd`、`Assets/`、`manuals/` 必须存在。builder 输出根必须位于仓库外。详见 `builder/AGENTS.md`。
+- InstallerBuilder 负责控制台选择和临时 payload；最终交付物仅是其运行目录 `publish/ECS-Installer.exe`。详见 `installer/AGENTS.md`。
+- 新增 / 修改文件使用 UTF-8。单文件发布路径定位使用 `Environment.ProcessPath` 或 `AppContext.BaseDirectory`，不要依赖 `Assembly.Location`。
+- 修改窗口 UI 前核算所在容器实际宽高、Grid 行列、Margin / Padding；不通过扩窗、压字体或裁切字段掩盖布局问题。复用本地按钮样式，不加装饰性边框。
+- 主项目验证：`dotnet build .\TensileNeW.csproj`。独立工程分别验证；不要提交构建、运行数据库、日志、缓存或临时部署产物。
