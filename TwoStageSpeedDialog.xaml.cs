@@ -14,8 +14,9 @@ public partial class TwoStageSpeedDialog : Window
     {
         InitializeComponent();
         RecipeNameBox.Text = source.RecipeName + "-二段速";
-        BuildInputs(FirstGrid, _first, source.GetFirstStageParameters());
-        BuildInputs(SecondGrid, _second, source.GetSecondStageParameters());
+        RecipeStageParameters currentParameters = RecipeStageParameters.FromRecipe(source);
+        BuildInputs(FirstGrid, _first, currentParameters);
+        BuildInputs(SecondGrid, _second, currentParameters);
     }
     private static void BuildInputs(Grid grid, TextBox[] boxes, RecipeStageParameters values)
     {

@@ -179,6 +179,9 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
+            _activeStageRecipe = null;
+            OnPropertyChanged(nameof(DisplayedRecipe));
+
             if (value == null)
             {
                 TrialDataStore.SetCurrentRecipe(null);
@@ -196,6 +199,26 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedRecipeEditHint));
             RAM.ChangedIndex(Recipes.IndexOf(value));
         }
+    }
+
+    private RecipeModel? _activeStageRecipe;
+
+    public RecipeModel? DisplayedRecipe => _activeStageRecipe ?? SelectedRecipe;
+
+    public void DisplayRecipeStage(RecipeStageParameters? parameters)
+    {
+        _activeStageRecipe = parameters == null || SelectedRecipe == null ? null : SelectedRecipe.CloneForUser();
+        if (_activeStageRecipe != null && parameters != null)
+        {
+            _activeStageRecipe.StrokeStampingForce = parameters.StrokeStampingForce;
+            _activeStageRecipe.ClosedLoopStampingForce = parameters.ClosedLoopStampingForce;
+            _activeStageRecipe.ShutdownDelay = parameters.ShutdownDelay;
+            _activeStageRecipe.ShutdownRatio = parameters.ShutdownRatio;
+            _activeStageRecipe.Speed = parameters.Speed;
+            _activeStageRecipe.TensileDistanceLimit = parameters.TensileDistanceLimit;
+        }
+
+        OnPropertyChanged(nameof(DisplayedRecipe));
     }
 
     public CameraDeviceDescriptor? SelectedCameraDevice
@@ -252,6 +275,47 @@ public sealed class MainViewModel : ObservableObject
         await SetBoolAsync(variableName, true);
         await Task.Delay(100);
         await SetBoolAsync(variableName, false);
+    }
+
+    public async Task<bool> TryPulseAsync(string variableName)
+    {
+        bool asserted = false;
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (!IsPlcConnected())
+                {
+                    throw new InvalidOperationException("PLC未连接");
+                }
+
+                DataAqc.plc.WriteBool(Address(variableName), true);
+            });
+            asserted = true;
+            await Task.Delay(100);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "控制指令 {0} 写入失败", variableName);
+            return false;
+        }
+        finally
+        {
+            if (asserted)
+            {
+                try
+                {
+                    await Task.Run(() => DataAqc.plc.WriteBool(Address(variableName), false));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "控制指令 {0} 释放失败", variableName);
+                    asserted = false;
+                }
+            }
+        }
+
+        return asserted;
     }
 
     public async Task PulseExclusiveAsync(string variableName, string oppositeVariableName)

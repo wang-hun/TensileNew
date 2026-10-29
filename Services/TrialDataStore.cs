@@ -22,6 +22,7 @@ public static class TrialDataStore
     private static RecipeSnapshot? _currentRecipe;
     private static Guid? _activeCaptureSessionId;
     private static bool _newCapturePending = true;
+    private static bool _continueNextCapture;
 
     public sealed record TrialCurveSummary(string TrialSerialNumber, DateTime StartedAtUtc);
 
@@ -149,8 +150,30 @@ public static class TrialDataStore
     {
         lock (StateLock)
         {
+            if (_continueNextCapture)
+            {
+                _continueNextCapture = false;
+                return;
+            }
+
             _activeCaptureSessionId = null;
             _newCapturePending = true;
+        }
+    }
+
+    public static void ContinueNextCapture()
+    {
+        lock (StateLock)
+        {
+            _continueNextCapture = true;
+        }
+    }
+
+    public static void CancelCaptureContinuation()
+    {
+        lock (StateLock)
+        {
+            _continueNextCapture = false;
         }
     }
 

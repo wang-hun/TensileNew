@@ -118,7 +118,8 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
     private bool? _twoStagePreviousAutoReset;
-    private bool _twoStageAutomaticResetPending;
+    private bool _twoStageDeferredAutoReset;
+    private int _dataResetGeneration;
     private bool _newVisionUiInitialized;
     private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
@@ -184,6 +185,7 @@ public partial class MainWindow : Window
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.ChartCleared += OnTrialDataCleared;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
@@ -734,6 +736,7 @@ public partial class MainWindow : Window
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        DataAqc.ChartCleared -= OnTrialDataCleared;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
         HandleRuntimeDataSaveOnExit();
@@ -1656,9 +1659,11 @@ public partial class MainWindow : Window
         await _viewModel.PulseAsync("拉伸释放");
         if (ReleaseTensileResetCheckBox.IsChecked == true)
         {
-            if (ShouldDeferTwoStageAutomaticReset)
+            if (_twoStageState != TwoStageTrialState.None ||
+                (_twoStageState == TwoStageTrialState.None && _newVisionProcessingService.IsEnabled &&
+                 _viewModel.SelectedRecipe is { IsTwoStageSpeed: true }))
             {
-                _twoStageAutomaticResetPending = true;
+                _twoStageDeferredAutoReset = true;
             }
             else
             {
@@ -1677,6 +1682,8 @@ public partial class MainWindow : Window
 
     private async Task PerformDataResetAsync()
     {
+        _twoStageDeferredAutoReset = false;
+        TrialDataStore.CancelCaptureContinuation();
         if (_twoStageState != TwoStageTrialState.None)
         {
             if (!await SwitchToFirstStageAsync())
@@ -1687,6 +1694,17 @@ public partial class MainWindow : Window
 
         await _viewModel.PulseAsync("数据重置");
         DataAqc.RequestDataResetClear();
+    }
+
+    private async void OnTrialDataCleared()
+    {
+        _dataResetGeneration++;
+        TrialDataStore.CancelCaptureContinuation();
+        _twoStageDeferredAutoReset = false;
+        if (_twoStageState != TwoStageTrialState.None)
+        {
+            await SwitchToFirstStageAsync();
+        }
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
     private void NewVisionProcessingSwitch_Changed(object sender, RoutedEventArgs e)
@@ -1714,7 +1732,7 @@ public partial class MainWindow : Window
     }
     private void TwoStageSpeed_Click(object sender, RoutedEventArgs e)
     {
-        RecipeModel? source = _viewModel.SelectedRecipe;
+        RecipeModel? source = _viewModel.DisplayedRecipe;
         if (!_newVisionProcessingService.IsEnabled || source == null)
         {
             ShowWarning("请先打开新视觉处理。");
@@ -1754,19 +1772,55 @@ public partial class MainWindow : Window
             }
 
             _twoStageState = TwoStageTrialState.SwitchingToSecondStage;
+            int resetGeneration = _dataResetGeneration;
             _twoStagePreviousAutoReset = ReleaseTensileResetCheckBox.IsChecked;
             ReleaseTensileResetCheckBox.IsChecked = false;
 
             if (!await _viewModel.WriteRecipeAsync(recipe.SecondStageParameters))
             {
-                _twoStageState = TwoStageTrialState.None;
+                _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
                 RestoreTwoStageAutoResetSetting();
-                ShowError("二段速配方写入失败。");
+                ShowError("二段速配方写入失败，请重置数据以恢复一段速参数。");
                 return;
             }
 
-            await _viewModel.PulseAsync("压边");
-            await _viewModel.PulseAsync("拉伸");
+            if (resetGeneration != _dataResetGeneration || !ReferenceEquals(recipe, _viewModel.SelectedRecipe))
+            {
+                _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
+                RestoreTwoStageAutoResetSetting();
+                ShowWarning("试验状态已改变，未启动二段速。");
+                return;
+            }
+
+            _viewModel.DisplayRecipeStage(recipe.SecondStageParameters);
+            TrialDataStore.ContinueNextCapture();
+            if (!await _viewModel.TryPulseAsync("压边"))
+            {
+                TrialDataStore.CancelCaptureContinuation();
+                _twoStageState = TwoStageTrialState.SecondStageActive;
+                RestoreTwoStageAutoResetSetting();
+                ShowError("压边指令发送失败，未启动二段拉伸。请检查设备并重置数据。");
+                return;
+            }
+
+            if (resetGeneration != _dataResetGeneration || !ReferenceEquals(recipe, _viewModel.SelectedRecipe))
+            {
+                TrialDataStore.CancelCaptureContinuation();
+                _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
+                RestoreTwoStageAutoResetSetting();
+                ShowWarning("试验状态已改变，未启动二段拉伸。");
+                return;
+            }
+
+            if (!await _viewModel.TryPulseAsync("拉伸"))
+            {
+                TrialDataStore.CancelCaptureContinuation();
+                _twoStageState = TwoStageTrialState.SecondStageActive;
+                RestoreTwoStageAutoResetSetting();
+                ShowError("拉伸指令发送失败，请检查设备并重置数据。");
+                return;
+            }
+
             _twoStageState = TwoStageTrialState.SecondStageActive;
             RestoreTwoStageAutoResetSetting();
         }
@@ -1786,6 +1840,12 @@ public partial class MainWindow : Window
                 return true;
             }
 
+            if (_twoStageState == TwoStageTrialState.WaitingForSecondStageConfirmation)
+            {
+                _twoStageState = TwoStageTrialState.None;
+                return true;
+            }
+
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
             if (recipe is { IsTwoStageSpeed: true } && recipe.FirstStageParameters != null &&
@@ -1796,6 +1856,7 @@ public partial class MainWindow : Window
             }
 
             _twoStageState = TwoStageTrialState.None;
+            _viewModel.DisplayRecipeStage(null);
             RestoreTwoStageAutoResetSetting();
             return true;
         }
@@ -1815,7 +1876,7 @@ public partial class MainWindow : Window
         if (!_newVisionProcessingService.IsEnabled || _viewModel.SelectedRecipe is not { IsTwoStageSpeed: true })
         {
             _twoStageState = TwoStageTrialState.None;
-            _twoStageAutomaticResetPending = false;
+            _viewModel.DisplayRecipeStage(null);
             RestoreTwoStageAutoResetSetting();
             return;
         }
@@ -1825,22 +1886,18 @@ public partial class MainWindow : Window
         bool? result = dialog.ShowDialog();
         if (result == true)
         {
-            _twoStageAutomaticResetPending = false;
+            _twoStageDeferredAutoReset = false;
             _ = SwitchToSecondStageAsync();
             return;
         }
 
-        bool resetAfterDecline = _twoStageAutomaticResetPending;
-        _twoStageAutomaticResetPending = false;
         _twoStageState = TwoStageTrialState.None;
         RestoreTwoStageAutoResetSetting();
-        if (resetAfterDecline)
+        await RunAutomaticSaveAsync();
+        if (_twoStageDeferredAutoReset)
         {
             await PerformDataResetAsync();
-            return;
         }
-
-        ScheduleAutomaticSave();
     }
 
     private void RestoreTwoStageAutoResetSetting()
@@ -2341,20 +2398,19 @@ public partial class MainWindow : Window
         }
 
         await DelayOneSecondWithHighResolutionTimerAsync();
-        ScheduleAutomaticSave();
+        await RunAutomaticSaveAsync();
+        if (_twoStageState == TwoStageTrialState.SecondStageActive && _twoStageDeferredAutoReset)
+        {
+            await PerformDataResetAsync();
+        }
     }
-
-    private bool ShouldDeferTwoStageAutomaticReset =>
-        _newVisionProcessingService.IsEnabled &&
-        _viewModel.SelectedRecipe is { IsTwoStageSpeed: true } &&
-        _twoStageState != TwoStageTrialState.SecondStageActive;
 
     private bool IsTwoStageTransitioning =>
         _twoStageState is TwoStageTrialState.WaitingForSecondStageConfirmation
             or TwoStageTrialState.SwitchingToSecondStage
             or TwoStageTrialState.SwitchingToFirstStage;
 
-    private void ScheduleAutomaticSave()
+    private async Task RunAutomaticSaveAsync()
     {
         if (_isClosing || IsTwoStageTransitioning || DataAqc.loadModels.Count == 0)
         {
@@ -2364,15 +2420,15 @@ public partial class MainWindow : Window
         string policy = _viewModel.Setting.AutoSavePolicy;
         if (policy == SettingModel.AutoSaveAlwaysYes)
         {
-            _ = SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
+            await SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
         }
         else if (policy == SettingModel.AutoSaveAskEveryTime)
         {
-            ShowAutomaticSavePrompt();
+            await ShowAutomaticSavePromptAsync();
         }
     }
 
-    private void ShowAutomaticSavePrompt()
+    private async Task ShowAutomaticSavePromptAsync()
     {
         if (_autoSavePromptOpen || IsTwoStageTransitioning)
         {
@@ -2382,9 +2438,9 @@ public partial class MainWindow : Window
         _autoSavePromptOpen = true;
         var dialog = new RuntimeDataSavePromptWindow { Owner = this };
         dialog.ConfigurePrompt("自动保存数据和报告", "试验已完成，是否自动保存当前数据和试验报告？");
-        dialog.Closed += (_, _) =>
+        try
         {
-            _autoSavePromptOpen = false;
+            dialog.ShowDialog();
             if (!dialog.HasDecision)
             {
                 return;
@@ -2400,10 +2456,13 @@ public partial class MainWindow : Window
 
             if (dialog.ShouldSave)
             {
-                _ = Dispatcher.InvokeAsync(() => _ = SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true));
+                await SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
             }
-        };
-        dialog.ShowDialog();
+        }
+        finally
+        {
+            _autoSavePromptOpen = false;
+        }
     }
 
     private static Task DelayOneSecondWithHighResolutionTimerAsync()
