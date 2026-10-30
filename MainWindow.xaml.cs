@@ -118,7 +118,6 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
     private bool? _twoStagePreviousAutoReset;
-    private bool _twoStageDeferredAutoReset;
     private int _dataResetGeneration;
     private TwoStageConfirmationWindow? _twoStageConfirmationWindow;
     private bool _newVisionUiInitialized;
@@ -1131,16 +1130,7 @@ public partial class MainWindow : Window
         await _viewModel.PulseAsync("拉伸释放");
         if (ReleaseTensileResetCheckBox.IsChecked == true)
         {
-            if (_twoStageState != TwoStageTrialState.None ||
-                (_twoStageState == TwoStageTrialState.None && _newVisionProcessingService.IsEnabled &&
-                 _viewModel.SelectedRecipe is { IsTwoStageSpeed: true }))
-            {
-                _twoStageDeferredAutoReset = true;
-            }
-            else
-            {
-                await PerformDataResetAsync();
-            }
+            await PerformDataResetAsync();
         }
     }
     private async void Stop_Click(object sender, RoutedEventArgs e)
@@ -1154,7 +1144,6 @@ public partial class MainWindow : Window
 
     private async Task PerformDataResetAsync()
     {
-        _twoStageDeferredAutoReset = false;
         TrialDataStore.CancelCaptureContinuation();
         if (_twoStageState != TwoStageTrialState.None)
         {
@@ -1173,7 +1162,6 @@ public partial class MainWindow : Window
         _dataResetGeneration++;
         _twoStageConfirmationWindow?.Close();
         TrialDataStore.CancelCaptureContinuation();
-        _twoStageDeferredAutoReset = false;
         if (_twoStageState != TwoStageTrialState.None)
         {
             await SwitchToFirstStageAsync();
@@ -1205,7 +1193,7 @@ public partial class MainWindow : Window
     }
     private void TwoStageSpeed_Click(object sender, RoutedEventArgs e)
     {
-        RecipeModel? source = _viewModel.DisplayedRecipe;
+        RecipeModel? source = _viewModel.SelectedRecipe;
         if (!_newVisionProcessingService.IsEnabled || source == null)
         {
             ShowWarning("请先打开新视觉处理。");
@@ -1218,9 +1206,45 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (source.IsTwoStageSpeed)
+        {
+            if (_viewModel.UpdateRecipe(source, dialog.Result))
+            {
+                ShowSuccess("二段速配方已更新。");
+                return;
+            }
+
+            MessageBoxResult overwrite = MessageBox.Show(
+                this,
+                $"配方“{dialog.Result.RecipeName}”已存在，是否覆盖？",
+                "配方重名",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (overwrite == MessageBoxResult.Yes && _viewModel.ReplaceRecipe(dialog.Result.RecipeName, dialog.Result))
+            {
+                ShowSuccess("二段速配方已覆盖。");
+                return;
+            }
+
+            ShowWarning("未覆盖已有配方，请重新编辑。");
+            return;
+        }
+
         if (!_viewModel.AddRecipe(dialog.Result.RecipeName, dialog.Result))
         {
-            ShowWarning("配方名称已存在。");
+            MessageBoxResult overwrite = MessageBox.Show(
+                this,
+                $"配方“{dialog.Result.RecipeName}”已存在，是否覆盖？",
+                "配方重名",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (overwrite != MessageBoxResult.Yes || !_viewModel.ReplaceRecipe(dialog.Result.RecipeName, dialog.Result))
+            {
+                ShowWarning("未覆盖已有配方。");
+                return;
+            }
+
+            ShowSuccess("二段速配方已覆盖。");
             return;
         }
 
@@ -1374,7 +1398,6 @@ public partial class MainWindow : Window
         }
         if (result == true)
         {
-            _twoStageDeferredAutoReset = false;
             _ = SwitchToSecondStageAsync();
             return;
         }
@@ -1382,10 +1405,6 @@ public partial class MainWindow : Window
         _twoStageState = TwoStageTrialState.None;
         RestoreTwoStageAutoResetSetting();
         await RunAutomaticSaveAsync();
-        if (_twoStageDeferredAutoReset)
-        {
-            await PerformDataResetAsync();
-        }
     }
 
     private void RestoreTwoStageAutoResetSetting()
@@ -1894,10 +1913,6 @@ public partial class MainWindow : Window
 
         await DelayOneSecondWithHighResolutionTimerAsync();
         await RunAutomaticSaveAsync();
-        if (_twoStageState == TwoStageTrialState.SecondStageActive && _twoStageDeferredAutoReset)
-        {
-            await PerformDataResetAsync();
-        }
     }
 
     private bool IsTwoStageTransitioning =>
@@ -2206,17 +2221,32 @@ public partial class MainWindow : Window
             string name = args.Name;
             if (string.IsNullOrWhiteSpace(name))
             {
+                args.CloseDialog = false;
                 ShowWarning("配方名称不能为空");
                 return;
             }
 
-            if (!_viewModel.AddRecipe(name, args.TemplateRecipe))
+            if (_viewModel.AddRecipe(name, args.TemplateRecipe))
             {
-                ShowWarning("配方名称已经存在，请修改");
+                ShowSuccess("添加试验成功");
                 return;
             }
 
-            ShowSuccess("添加试验成功");
+            MessageBoxResult overwrite = MessageBox.Show(
+                this,
+                $"配方“{name}”已存在，是否覆盖？",
+                "配方重名",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (overwrite == MessageBoxResult.Yes && _viewModel.ReplaceRecipe(name, args.TemplateRecipe))
+            {
+                args.CloseDialog = true;
+                ShowSuccess("配方已覆盖");
+                return;
+            }
+
+            args.CloseDialog = false;
+            ShowWarning("未覆盖已有配方，请修改名称或选择覆盖。");
         };
         Dialog.Show(dialog);
     }

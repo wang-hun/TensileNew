@@ -13,10 +13,15 @@ public partial class TwoStageSpeedDialog : Window
     public TwoStageSpeedDialog(RecipeModel source)
     {
         InitializeComponent();
-        RecipeNameBox.Text = source.RecipeName + "-二段速";
-        RecipeStageParameters currentParameters = RecipeStageParameters.FromRecipe(source);
-        BuildInputs(FirstGrid, _first, currentParameters);
-        BuildInputs(SecondGrid, _second, currentParameters);
+        RecipeNameBox.Text = source.IsTwoStageSpeed ? source.RecipeName : source.RecipeName + "-二段速";
+        RecipeStageParameters firstParameters = source.IsTwoStageSpeed
+            ? source.GetFirstStageParameters()
+            : RecipeStageParameters.FromRecipe(source);
+        RecipeStageParameters secondParameters = source.IsTwoStageSpeed
+            ? source.GetSecondStageParameters()
+            : RecipeStageParameters.FromRecipe(source);
+        BuildInputs(FirstGrid, _first, firstParameters);
+        BuildInputs(SecondGrid, _second, secondParameters);
     }
     private static void BuildInputs(Grid grid, TextBox[] boxes, RecipeStageParameters values)
     {

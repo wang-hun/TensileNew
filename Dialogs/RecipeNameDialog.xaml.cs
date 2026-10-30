@@ -28,8 +28,12 @@ public partial class RecipeNameDialog : UserControl
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         var selected = TemplateComboBox.SelectedItem as TemplateOption;
-        Confirmed?.Invoke(this, new RecipeNameConfirmedEventArgs(InputBox.Text.Trim(), selected?.Recipe));
-        CloseDialog();
+        var args = new RecipeNameConfirmedEventArgs(InputBox.Text.Trim(), selected?.Recipe);
+        Confirmed?.Invoke(this, args);
+        if (args.CloseDialog)
+        {
+            CloseDialog();
+        }
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -100,4 +104,5 @@ public sealed class RecipeNameConfirmedEventArgs(string name, RecipeModel? templ
 {
     public string Name { get; } = name;
     public RecipeModel? TemplateRecipe { get; } = templateRecipe;
+    public bool CloseDialog { get; set; } = true;
 }

@@ -444,6 +444,58 @@ public sealed class MainViewModel : ObservableObject
         TrialDataStore.RecordRecipeVersion(recipe);
         return true;
     }
+    public bool UpdateRecipe(RecipeModel existingRecipe, RecipeModel updatedRecipe)
+    {
+        if (existingRecipe.IsBuiltInRecipe || !Recipes.Contains(existingRecipe))
+        {
+            return false;
+        }
+
+        string name = updatedRecipe.RecipeName.Trim();
+        if (string.IsNullOrEmpty(name) || Recipes.Any(recipe =>
+                !ReferenceEquals(recipe, existingRecipe) &&
+                string.Equals(recipe.RecipeName, name, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        ApplyRecipeValues(existingRecipe, updatedRecipe, name);
+        SaveSettings();
+        TrialDataStore.RecordRecipeVersion(existingRecipe);
+        return true;
+    }
+
+    public bool ReplaceRecipe(string name, RecipeModel? replacement)
+    {
+        RecipeModel? existingRecipe = Recipes.FirstOrDefault(recipe =>
+            string.Equals(recipe.RecipeName, name.Trim(), StringComparison.Ordinal));
+        if (existingRecipe is null || existingRecipe.IsBuiltInRecipe)
+        {
+            return false;
+        }
+
+        replacement ??= RecipeModel.CreateDefault(existingRecipe.RecipeName);
+        ApplyRecipeValues(existingRecipe, replacement, existingRecipe.RecipeName);
+        SelectedRecipe = existingRecipe;
+        SaveSettings();
+        TrialDataStore.RecordRecipeVersion(existingRecipe);
+        return true;
+    }
+
+    private static void ApplyRecipeValues(RecipeModel target, RecipeModel source, string name)
+    {
+        target.RecipeName = name;
+        target.StrokeStampingForce = source.StrokeStampingForce;
+        target.ClosedLoopStampingForce = source.ClosedLoopStampingForce;
+        target.ShutdownDelay = source.ShutdownDelay;
+        target.ShutdownRatio = source.ShutdownRatio;
+        target.Speed = source.Speed;
+        target.TensileDistanceLimit = source.TensileDistanceLimit;
+        target.IsTwoStageSpeed = source.IsTwoStageSpeed;
+        target.FirstStageParameters = source.FirstStageParameters?.Clone();
+        target.SecondStageParameters = source.SecondStageParameters?.Clone();
+    }
+
     public void DeleteRecipe()
     {
         if (SelectedRecipe == null || SelectedRecipe.IsBuiltInRecipe)

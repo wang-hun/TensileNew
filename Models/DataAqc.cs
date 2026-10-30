@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Haukcode.HighResolutionTimer;
 using Newtonsoft.Json;
 using NLog;
@@ -395,7 +395,15 @@ namespace TensileNeW.Models
         private static void ApplyBatchOnUiThread(IReadOnlyList<AcquisitionBatchItem> batch)
         {
             List<Loadmodel> appliedPoints = [];
+            bool resetRequested = batch.Any(item => item.Reset);
             bool resetSignalActive = false;
+            if (resetRequested)
+            {
+                CurrentCollectionWasReset = true;
+                loadModels.Clear();
+                ChartCleared?.Invoke();
+            }
+
             foreach (AcquisitionBatchItem item in batch)
             {
                 if (item.Snapshot is not null)
@@ -405,15 +413,7 @@ namespace TensileNeW.Models
 
                 if (item.Started)
                 {
-                    CurrentCollectionWasReset = resetSignalActive;
-                }
-
-                if (item.Reset)
-                {
-                    CurrentCollectionWasReset = true;
-                    loadModels.Clear();
-                    ChartCleared?.Invoke();
-                    appliedPoints.Clear();
+                    CurrentCollectionWasReset = resetRequested || resetSignalActive;
                 }
 
                 if (item.Ended)
@@ -421,7 +421,7 @@ namespace TensileNeW.Models
                     DataCollectionEnded?.Invoke();
                 }
 
-                if (item.LoadPoint is not null)
+                if (!resetRequested && item.LoadPoint is not null)
                 {
                     loadModels.Add(item.LoadPoint);
                     appliedPoints.Add(item.LoadPoint);
