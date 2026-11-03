@@ -29,13 +29,13 @@
       <TextBlock x:Name="ConnectionStatusText" Grid.Column="4" Text="正在查找相机…" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" VerticalAlignment="Center" Margin="4,0,0,0" TextTrimming="CharacterEllipsis" />
     </Grid>
     <Border Grid.Row="1" Background="#111827" Margin="0,0,0,8">
-      <Grid x:Name="CameraViewport" Background="Transparent" ClipToBounds="True" SizeChanged="CameraViewport_SizeChanged" MouseWheel="CameraViewport_MouseWheel" MouseLeftButtonDown="CameraViewport_MouseLeftButtonDown" MouseMove="CameraViewport_MouseMove" MouseLeftButtonUp="CameraViewport_MouseLeftButtonUp" LostMouseCapture="CameraViewport_LostMouseCapture">
+      <Grid x:Name="CameraViewport" Background="Transparent" ClipToBounds="True" SizeChanged="CameraViewport_SizeChanged" PreviewMouseWheel="CameraViewport_MouseWheel" PreviewMouseLeftButtonDown="CameraViewport_MouseLeftButtonDown" PreviewMouseMove="CameraViewport_MouseMove" PreviewMouseLeftButtonUp="CameraViewport_MouseLeftButtonUp" LostMouseCapture="CameraViewport_LostMouseCapture">
         <Image x:Name="CameraImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" />
         <StackPanel x:Name="ImageHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Margin="24">
           <TextBlock x:Name="ImageHintText" Text="相机尚未连接" Foreground="White" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
           <TextBlock Text="首次选择设备并连接后，下次启动会自动连接这台相机。" Foreground="#E5E7EB" FontSize="14" Margin="0,8,0,0" TextAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
-        <Button x:Name="ResetImageViewButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Padding="10,0" Height="34" MinWidth="110" Style="{StaticResource CameraSecondaryButton}" IsEnabled="False" ToolTip="重置为原始尺寸（1:1）" Click="ResetImageView_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconMaterial Kind="ImageFilterCenterFocusStrong" Width="17" Height="17" Margin="0,0,6,0" /><TextBlock Text="原始尺寸" /></StackPanel></Button>
+        <Button x:Name="ResetImageViewButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Padding="10,0" Height="34" MinWidth="92" Style="{StaticResource CameraSecondaryButton}" IsEnabled="False" ToolTip="重置为完整适配视图" Click="ResetImageView_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconMaterial Kind="ImageFilterCenterFocusStrong" Width="17" Height="17" Margin="0,0,6,0" /><TextBlock Text="重置视图" /></StackPanel></Button>
       </Grid>
     </Border>
     <Grid Grid.Row="2" Margin="0,2,0,0">
