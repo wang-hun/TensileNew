@@ -20,6 +20,11 @@
 - `AutoReconnectSuspended` 在网络探测期间阻止自动重连；恢复点必须位于探测 `finally`。
 - `StartConsumers()` 批次和 50ms 调度不因采样率显示而改变；采样率旁路监听 `UiBatchApplied`。
 
+## 新视觉处理模块开关
+
+- 新视觉处理模块及其二段速、SDK 相机 UI 统一以 `NewVisionProcessingService.IsEnabled` 为准；该状态同时受包内授权 `NewVisionProcessingIncluded` 与用户开关 `NewVisionProcessingEnabled` 控制。
+- 旧 `VisionModuleEnabled` 属于旧视觉检测配置，不得用于新视觉处理模块的 UI 可见性或设备功能门控。
+
 ## 本地正弦调试例外
 
 仅用户明确要求恢复时实施，且不得作为产品功能提交。详细规则见根 `AGENTS.md` 的“本地调试”和 `../MainWindow/AGENTS.md`。允许新增的 `DataAqc` 清空入口只能清 `_queue`、`loadModels` 并触发 `ChartCleared`；生成点必须走 `Enqueue()`。

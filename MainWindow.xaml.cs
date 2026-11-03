@@ -121,6 +121,8 @@ public partial class MainWindow : Window
     private int _dataResetGeneration;
     private TwoStageConfirmationWindow? _twoStageConfirmationWindow;
     private bool _newVisionUiInitialized;
+    private bool _cameraAnalysisModeActive;
+    private Visibility _chartHintVisibilityBeforeCamera = Visibility.Visible;
     private bool _dacuAvailable;
     private TrialDataStore.TrialPlaybackData? _selectedPlaybackData;
     private long? _pendingPlaybackTrialGroupId;
@@ -166,7 +168,7 @@ public partial class MainWindow : Window
         new("全部页", true)
     ];
 
-    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult = null)
+    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult, IVisionCameraServiceFactory visionCameraServiceFactory)
     {
         _connectedAtStartup = connectedAtStartup;
         _cameraStartupResult = cameraStartupResult ?? new CameraStartupResult([], null, null, null);
@@ -177,6 +179,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        VisionCameraPanel.Configure(visionCameraServiceFactory.Create());
         InitializeDacuButton();
         bool newVisionIncluded = NewVisionProcessingService.IsIncludedByPackage;
         NewVisionProcessingPanel.Visibility = newVisionIncluded ? Visibility.Visible : Visibility.Collapsed;
@@ -454,6 +457,7 @@ public partial class MainWindow : Window
 
         _shutdownCleanupStarted = true;
         _isClosing = true;
+        _ = ReleaseVisionCameraInBackgroundAsync();
         _variableWindow?.Close();
         _loadDataWindow?.Close();
         _plotWindow?.Close();
@@ -865,6 +869,18 @@ public partial class MainWindow : Window
         });
     }
 
+    private async Task ReleaseVisionCameraInBackgroundAsync()
+    {
+        try
+        {
+            await VisionCameraPanel.ReleaseAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception);
+        }
+    }
+
     private void HomeCameraPreview_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount < 2)
@@ -1245,6 +1261,52 @@ public partial class MainWindow : Window
         TwoStageSpeedButton.Visibility = _newVisionProcessingService.IsEnabled
             ? Visibility.Visible
             : Visibility.Collapsed;
+        AnalysisModeSwitch.Visibility = _newVisionProcessingService.IsEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        if (!_newVisionProcessingService.IsEnabled)
+        {
+            ChartModeButton.IsChecked = true;
+            CameraModeButton.IsChecked = false;
+            SetAnalysisMode(false);
+        }
+    }
+
+    private void ChartMode_Click(object sender, RoutedEventArgs e)
+    {
+        ChartModeButton.IsChecked = true;
+        CameraModeButton.IsChecked = false;
+        SetAnalysisMode(false);
+    }
+
+    private async void CameraMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_newVisionProcessingService.IsEnabled) return;
+        ChartModeButton.IsChecked = false;
+        CameraModeButton.IsChecked = true;
+        SetAnalysisMode(true);
+        await VisionCameraPanel.ActivateAsync();
+    }
+
+    private void SetAnalysisMode(bool showCamera)
+    {
+        if (showCamera && !_cameraAnalysisModeActive)
+        {
+            _chartHintVisibilityBeforeCamera = ChartHintPanel.Visibility;
+        }
+        LoadPlot.Visibility = showCamera ? Visibility.Collapsed : Visibility.Visible;
+        ChartSettingsButton.Visibility = showCamera ? Visibility.Collapsed : Visibility.Visible;
+        ChartHintButton.Visibility = showCamera ? Visibility.Collapsed : Visibility.Visible;
+        if (showCamera)
+        {
+            ChartHintPanel.Visibility = Visibility.Collapsed;
+        }
+        else if (_cameraAnalysisModeActive)
+        {
+            ChartHintPanel.Visibility = _chartHintVisibilityBeforeCamera;
+        }
+        VisionCameraPanel.Visibility = showCamera ? Visibility.Visible : Visibility.Collapsed;
+        _cameraAnalysisModeActive = showCamera;
     }
     private void TwoStageSpeed_Click(object sender, RoutedEventArgs e)
     {

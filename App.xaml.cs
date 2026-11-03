@@ -93,7 +93,7 @@ public partial class App : Application
             await waitWindow.SetWaitTextAsync("GENBON");
             await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(800)));
 
-            MainWindow mainWindow = new(connected, cameraStartupResult)
+            MainWindow mainWindow = new(connected, cameraStartupResult, new MvsCameraSdkServiceFactory())
             {
                 HasMissingManualOffice = manualStartupResult.HasMissingOffice
             };

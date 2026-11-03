@@ -281,6 +281,24 @@
         </Trigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="AnalysisModeToggleButtonStyle" TargetType="ToggleButton">
+      <Setter Property="Width" Value="70" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppLayoutBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Style.Triggers>
+        <Trigger Property="IsChecked" Value="True">
+          <Setter Property="Background" Value="#1677FF" />
+          <Setter Property="Foreground" Value="White" />
+          <Setter Property="BorderBrush" Value="#1677FF" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="HoldActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
       <Setter Property="Background" Value="#D97706" />
       <Setter Property="BorderBrush" Value="#B45309" />
@@ -392,7 +410,10 @@
               <ColumnDefinition Width="100" />
               <ColumnDefinition Width="110" />
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" />
+            <StackPanel x:Name="AnalysisModeSwitch" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+              <ToggleButton x:Name="ChartModeButton" Content="&#x66F2;&#x7EBF;&#x56FE;" Style="{StaticResource AnalysisModeToggleButtonStyle}" IsChecked="True" Click="ChartMode_Click" hc:BorderElement.CornerRadius="4,0,0,4" />
+              <ToggleButton x:Name="CameraModeButton" Content="&#x76F8;&#x673A;" Style="{StaticResource AnalysisModeToggleButtonStyle}" Click="CameraMode_Click" hc:BorderElement.CornerRadius="0,4,4,0" />
+            </StackPanel>
             <Button x:Name="ReconnectButton" Grid.Column="2" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconIonicons Kind="GitNetworkiOS" Width="16" Height="16" Margin="0,0,5,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -890,6 +911,7 @@
                   <iconPacks:PackIconBootstrapIcons Kind="ArrowUpShort" Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="#1677FF" />
                 </Grid>
               </Border>
+              <controls:VisionCameraPanel x:Name="VisionCameraPanel" Visibility="Collapsed" Panel.ZIndex="5" />
             </Grid>
           </Border>
           <Grid Grid.Row="1" Background="{DynamicResource AppHomeCenterBackgroundBrush}" Margin="4,6">

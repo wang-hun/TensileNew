@@ -13,6 +13,7 @@
 | 网络探测与恢复连接 | `MainWindow/MainWindow.Network.cs` → `RunNetworkProbeAndReconnectAsync()`、`TryConnectWithRetriesAsync()` | `NetworkAdapterProbeService`、`DataAqc.AutoReconnectSuspended` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 曲线 / 实时表格 / 回放 | `MainWindow.xaml.cs` → `InitializePlot()`、`LoadItems_ListChanged()`、`RenderPlayback()` | `LoadPlotController`、`TrialDataStore`、`PlotWindow` | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 摄像头 | `MainWindow.xaml.cs` → `InitializeCameraPreview()`、`ApplySelectedCameraAsync()` | `CameraCaptureService`、选择 / 预览窗口 | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
+| 新视觉处理相机 | `NewVisionProcessingService.IsEnabled` → `VisionCameraPanel` | `IVisionCameraService` → `MvsCameraSdkService` | 与现有相机预览、PLC 重连分离；状态门控与二段速一致，见 `Services/AGENTS.md` |
 | 试验控制 / 二段速 / 复位 | `MainWindow.xaml.cs` → `StartTensile_Click()`、`Reset_Click()`、`SwitchToSecondStageAsync()` | `MainViewModel`、`DataAqc`、视觉服务 | `MainWindow/AGENTS.md`、`Models/AGENTS.md` |
 | 实时数据、算法整合、报告与回放导出 | `MainWindow.xaml.cs` → `SaveDataAndReportAsync()`、`SavePlaybackData_Click()` | `DisplacementResamplingService`、`TrialDataStore`、`TestReportService` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 配置 / 配方 | `MainViewModel.cs`、`Models/RAM.cs`、`SettingModel.cs`、`RecipeModel.cs` | Settings / recipe dialogs | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |

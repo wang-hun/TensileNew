@@ -5,6 +5,7 @@
     <AssemblyName>ECS</AssemblyName>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PlatformTarget>x64</PlatformTarget>
     <SupportedOSPlatformVersion>10.0.14393.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -27,6 +28,7 @@
   <ItemGroup>
     <Compile Remove="builder\**" />
     <Compile Remove="bin\**" />
+    <Compile Remove="BasicDemo\**" />
     <Compile Remove="codex_obj\**" />
     <Compile Remove="demo\**" />
     <Compile Remove="helper\**" />
@@ -36,6 +38,7 @@
     <Compile Remove="测试\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
+    <EmbeddedResource Remove="BasicDemo\**" />
     <EmbeddedResource Remove="codex_obj\**" />
     <EmbeddedResource Remove="demo\**" />
     <EmbeddedResource Remove="helper\**" />
@@ -45,6 +48,7 @@
     <EmbeddedResource Remove="测试\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
+    <None Remove="BasicDemo\**" />
     <None Remove="codex_obj\**" />
     <None Remove="demo\**" />
     <None Remove="helper\**" />
@@ -54,6 +58,7 @@
     <None Remove="测试\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
+    <Page Remove="BasicDemo\**" />
     <Page Remove="codex_obj\**" />
     <Page Remove="demo\**" />
     <Page Remove="helper\**" />
@@ -72,6 +77,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="MVSDK_Net">
+      <HintPath>CameraSdk\MVS\MVSDK_Net.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="HandyControl" Version="3.5.1" />

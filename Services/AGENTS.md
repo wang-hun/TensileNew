@@ -6,8 +6,8 @@
 |---|---|---|---|
 | 曲线 | `LoadPlotController.cs` / `LoadPlotController` | 初始化、`Refresh()`、`Reset()`、`AutoScaleWhileCollecting()` | 主窗与独立曲线窗沿现有事件链；不从调试代码手动 AutoScale |
 | 网络地址探测 | `NetworkAdapterProbeService.cs` / `NetworkAdapterProbeService` | 候选有线网卡地址添加 / 回滚 | 提权进程只管理临时 IP，不连接 PLC；只移除本次新增地址；跳过 Wi-Fi |
-| 摄像头 | `CameraCaptureService.cs` / `CameraCaptureService` | 设备枚举、启动、帧回调、释放 | 异步释放；主窗口只订阅帧与错误并显示 |
-| 新视觉 / 二段速设备 | `NewVisionProcessingService.cs`、`VisionDeviceClient.cs`、`VisionDetectionController.cs` | 连接、检测、释放 | 与 PLC 采集分离；窗口负责提示和 UI 状态 |
+| 摄像头预览 | `CameraCaptureService.cs` / `CameraCaptureService` | 设备枚举、启动、帧回调、释放 | 现有预览链；不得与视觉处理 SDK 相机混用 |
+| 新视觉 / 二段速 / SDK 相机 | `NewVisionProcessingService.cs`、`VisionCameraContracts.cs`、`MvsCameraSdkService.cs` | 模块门控、相机适配器、采集与释放 | SDK 依赖仅在适配器；UI 依赖 `IVisionCameraService`；门控与二段速一致；与 PLC 采集分离 |
 | 实时 / 回放数据 | `TrialDataStore.cs` / `TrialDataStore` | 入队、试验分组、回放、临时库清理 | `DataAqc.Enqueue()` 是实时持久化接入点；调试辅助不得另写数据库 |
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
