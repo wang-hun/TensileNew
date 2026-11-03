@@ -1123,8 +1123,63 @@ public partial class MainWindow : Window
     private async void ReleasePress_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("压边释放");
     private async void StartTensile_Click(object sender, RoutedEventArgs e)
     {
+        if (!await EnsureFirstStageRecipeBeforeNewTrialAsync())
+        {
+            return;
+        }
+
         await _viewModel.PulseAsync("拉伸");
     }
+
+    private async Task<bool> EnsureFirstStageRecipeBeforeNewTrialAsync()
+    {
+        RecipeModel? recipe = _viewModel.SelectedRecipe;
+        if (_twoStageState != TwoStageTrialState.None ||
+            DataAqc.loadModels.Count != 0 ||
+            recipe is not { IsTwoStageSpeed: true } ||
+            recipe.FirstStageParameters == null)
+        {
+            return true;
+        }
+
+        await _twoStageTransitionLock.WaitAsync();
+        try
+        {
+            if (_twoStageState != TwoStageTrialState.None ||
+                DataAqc.loadModels.Count != 0 ||
+                !ReferenceEquals(recipe, _viewModel.SelectedRecipe))
+            {
+                return true;
+            }
+
+            int resetGeneration = _dataResetGeneration;
+            _twoStageState = TwoStageTrialState.SwitchingToFirstStage;
+            if (!await _viewModel.WriteRecipeAsync(recipe.FirstStageParameters))
+            {
+                _twoStageState = TwoStageTrialState.None;
+                ShowError("一段速配方写入失败，未启动拉伸。请检查设备后重试。");
+                return false;
+            }
+
+            if (resetGeneration != _dataResetGeneration ||
+                DataAqc.loadModels.Count != 0 ||
+                !ReferenceEquals(recipe, _viewModel.SelectedRecipe))
+            {
+                _twoStageState = TwoStageTrialState.None;
+                ShowWarning("试验状态已改变，未启动拉伸。请确认当前配方后重试。");
+                return false;
+            }
+
+            _viewModel.DisplayRecipeStage(null);
+            _twoStageState = TwoStageTrialState.None;
+            return true;
+        }
+        finally
+        {
+            _twoStageTransitionLock.Release();
+        }
+    }
+
     private async void ReleaseTensile_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("拉伸释放");
