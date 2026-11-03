@@ -32,6 +32,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private string? _connectedDeviceId;
     private readonly ScaleTransform _imageScale = new(1, 1);
     private readonly TranslateTransform _imageTranslation = new();
+    private double _fitScale = 1;
     private double _userZoom = 1;
     private bool _imageViewAdjusted;
     private Point _dragStartPointer;
@@ -42,7 +43,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     public VisionCameraPanel()
     {
         InitializeComponent();
-        CameraImage.RenderTransform = new TransformGroup { Children = { _imageScale, _imageTranslation } };
+        CameraImageCanvas.RenderTransform = new TransformGroup { Children = { _imageScale, _imageTranslation } };
         SavePathTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ECS");
         _parameterTimer.Tick += async (_, _) => await ReadParametersAsync(false);
         _saveTimer.Tick += async (_, _) => await SaveLatestImageAsync();
@@ -420,6 +421,14 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             if (image is null) return;
             _latestImage = image;
             CameraImage.Source = image;
+            if (CameraImageCanvas.Width != image.Width || CameraImageCanvas.Height != image.Height)
+            {
+                CameraImageCanvas.Width = image.Width;
+                CameraImageCanvas.Height = image.Height;
+                CameraImage.Width = image.Width;
+                CameraImage.Height = image.Height;
+                _imageViewAdjusted = false;
+            }
             ResetImageViewButton.IsEnabled = true;
             if (!_imageViewAdjusted) ResetImageView();
             ImageHintPanel.Visibility = Visibility.Collapsed;
@@ -435,10 +444,11 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         double zoom = Math.Clamp(_userZoom * factor, MinimumImageZoom, MaximumImageZoom);
         factor = zoom / _userZoom;
         _userZoom = zoom;
+        _imageViewAdjusted = true;
         _imageTranslation.X = pointer.X - (pointer.X - _imageTranslation.X) * factor;
         _imageTranslation.Y = pointer.Y - (pointer.Y - _imageTranslation.Y) * factor;
-        _imageScale.ScaleX = _userZoom;
-        _imageScale.ScaleY = _userZoom;
+        _imageScale.ScaleX = _fitScale * _userZoom;
+        _imageScale.ScaleY = _fitScale * _userZoom;
         ConstrainImageTranslation();
         e.Handled = true;
     }
@@ -489,19 +499,21 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 
     private void ResetImageView()
     {
-        if (CameraImage.Source is null || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
+        if (CameraImage.Source is not BitmapSource image || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
+        _fitScale = Math.Min(CameraViewport.ActualWidth / image.Width, CameraViewport.ActualHeight / image.Height);
+        if (!double.IsFinite(_fitScale) || _fitScale <= 0) _fitScale = 1;
         _userZoom = 1;
-        _imageScale.ScaleX = 1;
-        _imageScale.ScaleY = 1;
-        _imageTranslation.X = 0;
-        _imageTranslation.Y = 0;
+        _imageScale.ScaleX = _fitScale;
+        _imageScale.ScaleY = _fitScale;
+        _imageTranslation.X = (CameraViewport.ActualWidth - image.Width * _fitScale) / 2;
+        _imageTranslation.Y = (CameraViewport.ActualHeight - image.Height * _fitScale) / 2;
         _imageViewAdjusted = false;
     }
     private void ConstrainImageTranslation()
     {
         if (CameraImage.Source is null || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
-        double scaledWidth = CameraImage.ActualWidth * _imageScale.ScaleX;
-        double scaledHeight = CameraImage.ActualHeight * _imageScale.ScaleY;
+        double scaledWidth = CameraImageCanvas.Width * _imageScale.ScaleX;
+        double scaledHeight = CameraImageCanvas.Height * _imageScale.ScaleY;
         _imageTranslation.X = scaledWidth <= CameraViewport.ActualWidth
             ? (CameraViewport.ActualWidth - scaledWidth) / 2
             : Math.Clamp(_imageTranslation.X, CameraViewport.ActualWidth - scaledWidth, 0);
