@@ -179,7 +179,19 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        VisionCameraPanel.Configure(visionCameraServiceFactory.Create());
+        VisionCameraPanel.Configure(
+            visionCameraServiceFactory.Create(),
+            new VisionCameraPreferences(
+                _viewModel.Setting.VisionCameraDeviceId,
+                _viewModel.Setting.VisionCameraDeviceName,
+                _viewModel.Setting.VisionCameraSavePath),
+            preferences =>
+            {
+                _viewModel.Setting.VisionCameraDeviceId = preferences.DeviceId;
+                _viewModel.Setting.VisionCameraDeviceName = preferences.DeviceName;
+                _viewModel.Setting.VisionCameraSavePath = preferences.SavePath;
+                _viewModel.SaveSettings();
+            });
         InitializeDacuButton();
         bool newVisionIncluded = NewVisionProcessingService.IsIncludedByPackage;
         NewVisionProcessingPanel.Visibility = newVisionIncluded ? Visibility.Visible : Visibility.Collapsed;
@@ -305,6 +317,11 @@ public partial class MainWindow : Window
         DataAqc.Refresh(Dispatcher);
         DataAqc.StartConsumers(Dispatcher);
         LoadHelpDocument();
+
+        if (_newVisionProcessingService.IsEnabled)
+        {
+            await VisionCameraPanel.ActivateAsync();
+        }
 
         // 启动连接可能在超时边界之后才完成，不能使用 App 启动阶段的瞬时返回值决定失败提示。
         // 先启动正常采集链路，再在主窗口已显示的生命周期内确认当前连接并写入配方。

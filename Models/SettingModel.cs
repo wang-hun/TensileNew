@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -90,6 +90,12 @@ namespace TensileNeW.Models
         }
 
         public bool NewVisionProcessingIncluded { get; set; }
+
+        public string VisionCameraDeviceId { get; set; } = string.Empty;
+
+        public string VisionCameraDeviceName { get; set; } = string.Empty;
+
+        public string VisionCameraSavePath { get; set; } = string.Empty;
 
         private bool _NewVisionProcessingEnabled;
         public bool NewVisionProcessingEnabled

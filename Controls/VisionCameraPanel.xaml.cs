@@ -8,7 +8,7 @@ using TensileNeW.Services;
 
 namespace TensileNeW.Controls;
 
-public partial class VisionCameraPanel : UserControl
+public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 {
     private readonly DispatcherTimer _parameterTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _saveTimer = new();
@@ -18,7 +18,14 @@ public partial class VisionCameraPanel : UserControl
     private BitmapSource? _pendingImage;
     private bool _frameDispatchPending;
     private bool _parameterReadPending;
+    private bool _updatingParameters;
+    private bool _parametersEdited;
+    private bool _isRefreshingDevices;
     private bool _imageSavePending;
+    private bool _isLoadingDevices;
+    private bool _isConnecting;
+    private string? _connectedDeviceId;
+    private VisionCameraPreferences _preferences = new(string.Empty, string.Empty, string.Empty);
 
     public VisionCameraPanel()
     {
@@ -28,14 +35,21 @@ public partial class VisionCameraPanel : UserControl
         _saveTimer.Tick += async (_, _) => await SaveLatestImageAsync();
     }
 
-    public void Configure(IVisionCameraService service)
+    public void Configure(IVisionCameraService service, VisionCameraPreferences preferences, Action<VisionCameraPreferences> savePreferences)
     {
         _service = service;
+        _preferences = preferences;
+        _savePreferences = savePreferences;
+        SavePathTextBox.Text = string.IsNullOrWhiteSpace(preferences.SavePath)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ECS")
+            : preferences.SavePath;
         _service.FrameArrived += Service_FrameArrived;
         _service.CaptureFailed += Service_CaptureFailed;
     }
 
-    public Task ActivateAsync() => RefreshDevicesAsync();
+    private Action<VisionCameraPreferences>? _savePreferences;
+
+    public Task ActivateAsync() => RefreshDevicesAsync(autoConnectSavedDevice: true);
 
     public async ValueTask ReleaseAsync()
     {
@@ -50,37 +64,176 @@ public partial class VisionCameraPanel : UserControl
         }
     }
 
-    private async void RefreshDevices_Click(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
+    private async void RefreshDevices_Click(object sender, RoutedEventArgs e) => await RefreshDevicesAsync(autoConnectSavedDevice: false);
 
-    private async Task RefreshDevicesAsync()
+    private async Task RefreshDevicesAsync(bool autoConnectSavedDevice)
     {
         if (_service is null) return;
+        _isRefreshingDevices = true;
+        DeviceComboBox.IsEnabled = false;
+        RefreshDevicesButton.IsEnabled = false;
+        ConnectButton.IsEnabled = false;
+        ConnectionStatusText.Text = "正在搜索相机…";
         try
         {
-            DeviceComboBox.ItemsSource = await _service.EnumerateDevicesAsync();
-            DeviceComboBox.SelectedIndex = DeviceComboBox.Items.Count > 0 ? 0 : -1;
-            SetStatus(DeviceComboBox.Items.Count > 0 ? "Camera ready" : "No camera found");
+            IReadOnlyList<VisionCameraDevice> devices = await _service.EnumerateDevicesAsync();
+            _isLoadingDevices = true;
+            DeviceComboBox.ItemsSource = devices;
+            VisionCameraDevice? preferredDevice = devices.FirstOrDefault(device =>
+                string.Equals(device.Id, _preferences.DeviceId, StringComparison.Ordinal));
+            if (preferredDevice is null && !string.IsNullOrWhiteSpace(_preferences.DeviceName))
+            {
+                preferredDevice = devices.FirstOrDefault(device =>
+                    string.Equals(device.DisplayName, _preferences.DeviceName, StringComparison.Ordinal));
+            }
+            DeviceComboBox.SelectedItem = preferredDevice ?? devices.FirstOrDefault();
+            _isLoadingDevices = false;
+            if (devices.Count == 0)
+            {
+                ConnectionStatusText.Text = "未发现相机";
+                ImageHintText.Text = "未发现相机，请检查相机供电和连接后点击“刷新设备”。";
+                return;
+            }
+
+            if (preferredDevice is null)
+            {
+                ConnectionStatusText.Text = "请选择相机并连接";
+                ImageHintText.Text = "已发现相机，请确认上方选中的设备并点击“连接相机”。";
+                return;
+            }
+
+            if (autoConnectSavedDevice)
+            {
+                await ConnectSelectedDeviceAsync(isAutomatic: true);
+            }
+            else
+            {
+                bool alreadyConnected = _service.IsConnected && string.Equals(preferredDevice.Id, _connectedDeviceId, StringComparison.Ordinal);
+                ConnectionStatusText.Text = alreadyConnected ? $"已连接：{preferredDevice.DisplayName}" : "已找到上次使用的相机";
+                ImageHintText.Text = alreadyConnected
+                    ? "相机已连接，可开始实时采集。"
+                    : "找到上次使用的相机，点击“连接相机”即可开始使用。";
+            }
         }
-        catch (Exception exception) { SetStatus(exception.Message); }
+        catch (Exception exception)
+        {
+            _isLoadingDevices = false;
+            ConnectionStatusText.Text = "搜索相机失败";
+            SetStatus($"搜索相机失败：{exception.Message}");
+        }
+        finally
+        {
+            DeviceComboBox.IsEnabled = true;
+            RefreshDevicesButton.IsEnabled = true;
+            _isRefreshingDevices = false;
+            _isConnecting = false;
+            UpdateControlAvailability();
+        }
     }
 
-    private async void Connect_Click(object sender, RoutedEventArgs e)
+    private void DeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingDevices || DeviceComboBox.SelectedItem is not VisionCameraDevice device) return;
+        SavePreferences(device);
+        bool switching = _service?.IsConnected == true && !string.Equals(_connectedDeviceId, device.Id, StringComparison.Ordinal);
+        ConnectButton.Content = switching ? "切换并连接" : "连接相机";
+        ConnectionStatusText.Text = switching
+            ? $"当前连接：{GetConnectedDeviceName()}；已选择：{device.DisplayName}"
+            : "已选择相机，可连接设备";
+        ImageHintText.Text = switching
+            ? $"点击“切换并连接”以切换到 {device.DisplayName}。"
+            : $"已选择 {device.DisplayName}，连接后即可开始采集。";
+        UpdateControlAvailability();
+    }
+
+    private async void Connect_Click(object sender, RoutedEventArgs e) => await ConnectSelectedDeviceAsync(isAutomatic: false);
+
+    private async Task ConnectSelectedDeviceAsync(bool isAutomatic)
     {
         if (_service is null || DeviceComboBox.SelectedItem is not VisionCameraDevice device) return;
+        _isConnecting = true;
+        DeviceComboBox.IsEnabled = false;
+        RefreshDevicesButton.IsEnabled = false;
         ConnectButton.IsEnabled = false;
+        ConnectionStatusText.Text = isAutomatic ? "正在自动连接…" : _service.IsConnected ? "正在切换相机…" : "正在连接相机…";
         try
         {
+            bool switchingDevice = _service.IsConnected && !string.Equals(_connectedDeviceId, device.Id, StringComparison.Ordinal);
+            if (switchingDevice)
+            {
+                _saveTimer.Stop();
+                _latestImage = null;
+                CameraImage.Source = null;
+                ImageHintText.Text = $"正在切换到 {device.DisplayName}…";
+                ImageHintPanel.Visibility = Visibility.Visible;
+            }
             await _service.ConnectAsync(device.Id);
-            ConnectionStatusText.Text = "Connected";
-            ConnectButton.Content = "Connected";
-            StartCaptureButton.IsEnabled = true;
+            _connectedDeviceId = device.Id;
+            _parametersEdited = false;
+            ConnectionStatusText.Text = $"已连接：{device.DisplayName}";
+            ConnectButton.Content = "已连接";
+            SavePreferences(device);
             await ReadParametersAsync(true);
             _parameterTimer.Start();
+            UpdateControlAvailability();
+            ImageHintText.Text = "相机已连接，点击“开始实时采集”显示实时画面。";
+            ImageHintPanel.Visibility = Visibility.Visible;
         }
-        catch (Exception exception) { SetStatus(exception.Message); }
-        finally { ConnectButton.IsEnabled = true; }
+        catch (Exception exception)
+        {
+            if (!_service.IsConnected) _connectedDeviceId = null;
+            ConnectionStatusText.Text = "连接失败";
+            ImageHintText.Text = isAutomatic
+                ? "上次使用的相机暂不可用，请检查设备后点击“连接相机”重试。"
+                : "相机连接失败，请确认设备后重试。";
+            ImageHintPanel.Visibility = Visibility.Visible;
+            SetStatus($"{(isAutomatic ? "自动连接" : "连接相机")}失败：{exception.Message}");
+        }
+        finally
+        {
+            _isConnecting = false;
+            DeviceComboBox.IsEnabled = true;
+            RefreshDevicesButton.IsEnabled = true;
+            UpdateControlAvailability();
+        }
     }
 
+    private string GetConnectedDeviceName() => DeviceComboBox.Items
+        .OfType<VisionCameraDevice>()
+        .FirstOrDefault(device => string.Equals(device.Id, _connectedDeviceId, StringComparison.Ordinal))?.DisplayName ?? "其他相机";
+
+    private void UpdateControlAvailability()
+    {
+        bool connected = _service?.IsConnected == true;
+        bool capturing = _service?.IsCapturing == true;
+        bool selectedConnectedDevice = DeviceComboBox.SelectedItem is VisionCameraDevice selected &&
+            string.Equals(selected.Id, _connectedDeviceId, StringComparison.Ordinal);
+        ConnectButton.IsEnabled = !_isConnecting && !_isRefreshingDevices && DeviceComboBox.SelectedItem is VisionCameraDevice && !(connected && selectedConnectedDevice);
+        ConnectButton.Content = connected && selectedConnectedDevice ? "已连接" : connected ? "切换并连接" : "连接相机";
+        ExposureTextBox.IsEnabled = connected;
+        GainTextBox.IsEnabled = connected;
+        ApplyParametersButton.IsEnabled = connected && _parametersEdited &&
+            double.TryParse(ExposureTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double exposure) && double.IsFinite(exposure) &&
+            double.TryParse(GainTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double gain) && double.IsFinite(gain);
+        StartCaptureButton.IsEnabled = connected && !capturing;
+        StopCaptureButton.IsEnabled = capturing;
+        StartIntervalButton.IsEnabled = capturing && !_saveTimer.IsEnabled;
+        StopIntervalButton.IsEnabled = _saveTimer.IsEnabled;
+        SaveOneButton.IsEnabled = capturing && _latestImage is not null;
+        RefreshDevicesButton.IsEnabled = !_isRefreshingDevices && !_isConnecting;
+        DeviceComboBox.IsEnabled = !_isRefreshingDevices && !_isConnecting;
+    }
+
+    private void SavePreferences(VisionCameraDevice device)
+    {
+        _preferences = _preferences with
+        {
+            DeviceId = device.Id,
+            DeviceName = device.DisplayName,
+            SavePath = SavePathTextBox.Text.Trim()
+        };
+        _savePreferences?.Invoke(_preferences);
+    }
     private async void StartCapture_Click(object sender, RoutedEventArgs e)
     {
         if (_service is null) return;
@@ -89,10 +242,11 @@ public partial class VisionCameraPanel : UserControl
             await _service.StartCaptureAsync();
             StartCaptureButton.IsEnabled = false;
             StopCaptureButton.IsEnabled = true;
-            ImageHintText.Visibility = Visibility.Collapsed;
-            SetStatus("Live capture started");
+            ImageHintPanel.Visibility = Visibility.Collapsed;
+            SetStatus("实时采集已开始");
+            UpdateControlAvailability();
         }
-        catch (Exception exception) { SetStatus(exception.Message); }
+        catch (Exception exception) { SetStatus($"操作失败：{exception.Message}"); }
     }
 
     private async void StopCapture_Click(object sender, RoutedEventArgs e)
@@ -101,14 +255,12 @@ public partial class VisionCameraPanel : UserControl
         try
         {
             await _service.StopCaptureAsync();
-            StartCaptureButton.IsEnabled = true;
-            StopCaptureButton.IsEnabled = false;
-            SetStatus("Live capture stopped");
+            _saveTimer.Stop();
+            SetStatus("实时采集已结束");
+            UpdateControlAvailability();
         }
-        catch (Exception exception) { SetStatus(exception.Message); }
+        catch (Exception exception) { SetStatus($"操作失败：{exception.Message}"); }
     }
-
-    private async void ReadParameters_Click(object sender, RoutedEventArgs e) => await ReadParametersAsync(true);
 
     private async Task ReadParametersAsync(bool showStatus)
     {
@@ -117,51 +269,68 @@ public partial class VisionCameraPanel : UserControl
         try
         {
             VisionCameraParameters parameters = await _service.GetParametersAsync();
-            if (!ExposureTextBox.IsKeyboardFocused) ExposureTextBox.Text = parameters.Exposure.ToString("0.###", CultureInfo.InvariantCulture);
-            if (!GainTextBox.IsKeyboardFocused) GainTextBox.Text = parameters.Gain.ToString("0.###", CultureInfo.InvariantCulture);
-            if (showStatus) SetStatus("Camera parameters refreshed");
+            if (!_parametersEdited && !ExposureTextBox.IsKeyboardFocused && !GainTextBox.IsKeyboardFocused)
+            {
+                _updatingParameters = true;
+                ExposureTextBox.Text = parameters.Exposure.ToString("0.###", CultureInfo.InvariantCulture);
+                GainTextBox.Text = parameters.Gain.ToString("0.###", CultureInfo.InvariantCulture);
+                _updatingParameters = false;
+            }
+            if (showStatus) SetStatus("相机参数已更新");
         }
-        catch (Exception exception) { if (showStatus) SetStatus(exception.Message); }
+        catch (Exception exception) { if (showStatus) SetStatus($"读取相机参数失败：{exception.Message}"); }
         finally { _parameterReadPending = false; }
+    }
+
+    private void ParameterTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_updatingParameters) return;
+        _parametersEdited = true;
+        UpdateControlAvailability();
     }
 
     private async void ApplyParameters_Click(object sender, RoutedEventArgs e)
     {
         if (_service is null || !double.TryParse(ExposureTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double exposure) ||
-            !double.TryParse(GainTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double gain))
+            !double.TryParse(GainTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double gain) || !double.IsFinite(exposure) || !double.IsFinite(gain))
         {
-            SetStatus("Enter valid exposure and gain values.");
+            SetStatus("请输入有效的曝光和增益数值。");
             return;
         }
-        try { await _service.SetParametersAsync(exposure, gain); await ReadParametersAsync(false); SetStatus("Camera parameters applied"); }
-        catch (Exception exception) { SetStatus(exception.Message); }
+        try
+        {
+            await _service.SetParametersAsync(exposure, gain);
+            _parametersEdited = false;
+            await ReadParametersAsync(false);
+            UpdateControlAvailability();
+            SetStatus("相机参数已应用");
+        }
+        catch (Exception exception) { SetStatus($"操作失败：{exception.Message}"); }
     }
 
     private void StartInterval_Click(object sender, RoutedEventArgs e)
     {
         if (_service?.IsCapturing != true)
         {
-            SetStatus("Start live capture before interval saving.");
+            SetStatus("请先开始实时采集，再进行连续保存。");
             return;
         }
-        if (!double.TryParse(IntervalTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) || seconds <= 0)
+        if (!double.TryParse(IntervalTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) || !double.IsFinite(seconds) || seconds <= 0 || seconds > TimeSpan.MaxValue.TotalSeconds)
         {
-            SetStatus("Enter a positive interval in seconds.");
+            SetStatus("请输入大于 0 的保存间隔秒数。");
             return;
         }
-        _saveTimer.Interval = TimeSpan.FromSeconds(Math.Max(0.1, seconds));
+        _saveTimer.Interval = TimeSpan.FromSeconds(seconds);
         _saveTimer.Start();
-        StartIntervalButton.IsEnabled = false;
-        StopIntervalButton.IsEnabled = true;
-        SetStatus("Interval capture started");
+        UpdateControlAvailability();
+        SetSaveStatus("连续保存已开始");
     }
 
     private void StopInterval_Click(object sender, RoutedEventArgs e)
     {
         _saveTimer.Stop();
-        StartIntervalButton.IsEnabled = true;
-        StopIntervalButton.IsEnabled = false;
-        SetStatus("Interval capture stopped");
+        UpdateControlAvailability();
+        SetSaveStatus("连续保存已结束");
     }
 
     private async void SaveOne_Click(object sender, RoutedEventArgs e) => await SaveLatestImageAsync();
@@ -169,28 +338,52 @@ public partial class VisionCameraPanel : UserControl
     private async Task SaveLatestImageAsync()
     {
         if (_imageSavePending) return;
-        if (_latestImage is null) { SetStatus("Start live capture before saving an image."); return; }
+        if (_latestImage is null) { SetSaveStatus("等待相机图像后才能保存。"); return; }
         _imageSavePending = true;
         try
         {
             string directory = SavePathTextBox.Text.Trim();
-            if (string.IsNullOrWhiteSpace(directory)) throw new InvalidOperationException("Choose an image folder first.");
+            if (string.IsNullOrWhiteSpace(directory)) throw new InvalidOperationException("请先选择图片保存路径。");
             Directory.CreateDirectory(directory);
-            string file = Path.Combine(directory, $"Camera_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+            string file = Path.Combine(directory, $"相机_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
             PngBitmapEncoder encoder = new();
             encoder.Frames.Add(BitmapFrame.Create(_latestImage));
             await using FileStream stream = File.Create(file);
             encoder.Save(stream);
-            SetStatus($"Saved: {file}");
+            SetSaveStatus($"图片已保存：{Path.GetFileName(file)}");
         }
-        catch (Exception exception) { SetStatus(exception.Message); }
-        finally { _imageSavePending = false; }
+        catch (Exception exception)
+        {
+            _saveTimer.Stop();
+            UpdateControlAvailability();
+            SetSaveStatus($"保存失败，连续保存已停止：{exception.Message}");
+        }
+        finally
+        {
+            _imageSavePending = false;
+            UpdateControlAvailability();
+        }
+    }
+
+    private void SavePathTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _preferences = _preferences with { SavePath = SavePathTextBox.Text.Trim() };
+        _savePreferences?.Invoke(_preferences);
     }
 
     private void BrowsePath_Click(object sender, RoutedEventArgs e)
     {
-        using System.Windows.Forms.FolderBrowserDialog dialog = new() { SelectedPath = SavePathTextBox.Text };
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) SavePathTextBox.Text = dialog.SelectedPath;
+        using System.Windows.Forms.FolderBrowserDialog dialog = new() { SelectedPath = SavePathTextBox.Text, Description = "选择相机图片保存文件夹" };
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        {
+            SavePathTextBox.Text = dialog.SelectedPath;
+            if (DeviceComboBox.SelectedItem is VisionCameraDevice device) SavePreferences(device);
+            else
+            {
+                _preferences = _preferences with { SavePath = dialog.SelectedPath };
+                _savePreferences?.Invoke(_preferences);
+            }
+        }
     }
 
     private void Service_FrameArrived(object? sender, VisionCameraFrameEventArgs e)
@@ -214,21 +407,25 @@ public partial class VisionCameraPanel : UserControl
             if (image is null) return;
             _latestImage = image;
             CameraImage.Source = image;
-            ImageHintText.Visibility = Visibility.Collapsed;
+            ImageHintPanel.Visibility = Visibility.Collapsed;
+            UpdateControlAvailability();
         });
     }
 
     private void Service_CaptureFailed(object? sender, VisionCameraErrorEventArgs e) => Dispatcher.BeginInvoke(async () =>
     {
+        _saveTimer.Stop();
         if (_service is not null)
         {
             try { await _service.StopCaptureAsync(); }
-            catch (Exception exception) { SetStatus(exception.Message); }
+            catch (Exception exception) { SetStatus($"操作失败：{exception.Message}"); }
         }
-        StartCaptureButton.IsEnabled = true;
-        StopCaptureButton.IsEnabled = false;
-        SetStatus(e.Message);
+        UpdateControlAvailability();
+        ImageHintText.Text = $"实时采集已停止：{e.Message}";
+        ImageHintPanel.Visibility = Visibility.Visible;
+        SetStatus($"相机采集失败：{e.Message}");
     });
 
     private void SetStatus(string text) => OperationStatusText.Text = text;
+    private void SetSaveStatus(string text) => SaveStatusText.Text = text;
 }

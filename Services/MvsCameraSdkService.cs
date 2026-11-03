@@ -16,6 +16,7 @@ public sealed class MvsCameraSdkService : IVisionCameraService
     private readonly MyCamera _camera = new();
     private bool _handle;
     private bool _grabberStarted;
+    private string? _connectedDeviceId;
     private volatile bool _capturing;
     private Thread? _thread;
     public event EventHandler<VisionCameraFrameEventArgs>? FrameArrived;
@@ -27,38 +28,76 @@ public sealed class MvsCameraSdkService : IVisionCameraService
     {
         ct.ThrowIfCancellationRequested();
         IMVDefine.IMV_DeviceList list = new();
-        Check(MyCamera.IMV_EnumDevices(ref list, (uint)IMVDefine.IMV_EInterfaceType.interfaceTypeAll), "鏋氫妇鐩告満");
+        Check(MyCamera.IMV_EnumDevices(ref list, (uint)IMVDefine.IMV_EInterfaceType.interfaceTypeAll), "枚举相机");
         List<VisionCameraDevice> result = new();
         int size = Marshal.SizeOf(typeof(IMVDefine.IMV_DeviceInfo));
-        for (int i = 0; i < list.nDevNum; i++)
+        for (int index = 0; index < list.nDevNum; index++)
         {
-            IMVDefine.IMV_DeviceInfo info = Marshal.PtrToStructure<IMVDefine.IMV_DeviceInfo>(list.pDevInfo + i * size);
-            result.Add(new(i.ToString(), $"{info.cameraName} [{info.serialNumber}]"));
+            IMVDefine.IMV_DeviceInfo info = Marshal.PtrToStructure<IMVDefine.IMV_DeviceInfo>(list.pDevInfo + index * size);
+            string serialNumber = info.serialNumber?.Trim() ?? string.Empty;
+            string deviceId = string.IsNullOrWhiteSpace(serialNumber) ? $"index:{index}" : serialNumber;
+            string displayName = string.IsNullOrWhiteSpace(serialNumber)
+                ? info.cameraName
+                : $"{info.cameraName}（序列号：{serialNumber}）";
+            result.Add(new(deviceId, displayName));
         }
         return result;
     }, ct);
-    public Task ConnectAsync(string id, CancellationToken ct = default) => Task.Run(() =>
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            if (IsConnected) return;
-            if (!int.TryParse(id, out int index)) throw new ArgumentException("Invalid camera selection.", nameof(id));
-            Check(_camera.IMV_CreateHandle(IMVDefine.IMV_ECreateHandleMode.modeByIndex, index), "Create camera handle");
-            _handle = true;
-            try { Check(_camera.IMV_Open(), "Connect camera"); IsConnected = true; }
-            catch { _camera.IMV_DestroyHandle(); _handle = false; throw; }
-        }
-    }, ct);
 
+    public async Task ConnectAsync(string deviceId, CancellationToken ct = default)
+    {
+        if (_capturing && !string.Equals(_connectedDeviceId, deviceId, StringComparison.Ordinal))
+        {
+            await StopCaptureAsync(ct).ConfigureAwait(false);
+        }
+        await Task.Run(() =>
+        {
+            ct.ThrowIfCancellationRequested();
+            lock (_gate)
+            {
+                if (IsConnected && string.Equals(_connectedDeviceId, deviceId, StringComparison.Ordinal)) return;
+                if (IsConnected)
+                {
+                    Check(_camera.IMV_Close(), "断开相机");
+                    IsConnected = false;
+                    _connectedDeviceId = null;
+                }
+                if (_handle)
+                {
+                    Check(_camera.IMV_DestroyHandle(), "释放相机句柄");
+                    _handle = false;
+                }
+            IMVDefine.IMV_DeviceList list = new();
+            Check(MyCamera.IMV_EnumDevices(ref list, (uint)IMVDefine.IMV_EInterfaceType.interfaceTypeAll), "枚举相机");
+            int size = Marshal.SizeOf(typeof(IMVDefine.IMV_DeviceInfo));
+            int selectedIndex = -1;
+            for (int index = 0; index < list.nDevNum; index++)
+            {
+                IMVDefine.IMV_DeviceInfo info = Marshal.PtrToStructure<IMVDefine.IMV_DeviceInfo>(list.pDevInfo + index * size);
+                string serialNumber = info.serialNumber?.Trim() ?? string.Empty;
+                string currentId = string.IsNullOrWhiteSpace(serialNumber) ? $"index:{index}" : serialNumber;
+                if (string.Equals(currentId, deviceId, StringComparison.Ordinal))
+                {
+                    selectedIndex = index;
+                    break;
+                }
+            }
+            if (selectedIndex < 0) throw new InvalidOperationException("未找到所选相机，请刷新设备列表。");
+            Check(_camera.IMV_CreateHandle(IMVDefine.IMV_ECreateHandleMode.modeByIndex, selectedIndex), "创建相机句柄");
+            _handle = true;
+            try { Check(_camera.IMV_Open(), "连接相机"); IsConnected = true; _connectedDeviceId = deviceId; }
+            catch { _camera.IMV_DestroyHandle(); _handle = false; throw; }
+            }
+        }, ct).ConfigureAwait(false);
+    }
     public Task StartCaptureAsync(CancellationToken ct = default) => Task.Run(() =>
     {
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            if (!IsConnected) throw new InvalidOperationException("Connect a camera first.");
+            if (!IsConnected) throw new InvalidOperationException("请先连接相机。");
             if (_capturing) return;
-            Check(_camera.IMV_StartGrabbing(), "Start capture");
+            Check(_camera.IMV_StartGrabbing(), "开始采集");
             _grabberStarted = true;
             _capturing = true;
             _thread = new Thread(CaptureLoop) { IsBackground = true, Name = "MVS camera capture" };
@@ -74,7 +113,7 @@ public sealed class MvsCameraSdkService : IVisionCameraService
             if (!_grabberStarted) return;
             _capturing = false;
             thread = _thread;
-            Check(_camera.IMV_StopGrabbing(), "Stop capture");
+            Check(_camera.IMV_StopGrabbing(), "结束采集");
             _grabberStarted = false;
         }
         if (thread is not null) await Task.Run(() => thread.Join(TimeSpan.FromSeconds(3)), ct).ConfigureAwait(false);
@@ -86,10 +125,10 @@ public sealed class MvsCameraSdkService : IVisionCameraService
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            if (!IsConnected) throw new InvalidOperationException("Camera is not connected.");
+            if (!IsConnected) throw new InvalidOperationException("相机尚未连接。");
             double exposure = 0, gain = 0;
-            Check(_camera.IMV_GetDoubleFeatureValue("ExposureTime", ref exposure), "Read exposure");
-            Check(_camera.IMV_GetDoubleFeatureValue("GainRaw", ref gain), "Read gain");
+            Check(_camera.IMV_GetDoubleFeatureValue("ExposureTime", ref exposure), "读取曝光");
+            Check(_camera.IMV_GetDoubleFeatureValue("GainRaw", ref gain), "读取增益");
             return new VisionCameraParameters(exposure, gain);
         }
     }, ct);
@@ -99,9 +138,9 @@ public sealed class MvsCameraSdkService : IVisionCameraService
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            if (!IsConnected) throw new InvalidOperationException("Camera is not connected.");
-            Check(_camera.IMV_SetDoubleFeatureValue("ExposureTime", exposure), "Set exposure");
-            Check(_camera.IMV_SetDoubleFeatureValue("GainRaw", gain), "Set gain");
+            if (!IsConnected) throw new InvalidOperationException("相机尚未连接。");
+            Check(_camera.IMV_SetDoubleFeatureValue("ExposureTime", exposure), "设置曝光");
+            Check(_camera.IMV_SetDoubleFeatureValue("GainRaw", gain), "设置增益");
         }
     }, ct);
 
@@ -112,6 +151,7 @@ public sealed class MvsCameraSdkService : IVisionCameraService
         {
             if (IsConnected) _camera.IMV_Close();
             IsConnected = false;
+            _connectedDeviceId = null;
             if (_handle) _camera.IMV_DestroyHandle();
             _handle = false;
         }
@@ -154,7 +194,7 @@ public sealed class MvsCameraSdkService : IVisionCameraService
                     };
                     try
                     {
-                        Check(_camera.IMV_PixelConvert(ref conversion), "Convert image");
+                        Check(_camera.IMV_PixelConvert(ref conversion), "转换图像");
                         byte[] pixels = new byte[length];
                         Marshal.Copy(buffer, pixels, 0, length);
                         BitmapSource image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr24, null, pixels, width * 3);
@@ -175,6 +215,6 @@ public sealed class MvsCameraSdkService : IVisionCameraService
 
     private void Check(int result, string action)
     {
-        if (result != IMVDefine.IMV_OK) throw new InvalidOperationException($"{action} failed. SDK result: {result}.");
+        if (result != IMVDefine.IMV_OK) throw new InvalidOperationException($"{action}失败，SDK 错误码：{result}。");
     }
 }

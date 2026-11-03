@@ -25,3 +25,5 @@ UI 入口和重试实现在 `../MainWindow/MainWindow.Network.cs`：`RunNetworkP
 ## 本地正弦曲线调试
 
 仅在用户明确要求时新增 `SineDebugDataService.cs`，不得作为产品功能提交。公式、重置、连接即停止和验收边界见根 `AGENTS.md`“本地调试”。调试点只能调用 `DataAqc.Enqueue()`，不得直接写曲线、`loadModels`、`TrialDataStore` 或 `LoadDataChanged`。
+
+- 新视觉 SDK 相机的 UI、上次设备选择与图片保存路径配置由 `VisionCameraPanel` 持久化到 `Setting.json`；仅在 `NewVisionProcessingService.IsEnabled` 时启动枚举与自动连接。`MvsCameraSdkService` 以稳定设备序列号重新解析当前索引，不能持久化即插即变的枚举索引。
