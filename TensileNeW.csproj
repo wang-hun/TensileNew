@@ -16,7 +16,7 @@
     <Version>2.3.5.2610</Version>
     <AssemblyVersion>2.3.5.2610</AssemblyVersion>
     <FileVersion>2.3.5.2610</FileVersion>
-    <InformationalVersion>V2.3.5.2610 R</InformationalVersion>
+    <InformationalVersion>V2.3.5.2610-R-视觉特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
