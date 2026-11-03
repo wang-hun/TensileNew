@@ -32,7 +32,6 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private string? _connectedDeviceId;
     private readonly ScaleTransform _imageScale = new(1, 1);
     private readonly TranslateTransform _imageTranslation = new();
-    private double _fitScale = 1;
     private double _userZoom = 1;
     private bool _imageViewAdjusted;
     private Point _dragStartPointer;
@@ -438,8 +437,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         _userZoom = zoom;
         _imageTranslation.X = pointer.X - (pointer.X - _imageTranslation.X) * factor;
         _imageTranslation.Y = pointer.Y - (pointer.Y - _imageTranslation.Y) * factor;
-        _imageScale.ScaleX = _fitScale * _userZoom;
-        _imageScale.ScaleY = _fitScale * _userZoom;
+        _imageScale.ScaleX = _userZoom;
+        _imageScale.ScaleY = _userZoom;
         ConstrainImageTranslation();
         e.Handled = true;
     }
@@ -451,6 +450,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         _isDraggingImage = true;
         _dragStartPointer = e.GetPosition(CameraViewport);
         _dragStartTranslation = new Point(_imageTranslation.X, _imageTranslation.Y);
+        _imageViewAdjusted = true;
         CameraViewport.Cursor = Cursors.SizeAll;
         CameraViewport.CaptureMouse();
         e.Handled = true;
@@ -489,14 +489,12 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 
     private void ResetImageView()
     {
-        if (CameraImage.Source is not BitmapSource image || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
-        _fitScale = Math.Min(CameraViewport.ActualWidth / image.Width, CameraViewport.ActualHeight / image.Height);
-        if (!double.IsFinite(_fitScale) || _fitScale <= 0) _fitScale = 1;
+        if (CameraImage.Source is null || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
         _userZoom = 1;
-        _imageScale.ScaleX = _fitScale;
-        _imageScale.ScaleY = _fitScale;
-        _imageTranslation.X = (CameraViewport.ActualWidth - image.Width * _fitScale) / 2;
-        _imageTranslation.Y = (CameraViewport.ActualHeight - image.Height * _fitScale) / 2;
+        _imageScale.ScaleX = 1;
+        _imageScale.ScaleY = 1;
+        _imageTranslation.X = 0;
+        _imageTranslation.Y = 0;
         _imageViewAdjusted = false;
     }
     private void ConstrainImageTranslation()
