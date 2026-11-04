@@ -6,7 +6,7 @@ public sealed record VisionCameraDevice(string Id, string DisplayName);
 
 public sealed record VisionCameraParameters(double Exposure, double Gain);
 
-public sealed record VisionCameraPreferences(string DeviceId, string DeviceName, string SavePath);
+public sealed record VisionCameraPreferences(string DeviceId, string DeviceName, string SavePath, double SaveIntervalSeconds = 1);
 
 public sealed class VisionCameraFrameEventArgs(BitmapSource image) : EventArgs
 {

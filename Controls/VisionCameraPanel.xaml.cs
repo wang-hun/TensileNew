@@ -16,6 +16,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private const double MinimumImageZoom = 0.1;
     private const double MaximumImageZoom = 16;
     private const double ImageZoomStep = 1.15;
+    private const double MinimumPreviewHeight = 120;
     private readonly DispatcherTimer _parameterTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _saveTimer = new();
     private IVisionCameraService? _service;
@@ -56,6 +57,13 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         _saveTimer.Tick += async (_, _) => await QueueContinuousImageAsync();
     }
 
+    private void PanelLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        FooterScale.MaxHeight = Math.Max(0,
+            e.NewSize.Height - PanelLayout.RowDefinitions[0].ActualHeight - MinimumPreviewHeight
+            - CameraPreviewBorder.Margin.Bottom);
+    }
+
     public void Configure(IVisionCameraService service, VisionCameraPreferences preferences, Action<VisionCameraPreferences> savePreferences)
     {
         _service = service;
@@ -64,6 +72,10 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         SavePathTextBox.Text = string.IsNullOrWhiteSpace(preferences.SavePath)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ECS")
             : preferences.SavePath;
+        double intervalSeconds = double.IsFinite(preferences.SaveIntervalSeconds) && preferences.SaveIntervalSeconds > 0
+            ? preferences.SaveIntervalSeconds
+            : 1;
+        IntervalTextBox.Text = intervalSeconds.ToString("0.################", CultureInfo.InvariantCulture);
         _service.FrameArrived += Service_FrameArrived;
         _service.CaptureFailed += Service_CaptureFailed;
     }
@@ -355,11 +367,27 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             return;
         }
         _saveQueueFailure = null;
+        PersistSaveInterval(seconds);
         _continuousSavingRequested = true;
         _saveTimer.Interval = TimeSpan.FromSeconds(seconds);
         _saveTimer.Start();
         UpdateControlAvailability();
         SetSaveStatus("连续保存已开始");
+    }
+
+    private void IntervalTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (double.TryParse(IntervalTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) &&
+            double.IsFinite(seconds) && seconds > 0 && seconds <= TimeSpan.MaxValue.TotalSeconds)
+        {
+            PersistSaveInterval(seconds);
+        }
+    }
+
+    private void PersistSaveInterval(double seconds)
+    {
+        _preferences = _preferences with { SaveIntervalSeconds = seconds };
+        _savePreferences?.Invoke(_preferences);
     }
 
     private void StopInterval_Click(object sender, RoutedEventArgs e)

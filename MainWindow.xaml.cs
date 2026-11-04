@@ -184,12 +184,14 @@ public partial class MainWindow : Window
             new VisionCameraPreferences(
                 _viewModel.Setting.VisionCameraDeviceId,
                 _viewModel.Setting.VisionCameraDeviceName,
-                _viewModel.Setting.VisionCameraSavePath),
+                _viewModel.Setting.VisionCameraSavePath,
+                _viewModel.Setting.VisionCameraSaveIntervalSeconds),
             preferences =>
             {
                 _viewModel.Setting.VisionCameraDeviceId = preferences.DeviceId;
                 _viewModel.Setting.VisionCameraDeviceName = preferences.DeviceName;
                 _viewModel.Setting.VisionCameraSavePath = preferences.SavePath;
+                _viewModel.Setting.VisionCameraSaveIntervalSeconds = preferences.SaveIntervalSeconds;
                 _viewModel.SaveSettings();
             });
         InitializeDacuButton();

@@ -411,8 +411,18 @@
               <ColumnDefinition Width="110" />
             </Grid.ColumnDefinitions>
             <StackPanel x:Name="AnalysisModeSwitch" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-              <ToggleButton x:Name="ChartModeButton" Content="&#x66F2;&#x7EBF;&#x56FE;" Style="{StaticResource AnalysisModeToggleButtonStyle}" IsChecked="True" Click="ChartMode_Click" hc:BorderElement.CornerRadius="4,0,0,4" />
-              <ToggleButton x:Name="CameraModeButton" Content="&#x76F8;&#x673A;" Style="{StaticResource AnalysisModeToggleButtonStyle}" Click="CameraMode_Click" hc:BorderElement.CornerRadius="0,4,4,0" />
+              <ToggleButton x:Name="ChartModeButton" Style="{StaticResource AnalysisModeToggleButtonStyle}" IsChecked="True" Click="ChartMode_Click" hc:BorderElement.CornerRadius="4,0,0,4">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <iconPacks:PackIconMaterialDesign Kind="AutoGraph" Width="15" Height="15" Margin="0,0,4,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                  <TextBlock Text="&#x66F2;&#x7EBF;&#x56FE;" VerticalAlignment="Center" />
+                </StackPanel>
+              </ToggleButton>
+              <ToggleButton x:Name="CameraModeButton" Style="{StaticResource AnalysisModeToggleButtonStyle}" Click="CameraMode_Click" hc:BorderElement.CornerRadius="0,4,4,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <iconPacks:PackIconMingCuteIcons Kind="Camera2AiLine" Width="15" Height="15" Margin="0,0,4,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                  <TextBlock Text="&#x76F8;&#x673A;" VerticalAlignment="Center" />
+                </StackPanel>
+              </ToggleButton>
             </StackPanel>
             <Button x:Name="ReconnectButton" Grid.Column="2" Style="{StaticResource HeaderReconnectButtonStyle}" Click="Reconnect_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">

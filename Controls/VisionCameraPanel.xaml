@@ -18,17 +18,19 @@
       <Setter Property="VerticalAlignment" Value="Center" /><Setter Property="Foreground" Value="{DynamicResource AppMetricNameForegroundBrush}" /><Setter Property="FontSize" Value="13" /><Setter Property="Margin" Value="0,0,8,0" />
     </Style>
   </UserControl.Resources>
-  <Grid Margin="8">
-    <Grid.RowDefinitions><RowDefinition Height="42" /><RowDefinition Height="*" /><RowDefinition Height="160" /></Grid.RowDefinitions>
-    <Grid Grid.Row="0" Margin="0,0,0,8">
+  <Grid x:Name="PanelLayout" Margin="8" SizeChanged="PanelLayout_SizeChanged">
+    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+    <Viewbox Grid.Row="0" Margin="0,0,0,8" Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top">
+      <Grid Width="780" Height="34">
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="190" /></Grid.ColumnDefinitions>
       <TextBlock Text="相机设备" Style="{StaticResource CameraFieldLabel}" Margin="0,0,12,0" />
       <ComboBox x:Name="DeviceComboBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" FontSize="14" DisplayMemberPath="DisplayName" SelectionChanged="DeviceComboBox_SelectionChanged" />
       <Button x:Name="RefreshDevicesButton" Grid.Column="2" Style="{StaticResource CameraSecondaryButton}" Margin="8,0" Click="RefreshDevices_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="15" Height="15" Margin="0,0,6,0" /><TextBlock Text="刷新设备" /></StackPanel></Button>
       <Button x:Name="ConnectButton" Grid.Column="3" Content="连接相机" Style="{StaticResource CameraPrimaryButton}" Click="Connect_Click" />
       <TextBlock x:Name="ConnectionStatusText" Grid.Column="4" Text="正在查找相机…" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" VerticalAlignment="Center" Margin="4,0,0,0" TextTrimming="CharacterEllipsis" />
-    </Grid>
-    <Border Grid.Row="1" Background="#111827" Margin="0,0,0,8">
+      </Grid>
+    </Viewbox>
+    <Border x:Name="CameraPreviewBorder" Grid.Row="1" Background="#111827" Margin="0,0,0,8">
       <Grid x:Name="CameraViewport" Background="Transparent" ClipToBounds="True" SizeChanged="CameraViewport_SizeChanged" PreviewMouseWheel="CameraViewport_MouseWheel" PreviewMouseLeftButtonDown="CameraViewport_MouseLeftButtonDown" PreviewMouseMove="CameraViewport_MouseMove" PreviewMouseLeftButtonUp="CameraViewport_MouseLeftButtonUp" LostMouseCapture="CameraViewport_LostMouseCapture">
         <Canvas x:Name="CameraImageCanvas" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" Background="Transparent">
           <Image x:Name="CameraImage" Stretch="Fill" HorizontalAlignment="Left" VerticalAlignment="Top" />
@@ -40,54 +42,56 @@
         <Button x:Name="ResetImageViewButton" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Padding="10,0" Height="34" MinWidth="92" Style="{StaticResource CameraSecondaryButton}" IsEnabled="False" ToolTip="重置为完整适配视图" Click="ResetImageView_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconMaterial Kind="ImageFilterCenterFocusStrong" Width="17" Height="17" Margin="0,0,6,0" /><TextBlock Text="重置视图" /></StackPanel></Button>
       </Grid>
     </Border>
-    <Grid Grid.Row="2" Margin="0,2,0,0">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-      <Grid.RowDefinitions><RowDefinition Height="26" /><RowDefinition Height="48" /><RowDefinition Height="48" /><RowDefinition Height="24" /></Grid.RowDefinitions>
-      <Grid Grid.Row="0" Grid.ColumnSpan="2">
+    <Viewbox x:Name="FooterScale" Grid.Row="2" Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top">
+      <Grid Width="1250" Height="160" Margin="0,2,0,0">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-        <Grid>
-          <TextBlock Text="相机参数与实时采集" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppMetricValueForegroundBrush}" VerticalAlignment="Center" />
+        <Grid.RowDefinitions><RowDefinition Height="26" /><RowDefinition Height="48" /><RowDefinition Height="48" /><RowDefinition Height="24" /></Grid.RowDefinitions>
+        <Grid Grid.Row="0" Grid.ColumnSpan="2">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <Grid>
+            <TextBlock Text="相机参数与实时采集" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppMetricValueForegroundBrush}" VerticalAlignment="Center" />
+          </Grid>
+          <Grid Grid.Column="1" Margin="18,0,0,0">
+            <TextBlock Text="图片保存与连续采集" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppMetricValueForegroundBrush}" VerticalAlignment="Center" />
+          </Grid>
         </Grid>
-        <Grid Grid.Column="1" Margin="18,0,0,0">
-          <TextBlock Text="图片保存与连续采集" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppMetricValueForegroundBrush}" VerticalAlignment="Center" />
+        <Grid Grid.Row="1" Grid.ColumnSpan="2">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <Grid Grid.Column="0" Margin="0,0,18,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <TextBlock Text="曝光" Style="{StaticResource CameraFieldLabel}" />
+            <TextBox x:Name="ExposureTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,20,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
+            <TextBlock Grid.Column="2" Text="增益" Style="{StaticResource CameraFieldLabel}" />
+            <TextBox x:Name="GainTextBox" Grid.Column="3" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,12,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
+            <Button x:Name="ApplyParametersButton" Grid.Column="4" Content="应用参数" Style="{StaticResource CameraPrimaryButton}" Margin="0" HorizontalAlignment="Left" IsEnabled="False" Click="ApplyParameters_Click" />
+          </Grid>
+          <Grid Grid.Column="1" Margin="18,0,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="保存路径" Style="{StaticResource CameraFieldLabel}" />
+            <TextBox x:Name="SavePathTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" LostFocus="SavePathTextBox_LostFocus" />
+            <Button Grid.Column="2" Style="{StaticResource CameraSecondaryButton}" Margin="0" Click="BrowsePath_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconMaterial Kind="FolderOpen" Width="16" Height="16" Margin="0,0,5,0" /><TextBlock Text="浏览…" /></StackPanel></Button>
+          </Grid>
         </Grid>
+        <Grid Grid.Row="2" Grid.ColumnSpan="2">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="StartCaptureButton" Content="开始实时采集" Style="{StaticResource CameraPrimaryButton}" IsEnabled="False" Click="StartCapture_Click" />
+            <Button x:Name="StopCaptureButton" Content="结束实时采集" Style="{StaticResource CameraDangerButton}" IsEnabled="False" Margin="0" Click="StopCapture_Click" />
+            <TextBlock x:Name="OperationStatusText" Margin="16,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          </StackPanel>
+          <Grid Grid.Column="1" Margin="18,0,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="64" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="36" /></Grid.ColumnDefinitions>
+            <TextBlock Text="间隔（秒）" Style="{StaticResource CameraFieldLabel}" />
+            <TextBox x:Name="IntervalTextBox" Grid.Column="1" Text="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" LostFocus="IntervalTextBox_LostFocus" />
+            <Button x:Name="StartIntervalButton" Grid.Column="2" Content="开始连续保存" Style="{StaticResource CameraPrimaryButton}" IsEnabled="False" Click="StartInterval_Click" />
+            <Button x:Name="StopIntervalButton" Grid.Column="3" Content="结束连续保存" Style="{StaticResource CameraDangerButton}" IsEnabled="False" Click="StopInterval_Click" />
+            <Button x:Name="SaveOneButton" Grid.Column="4" Content="保存当前图片" Style="{StaticResource CameraSecondaryButton}" Margin="0,0,6,0" IsEnabled="False" Click="SaveOne_Click" />
+            <Button x:Name="OpenSaveFolderButton" Grid.Column="5" Style="{StaticResource CameraSecondaryButton}" Width="36" MinWidth="36" Padding="0" Margin="0" ToolTip="打开图片保存文件夹" Click="OpenSaveFolder_Click"><iconPacks:PackIconMaterial Kind="FolderOpen" Width="16" Height="16" /></Button>
+          </Grid>
+        </Grid>
+        <TextBlock x:Name="SaveStatusText" Grid.Row="3" Grid.Column="1" Margin="18,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
       </Grid>
-      <Grid Grid.Row="1" Grid.ColumnSpan="2">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-        <Grid Grid.Column="0" Margin="0,0,18,0">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-          <TextBlock Text="曝光" Style="{StaticResource CameraFieldLabel}" />
-          <TextBox x:Name="ExposureTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,20,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
-          <TextBlock Grid.Column="2" Text="增益" Style="{StaticResource CameraFieldLabel}" />
-          <TextBox x:Name="GainTextBox" Grid.Column="3" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,12,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
-          <Button x:Name="ApplyParametersButton" Grid.Column="4" Content="应用参数" Style="{StaticResource CameraPrimaryButton}" Margin="0" HorizontalAlignment="Left" IsEnabled="False" Click="ApplyParameters_Click" />
-        </Grid>
-        <Grid Grid.Column="1" Margin="18,0,0,0">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-          <TextBlock Text="保存路径" Style="{StaticResource CameraFieldLabel}" />
-          <TextBox x:Name="SavePathTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" LostFocus="SavePathTextBox_LostFocus" />
-          <Button Grid.Column="2" Style="{StaticResource CameraSecondaryButton}" Margin="0" Click="BrowsePath_Click"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><iconPacks:PackIconMaterial Kind="FolderOpen" Width="16" Height="16" Margin="0,0,5,0" /><TextBlock Text="浏览…" /></StackPanel></Button>
-        </Grid>
-      </Grid>
-      <Grid Grid.Row="2" Grid.ColumnSpan="2">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button x:Name="StartCaptureButton" Content="开始实时采集" Style="{StaticResource CameraPrimaryButton}" IsEnabled="False" Click="StartCapture_Click" />
-          <Button x:Name="StopCaptureButton" Content="结束实时采集" Style="{StaticResource CameraDangerButton}" IsEnabled="False" Margin="0" Click="StopCapture_Click" />
-          <TextBlock x:Name="OperationStatusText" Margin="16,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-        </StackPanel>
-        <Grid Grid.Column="1" Margin="18,0,0,0">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="64" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="36" /></Grid.ColumnDefinitions>
-          <TextBlock Text="间隔（秒）" Style="{StaticResource CameraFieldLabel}" />
-          <TextBox x:Name="IntervalTextBox" Grid.Column="1" Text="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" />
-          <Button x:Name="StartIntervalButton" Grid.Column="2" Content="开始连续保存" Style="{StaticResource CameraPrimaryButton}" IsEnabled="False" Click="StartInterval_Click" />
-          <Button x:Name="StopIntervalButton" Grid.Column="3" Content="结束连续保存" Style="{StaticResource CameraDangerButton}" IsEnabled="False" Click="StopInterval_Click" />
-          <Button x:Name="SaveOneButton" Grid.Column="4" Content="保存当前图片" Style="{StaticResource CameraSecondaryButton}" Margin="0,0,6,0" IsEnabled="False" Click="SaveOne_Click" />
-          <Button x:Name="OpenSaveFolderButton" Grid.Column="5" Style="{StaticResource CameraSecondaryButton}" Width="36" MinWidth="36" Padding="0" Margin="0" ToolTip="打开图片保存文件夹" Click="OpenSaveFolder_Click"><iconPacks:PackIconMaterial Kind="FolderOpen" Width="16" Height="16" /></Button>
-        </Grid>
-      </Grid>
-      <TextBlock x:Name="SaveStatusText" Grid.Row="3" Grid.Column="1" Margin="18,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-    </Grid>
+    </Viewbox>
   </Grid>
 
 </UserControl>

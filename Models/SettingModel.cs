@@ -97,6 +97,8 @@ namespace TensileNeW.Models
 
         public string VisionCameraSavePath { get; set; } = string.Empty;
 
+        public double VisionCameraSaveIntervalSeconds { get; set; } = 1;
+
         private bool _NewVisionProcessingEnabled;
         public bool NewVisionProcessingEnabled
         {
