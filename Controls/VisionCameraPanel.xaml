@@ -77,12 +77,13 @@
           <TextBlock x:Name="OperationStatusText" Margin="16,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
         </StackPanel>
         <Grid Grid.Column="1" Margin="18,0,0,0">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="64" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="64" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="36" /></Grid.ColumnDefinitions>
           <TextBlock Text="间隔（秒）" Style="{StaticResource CameraFieldLabel}" />
           <TextBox x:Name="IntervalTextBox" Grid.Column="1" Text="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" />
           <Button x:Name="StartIntervalButton" Grid.Column="2" Content="开始连续保存" Style="{StaticResource CameraPrimaryButton}" IsEnabled="False" Click="StartInterval_Click" />
           <Button x:Name="StopIntervalButton" Grid.Column="3" Content="结束连续保存" Style="{StaticResource CameraDangerButton}" IsEnabled="False" Click="StopInterval_Click" />
-          <Button x:Name="SaveOneButton" Grid.Column="4" Content="保存当前图片" Style="{StaticResource CameraSecondaryButton}" Margin="0" HorizontalAlignment="Right" IsEnabled="False" Click="SaveOne_Click" />
+          <Button x:Name="SaveOneButton" Grid.Column="4" Content="保存当前图片" Style="{StaticResource CameraSecondaryButton}" Margin="0,0,6,0" IsEnabled="False" Click="SaveOne_Click" />
+          <Button x:Name="OpenSaveFolderButton" Grid.Column="5" Style="{StaticResource CameraSecondaryButton}" Width="36" MinWidth="36" Padding="0" Margin="0" ToolTip="打开图片保存文件夹" Click="OpenSaveFolder_Click"><iconPacks:PackIconMaterial Kind="FolderOpen" Width="16" Height="16" /></Button>
         </Grid>
       </Grid>
       <TextBlock x:Name="SaveStatusText" Grid.Row="3" Grid.Column="1" Margin="18,0,0,0" Foreground="{DynamicResource AppMetricNameForegroundBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
