@@ -13,10 +13,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>2.3.5.2610</Version>
-    <AssemblyVersion>2.3.5.2610</AssemblyVersion>
-    <FileVersion>2.3.5.2610</FileVersion>
-    <InformationalVersion>V2.3.5.2610-R-视觉特供</InformationalVersion>
+    <Version>2.3.6.2611</Version>
+    <AssemblyVersion>2.3.6.2611</AssemblyVersion>
+    <FileVersion>2.3.6.2611</FileVersion>
+    <InformationalVersion>V2.3.6.2611 B-视觉特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="BasicDemo\**" />
     <Compile Remove="builder\**" />
     <Compile Remove="bin\**" />
     <Compile Remove="BasicDemo\**" />
@@ -36,6 +37,7 @@
     <Compile Remove="obj\**" />
     <Compile Remove="SamplingCapture\**" />
     <Compile Remove="测试\**" />
+    <EmbeddedResource Remove="BasicDemo\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="bin\**" />
     <EmbeddedResource Remove="BasicDemo\**" />
@@ -46,6 +48,7 @@
     <EmbeddedResource Remove="obj\**" />
     <EmbeddedResource Remove="SamplingCapture\**" />
     <EmbeddedResource Remove="测试\**" />
+    <None Remove="BasicDemo\**" />
     <None Remove="builder\**" />
     <None Remove="bin\**" />
     <None Remove="BasicDemo\**" />
@@ -56,6 +59,7 @@
     <None Remove="obj\**" />
     <None Remove="SamplingCapture\**" />
     <None Remove="测试\**" />
+    <Page Remove="BasicDemo\**" />
     <Page Remove="builder\**" />
     <Page Remove="bin\**" />
     <Page Remove="BasicDemo\**" />
