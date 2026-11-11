@@ -99,6 +99,15 @@ namespace TensileNeW.Models
 
         public double VisionCameraSaveIntervalSeconds { get; set; } = 1;
 
+        public bool VisionSoftwareEnabled { get; set; }
+        public bool TwoStageAutomaticSwitch { get; set; }
+        public string VisionSoftwareHost { get; set; } = "127.0.0.1";
+        public int VisionSoftwarePort { get; set; } = 800;
+        public string VisionSoftwareImageDirectory { get; set; } = "vision";
+        public string VisionSoftwareImageFileName { get; set; } = "latest.bmp";
+        public int VisionSoftwareCaptureIntervalMs { get; set; } = 500;
+        public int VisionSoftwareReplyTimeoutMs { get; set; } = 400;
+
         private bool _NewVisionProcessingEnabled;
         public bool NewVisionProcessingEnabled
         {

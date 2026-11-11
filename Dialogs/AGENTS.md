@@ -11,5 +11,6 @@
 | 配方确认 / 命名 | `RecipeConfirmDialog.xaml.cs`、`RecipeNameDialog.xaml.cs` | 确认 / 命名结果事件 | MainWindow 交给 `MainViewModel` 执行写入 |
 | 相机选择 | `CameraSelectionWindow.xaml.cs` | 设备选择事件 | MainWindow 交给 `CameraCaptureService` |
 | 回放和数据 | `LoadDataWindow.xaml.cs`、`PlotWindow.xaml.cs`、`VariableWindow.xaml.cs` | 展示 / 用户交互 | 数据源分别由 TrialDataStore、LoadPlotController、DataAqc 提供 |
+| 视觉设置 | `VisionDebugSettingsWindow.cs`、`VariableWindow.xaml.cs` | 主变量页/独立变量窗口打开设置弹窗 | 弹窗收集配置；主窗口负责持久化和识别软件重连 |
 
 新增或修改弹窗时保留 HandyControl / WPF 方式，不添加装饰性主题边框；布局遵守根 `AGENTS.md` 尺寸核算规则。

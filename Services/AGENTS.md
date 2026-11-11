@@ -10,7 +10,8 @@
 | 新视觉 / 二段速 / SDK 相机 | `NewVisionProcessingService.cs`、`VisionCameraContracts.cs`、`MvsCameraSdkService.cs` | 模块门控、相机适配器、采集与释放 | 所有 SDK 调用仅在服务专属 worker；UI 通过异步接口调用；与 PLC 控制和周期采集隔离 |
 | 实时 / 回放数据 | `TrialDataStore.cs` / `TrialDataStore` | 入队、试验分组、回放、临时库清理 | `DataAqc.Enqueue()` 是实时持久化接入点；调试辅助不得另写数据库 |
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
-| 新视觉图片保存 | `VisionImageSaveQueue.cs` / `VisionImageSaveQueue` | 专属 worker 串行 BMP 编码与落盘 | 保存使用独立于 UI 的最新采集帧快照和有界异步队列；连续保存通过异步背压等待队列空位，不丢弃已触发图像；不在 UI 线程编码 / 写盘 |
+| 新视觉图片保存 | `VisionImageSaveQueue.cs` / `VisionImageSaveQueue` | 专属 worker 串行 BMP 编码与落盘 | 保存使用独立于 UI 的最新采集帧快照和有界异步队列；连续保存通过异步背压等待队列空位，不丢弃已触发图像；检测时附加覆盖固定 BMP；不在 UI 线程编码 / 写盘 |
+| 识别软件通信 | `VisionSoftwareService.cs`、`VisionCrackReaction.cs` | TCP 状态机、图片回复超时、裂痕响应 | 二段速后 start，停止时 end；避免重复发送；通信失败不阻断试验；裂痕当前仅触发停止动作 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
 | 离线算法验证 | `DebugAlgorithmExcelService.cs` | 读取首表、复用重采样导出 | 仅 PIN 隐藏入口，不读写实时队列 |
 | 说明书缓存 | `ManualDocumentService.cs` | 导航、格式判断、XPS 缓存 / 转换 | Word/PPT 权威缓存 `%LocalAppData%\ECS\manual-cache`；保持单文件发布路径兼容 |

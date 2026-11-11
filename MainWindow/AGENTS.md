@@ -18,6 +18,7 @@
 | 试验控制 / 复位 | `../MainWindow.xaml.cs` | `StartTensile_Click()`、`Stop_Click()`、`Reset_Click()`、`PerformDataResetAsync()`、`OnTrialDataCleared()` | PLC 命令交给 `MainViewModel`；二段速状态转换保持在窗口协调层 |
 | 二段速 | `../MainWindow.xaml.cs` | `TwoStageSpeed_Click()`、`SwitchToSecondStageAsync()`、`SwitchToFirstStageAsync()`、`ShowTwoStagePrompt()`、`RestoreTwoStageAutoResetSetting()` | 检查自动复位、序列号和采集结束自动保存交互 |
 | 配方与设置 | `../MainWindow.xaml.cs` | `WriteRecipe_Click()`、`AddRecipe_Click()`、`DeleteRecipe_Click()`、`SaveSettings_Click()` | 写入和持久化归 `MainViewModel` / `RAM` |
+| 变量页新视觉设置 | `../MainWindow.xaml`、`../MainWindow.xaml.cs` | `OpenVisionSettings_Click()`、`ShowVisionDebugSettings()` | 入口在主变量页标题栏“新窗口打开”左侧；通过弹窗修改配置并保存，不依赖弹出独立变量窗口 |
 | 实时数据保存和报告 | `../MainWindow.xaml.cs` | `SaveDataAndReportAsync()`、`OnDataCollectionEnded()`、`RunAutomaticSaveAsync()`、`SaveTestReportToFile()` | 快照、后台等待窗、试用次数、算法整合和报告约束见根索引及 `../Services/AGENTS.md` |
 | 回放 | `../MainWindow.xaml.cs` | `RefreshPlaybackTrialsAsync()`、`RenderPlayback()`、`SavePlaybackData_Click()`、`SavePlaybackReport_Click()` | 读取 `TrialDataStore`；回放与实时采集不得混用状态 |
 | 隐藏入口 / 调试导入 | `../MainWindow.xaml.cs` | `LogoImage_MouseLeftButtonDown()`、`RunDebugAlgorithmDataImportAsync()` | PIN 事件边界见 `../Dialogs/AGENTS.md`；算法规则见根索引 |

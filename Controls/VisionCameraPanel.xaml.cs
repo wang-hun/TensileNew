@@ -82,6 +82,50 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 
     private Action<VisionCameraPreferences>? _savePreferences;
 
+    private string? _detectionImagePath;
+    private int _detectionImageGeneration;
+    public string? DetectionImagePath
+    {
+        get => _detectionImagePath;
+        set
+        {
+            _detectionImagePath = value;
+            Interlocked.Increment(ref _detectionImageGeneration);
+        }
+    }
+    public Action? DetectionImagePublishing { get; set; }
+    public Action? DetectionImageSaved { get; set; }
+    public Action<Exception>? DetectionImageFailed { get; set; }
+
+    public async Task EnsureCaptureAsync()
+    {
+        if (_service?.IsConnected != true) throw new InvalidOperationException("视觉相机尚未连接。");
+        if (!_service.IsCapturing)
+        {
+            lock (_frameDispatchLock) _latestCapturedImage = null;
+            await _service.StartCaptureAsync();
+            ImageHintPanel.Visibility = Visibility.Collapsed;
+        }
+        UpdateControlAvailability();
+    }
+
+    public async Task StartDetectionCaptureAsync(int intervalMilliseconds)
+    {
+        await EnsureCaptureAsync();
+        if (!_continuousSavingRequested)
+        {
+            IntervalTextBox.Text = (intervalMilliseconds / 1000d).ToString("0.###", CultureInfo.InvariantCulture);
+            StartInterval_Click(this, new RoutedEventArgs());
+        }
+        UpdateControlAvailability();
+    }
+
+    public void StopDetectionSaving()
+    {
+        DetectionImagePath = null;
+        StopInterval_Click(this, new RoutedEventArgs());
+    }
+
     public Task ActivateAsync() => RefreshDevicesAsync(autoConnectSavedDevice: true);
 
     public async ValueTask ReleaseAsync()
@@ -439,6 +483,13 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         {
             _continuousSavingRequested = false;
             _saveTimer.Stop();
+            if (DetectionImagePath is not null && _service?.IsCapturing == true)
+            {
+                _continuousSavingRequested = true;
+                _saveTimer.Start();
+                SetSaveStatus("正在等待相机图像。");
+                return;
+            }
             SetSaveStatus("连续保存已停止：尚未收到相机图像。");
             UpdateControlAvailability();
             return;
@@ -460,7 +511,10 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         UpdateControlAvailability();
         try
         {
-            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory);
+            string? detectionPath = DetectionImagePath;
+            int detectionGeneration = Volatile.Read(ref _detectionImageGeneration);
+            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory, latestPath: detectionPath,
+                latestSaved: DetectionImageSaved, mayPublish: () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration), latestFailed: DetectionImageFailed, latestPublishing: DetectionImagePublishing);
             SetSaveStatus("图片已加入后台保存队列。");
             _ = ObserveQueuedSaveAsync(completion);
         }

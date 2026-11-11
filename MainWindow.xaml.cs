@@ -115,6 +115,9 @@ public partial class MainWindow : Window
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
     private readonly NewVisionProcessingService _newVisionProcessingService;
+    private readonly VisionSoftwareService _visionSoftware;
+    private bool _visionAutomaticSaving;
+    private int _visionDetectionGeneration;
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
     private bool? _twoStagePreviousAutoReset;
@@ -179,6 +182,20 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        VisionCrackReaction crackReaction = new(async () =>
+        {
+            bool stopped = await _viewModel.TryPulseAsync("停止");
+            await Dispatcher.InvokeAsync(() =>
+            {
+                EndVisionDetection();
+                if (!stopped) ShowError("识别到裂痕，但停止动作指令发送失败，请立即检查设备。");
+            });
+        });
+        _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
+            message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }));
+        VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
+        VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
+        VisionCameraPanel.DetectionImageFailed = _visionSoftware.ImagePublishFailed;
         VisionCameraPanel.Configure(
             visionCameraServiceFactory.Create(),
             new VisionCameraPreferences(
@@ -476,6 +493,7 @@ public partial class MainWindow : Window
 
         _shutdownCleanupStarted = true;
         _isClosing = true;
+        _ = _visionSoftware.DisposeAsync();
         _ = ReleaseVisionCameraInBackgroundAsync();
         _variableWindow?.Close();
         _loadDataWindow?.Close();
@@ -1226,6 +1244,7 @@ public partial class MainWindow : Window
     private async void Stop_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("停止");
+        EndVisionDetection();
     }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
@@ -1234,6 +1253,7 @@ public partial class MainWindow : Window
 
     private async Task PerformDataResetAsync()
     {
+        EndVisionDetection();
         TrialDataStore.CancelCaptureContinuation();
         if (_twoStageState != TwoStageTrialState.None)
         {
@@ -1249,6 +1269,7 @@ public partial class MainWindow : Window
 
     private async void OnTrialDataCleared()
     {
+        EndVisionDetection();
         _dataResetGeneration++;
         _twoStageConfirmationWindow?.Close();
         TrialDataStore.CancelCaptureContinuation();
@@ -1456,6 +1477,7 @@ public partial class MainWindow : Window
 
             _twoStageState = TwoStageTrialState.SecondStageActive;
             RestoreTwoStageAutoResetSetting();
+            _ = BeginVisionDetectionAsync();
         }
         finally
         {
@@ -1511,6 +1533,12 @@ public partial class MainWindow : Window
             _twoStageState = TwoStageTrialState.None;
             _viewModel.DisplayRecipeStage(null);
             RestoreTwoStageAutoResetSetting();
+            return;
+        }
+
+        if (_viewModel.Setting.TwoStageAutomaticSwitch)
+        {
+            await SwitchToSecondStageAsync();
             return;
         }
 
@@ -2027,6 +2055,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_twoStageState == TwoStageTrialState.SecondStageActive) EndVisionDetection();
+
         if (DataAqc.CurrentCollectionWasReset &&
             (_twoStageState != TwoStageTrialState.None ||
              (_newVisionProcessingService.IsEnabled && _viewModel.SelectedRecipe is { IsTwoStageSpeed: true })))
@@ -2435,6 +2465,67 @@ public partial class MainWindow : Window
         _viewModel.Setting.ExcelFolderPath = dialog.FolderName;
     }
 
+    private async Task BeginVisionDetectionAsync()
+    {
+        if (!_newVisionProcessingService.IsEnabled) return;
+        bool softwareEnabled = _viewModel.Setting.VisionSoftwareEnabled;
+        int generation = ++_visionDetectionGeneration;
+        try
+        {
+            if (softwareEnabled)
+            {
+                string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
+                VisionCameraPanel.DetectionImagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+            }
+            if (_viewModel.Setting.TwoStageAutomaticSwitch && softwareEnabled)
+            {
+                await VisionCameraPanel.StartDetectionCaptureAsync(_viewModel.Setting.VisionSoftwareCaptureIntervalMs);
+                if (generation != _visionDetectionGeneration)
+                {
+                    VisionCameraPanel.StopDetectionSaving();
+                    return;
+                }
+                _visionAutomaticSaving = true;
+            }
+            else if (_viewModel.Setting.TwoStageAutomaticSwitch)
+            {
+                await VisionCameraPanel.EnsureCaptureAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            Logger.Warn(exception, "视觉相机启动失败。");
+            ShowWarning($"视觉相机启动失败：{exception.Message}");
+        }
+        if (softwareEnabled && generation == _visionDetectionGeneration) await _visionSoftware.StartAsync();
+    }
+
+    private void EndVisionDetection()
+    {
+        _visionDetectionGeneration++;
+        VisionCameraPanel.DetectionImagePath = null;
+        if (_visionAutomaticSaving)
+        {
+            VisionCameraPanel.StopDetectionSaving();
+            _visionAutomaticSaving = false;
+        }
+        _ = _visionSoftware.EndAsync();
+    }
+
+    private void OpenVisionSettings_Click(object sender, RoutedEventArgs e) => ShowVisionDebugSettings();
+
+    private async void ShowVisionDebugSettings()
+    {
+        VisionDebugSettingsWindow dialog = new(_viewModel.Setting) { Owner = (Window?)_variableWindow ?? this };
+        if (dialog.ShowDialog() == true)
+        {
+            EndVisionDetection();
+            await _visionSoftware.EndAsync();
+            _viewModel.SaveSettings();
+            _visionSoftware.Reconnect();
+        }
+    }
+
     private void OpenVariablesWindow_Click(object sender, RoutedEventArgs e)
     {
         if (_variableWindow is { IsVisible: true })
@@ -2448,6 +2539,7 @@ public partial class MainWindow : Window
             Owner = this,
             DataContext = _viewModel
         };
+        _variableWindow.VisionSettingsRequested += (_, _) => ShowVisionDebugSettings();
         _variableWindow.Closed += (_, _) => _variableWindow = null;
         _variableWindow.Show();
     }
