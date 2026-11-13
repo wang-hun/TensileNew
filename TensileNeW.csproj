@@ -18,6 +18,10 @@
     <FileVersion>2.3.6.2611</FileVersion>
     <InformationalVersion>V2.3.6.2611 B-视觉特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <CameraSdkBrand Condition="'$(CameraSdkBrand)' == ''">Both</CameraSdkBrand>
+    <DefineConstants Condition="'$(CameraSdkBrand)' == 'MVS'">$(DefineConstants);CAMERA_MVS_ONLY</DefineConstants>
+    <DefineConstants Condition="'$(CameraSdkBrand)' == 'Daheng'">$(DefineConstants);CAMERA_DAHENG_ONLY</DefineConstants>
+    <DefineConstants Condition="'$(CameraSdkBrand)' == 'Both'">$(DefineConstants);CAMERA_BOTH</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -81,10 +85,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="MVSDK_Net">
+    <Compile Remove="Services\MvsCameraSdkService.cs" Condition="'$(CameraSdkBrand)' == 'Daheng'" />
+    <Compile Remove="Services\DahengCameraSdkService.cs" Condition="'$(CameraSdkBrand)' == 'MVS'" />
+    <Content Remove="CameraSdk\**\*" />
+    <None Remove="CameraSdk\**\*" />
+    <Reference Include="MVSDK_Net" Condition="'$(CameraSdkBrand)' != 'Daheng'">
       <HintPath>CameraSdk\MVS\MVSDK_Net.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="GxIAPINET" Condition="'$(CameraSdkBrand)' != 'MVS'">
+      <HintPath>CameraSdk\Daheng\GxIAPINET.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Content Include="CameraSdk\Daheng\Native\**\*" Condition="'$(CameraSdkBrand)' != 'MVS'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="HandyControl" Version="3.5.1" />

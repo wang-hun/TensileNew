@@ -9,3 +9,5 @@
 | Office 文档缓存 | 安装后静默流程 | Word/PPT XPS 缓存失败或无 Office/WPS 时静默跳过 |
 
 不得让 WPF Installer 项目的 MSBuild 自动生成 payload / publish；验证部署目录、缓存、日志不得留在仓库。
+
+- InstallerBuilder 在试用 / 权限 / 新视觉之后询问相机品牌（1 华睿 / 2 大恒），传完整参数给 builder，不再二次询问；payload 只含所选品牌的相机 SDK；发布安装器前为 win-x64 还原目标项目依赖。

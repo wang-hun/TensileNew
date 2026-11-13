@@ -7,7 +7,7 @@
 | 曲线 | `LoadPlotController.cs` / `LoadPlotController` | 初始化、`Refresh()`、`Reset()`、`AutoScaleWhileCollecting()` | 主窗与独立曲线窗沿现有事件链；不从调试代码手动 AutoScale |
 | 网络地址探测 | `NetworkAdapterProbeService.cs` / `NetworkAdapterProbeService` | 候选有线网卡地址添加 / 回滚 | 提权进程只管理临时 IP，不连接 PLC；只移除本次新增地址；跳过 Wi-Fi |
 | 摄像头预览 | `CameraCaptureService.cs` / `CameraCaptureService` | 设备枚举、启动、帧回调、释放 | 现有预览链；不得与视觉处理 SDK 相机混用 |
-| 新视觉 / 二段速 / SDK 相机 | `NewVisionProcessingService.cs`、`VisionCameraContracts.cs`、`MvsCameraSdkService.cs` | 模块门控、相机适配器、采集与释放 | 所有 SDK 调用仅在服务专属 worker；UI 通过异步接口调用；与 PLC 控制和周期采集隔离 |
+| 新视觉 / 二段速 / SDK 相机 | `NewVisionProcessingService.cs`、`VisionCameraContracts.cs`、`VisionCameraSdkSelection.cs`、`MvsCameraSdkService.cs`、`DahengCameraSdkService.cs` | 模块门控、相机适配器、采集与释放 | 所有 SDK 调用仅在服务专属 worker；UI 通过异步接口调用；与 PLC 控制和周期采集隔离 |
 | 实时 / 回放数据 | `TrialDataStore.cs` / `TrialDataStore` | 入队、试验分组、回放、临时库清理 | `DataAqc.Enqueue()` 是实时持久化接入点；调试辅助不得另写数据库 |
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
 | 新视觉图片保存 | `VisionImageSaveQueue.cs` / `VisionImageSaveQueue` | 专属 worker 串行 BMP 编码与落盘 | 保存使用独立于 UI 的最新采集帧快照和有界异步队列；连续保存通过异步背压等待队列空位，不丢弃已触发图像；检测时附加覆盖固定 BMP；不在 UI 线程编码 / 写盘 |
@@ -29,3 +29,5 @@ UI 入口和重试实现在 `../MainWindow/MainWindow.Network.cs`：`RunNetworkP
 仅在用户明确要求时新增 `SineDebugDataService.cs`，不得作为产品功能提交。公式、重置、连接即停止和验收边界见根 `AGENTS.md`“本地调试”。调试点只能调用 `DataAqc.Enqueue()`，不得直接写曲线、`loadModels`、`TrialDataStore` 或 `LoadDataChanged`。
 
 - 新视觉 SDK 相机的 UI、上次设备选择、图片保存路径与连续保存间隔由 `VisionCameraPanel` 持久化到 `Setting.json`；仅在 `NewVisionProcessingService.IsEnabled` 时启动枚举与自动连接。`MvsCameraSdkService` 以稳定设备序列号重新解析当前索引，不能持久化即插即变的枚举索引。
+
+- VisionCameraSdkResolver.Resolve() 使用包内品牌构建标记、配置品牌与所选原生 SDK 可用性选定单一工厂；华睿探测目标机已安装的 `MVSDKmd.dll`，大恒检查包内 `CameraSdk/Daheng/Native`；缺失时不创建服务，主窗仍运行并提示管理员。大恒 SDK 初始化、枚举、采集、图像转换与销毁均在专属 worker；品牌选择不得改变 WinRT 摄像头预览路径。大恒仅保留 GenTL 支持的 USB/GigE/U3V/CXP 传输及所需原生依赖；不打包未使用的 Camera Link 串口模块。华睿不复制原生库，缺少目标机运行库时禁用相机并提示管理员。

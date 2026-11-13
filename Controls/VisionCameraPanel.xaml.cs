@@ -57,6 +57,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         _saveTimer.Tick += async (_, _) => await QueueContinuousImageAsync();
     }
 
+    public void SetBrand(string brandName) => CameraBrandBadge.Text = brandName;
+
     private void PanelLayout_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         FooterScale.MaxHeight = Math.Max(0,

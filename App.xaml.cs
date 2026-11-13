@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -93,7 +93,26 @@ public partial class App : Application
             await waitWindow.SetWaitTextAsync("GENBON");
             await Task.WhenAll(minimumStartupDelayTask, Task.Delay(TimeSpan.FromMilliseconds(800)));
 
-            MainWindow mainWindow = new(connected, cameraStartupResult, new MvsCameraSdkServiceFactory())
+            VisionCameraSdkSelection cameraSdk = new(string.Empty, null, null);
+            IVisionCameraService? visionCameraService = null;
+            if (NewVisionProcessingService.IsIncludedByPackage)
+            {
+                cameraSdk = new VisionCameraSdkSelection(
+                    RAM.SettingModel.VisionCameraBrand switch { "MVS" => "华睿", "Daheng" => "大恒", _ => "相机" },
+                    null, null);
+                try
+                {
+                    cameraSdk = VisionCameraSdkResolver.Resolve();
+                    if (cameraSdk.Factory is { } factory)
+                        visionCameraService = await Task.Run(factory.Create);
+                }
+                catch (Exception exception)
+                {
+                    Logger.Warn(exception, "相机 SDK 初始化失败。");
+                    cameraSdk = cameraSdk with { Factory = null, Error = $"{cameraSdk.BrandName} SDK 缺失，请联系管理员。" };
+                }
+            }
+            MainWindow mainWindow = new(connected, cameraStartupResult, cameraSdk.BrandName, visionCameraService)
             {
                 HasMissingManualOffice = manualStartupResult.HasMissingOffice
             };
@@ -104,6 +123,9 @@ public partial class App : Application
 
             mainWindow.Show();
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+            string? cameraSdkError = cameraSdk.Error;
+            if (cameraSdkError is not null)
+                _ = Dispatcher.BeginInvoke(() => HandyMessageBox.Error(cameraSdkError, "相机 SDK 缺失"));
 
             if (ShouldShowTrialStartupNotice())
             {

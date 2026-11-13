@@ -29,7 +29,8 @@ internal static class Program
 
                 PackageMode packageMode = AskPackageMode();
                 bool newVisionProcessingIncluded = AskNewVisionProcessingEnabled();
-                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, newVisionProcessingIncluded);
+                string cameraBrand = AskCameraBrand();
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, newVisionProcessingIncluded, cameraBrand);
                 return 0;
             }
 
@@ -37,7 +38,7 @@ internal static class Program
             {
                 if (args.Length < 4)
                 {
-                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2] [Y|N]");
+                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2] [Y|N] [1|2]");
                     return 1;
                 }
 
@@ -47,7 +48,8 @@ internal static class Program
                 bool newVisionProcessingIncluded = args.Length >= 7
                     ? ParseNewVisionProcessingEnabled(args[6])
                     : AskNewVisionProcessingEnabled();
-                PackageExternalProject(args[1], args[2], args[3], packageMode, newVisionProcessingIncluded);
+                string cameraBrand = args.Length >= 8 ? ParseCameraBrand(args[7]) : AskCameraBrand();
+                PackageExternalProject(args[1], args[2], args[3], packageMode, newVisionProcessingIncluded, cameraBrand);
                 return 0;
             }
 
@@ -61,7 +63,7 @@ internal static class Program
         }
     }
 
-    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool newVisionProcessingIncluded)
+    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool newVisionProcessingIncluded, string cameraBrand)
     {
         projectPath = Path.GetFullPath(projectPath);
         outputRoot = Path.GetFullPath(outputRoot);
@@ -93,22 +95,35 @@ internal static class Program
         DeleteDirectoryIfExists(packageDirectory);
         Directory.CreateDirectory(packageDirectory);
 
-        Console.WriteLine($"Publishing {projectPath}");
-        RunProcess(
-            "dotnet",
-            $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
-            "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
-            $"-p:DebugType=None -p:DebugSymbols=false -o {Quote(packageDirectory)}");
+        string intermediateDirectory = Path.Combine(outputRoot, ".sdk-build");
+        try
+        {
+            Console.WriteLine($"Publishing {projectPath}");
+            RunProcess(
+                "dotnet",
+                $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
+                "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
+                $"-p:DebugType=None -p:DebugSymbols=false -p:CameraSdkBrand={cameraBrand} " +
+                $"-p:BaseIntermediateOutputPath={Quote(intermediateDirectory + "/")} -o {Quote(packageDirectory)}");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(intermediateDirectory);
+        }
 
+        if (cameraBrand == "Daheng")
+            CopyDirectory(Path.Combine(Path.GetDirectoryName(projectPath)!, "CameraSdk", cameraBrand, "Native"),
+                Path.Combine(packageDirectory, "CameraSdk", cameraBrand, "Native"));
         DeleteNonWindowsRuntimes(packageDirectory);
         DeleteUnneededPublishArtifacts(packageDirectory);
         EnsureSingleFileLayout(packageDirectory, assemblyName);
+        EnsureCameraSdkLayout(packageDirectory, cameraBrand);
         CopyManualsDirectory(packageDirectory);
         CopyDacuExecutable(packageDirectory);
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
-        WriteNewVisionProcessingSetting(packageDirectory, newVisionProcessingIncluded);
+        WriteNewVisionProcessingSetting(packageDirectory, newVisionProcessingIncluded, cameraBrand);
         TrialPackageConfiguration.Write(
             Path.Combine(packageDirectory, TrialPackageConfiguration.FileName),
             packageMode switch
@@ -122,12 +137,32 @@ internal static class Program
         Console.WriteLine($"Packaged external project to {packageDirectory}");
     }
 
+    private static string AskCameraBrand()
+    {
+        while (true)
+        {
+            Console.Write("选择相机品牌：1. 华睿 2. 大恒 (1/2): ");
+            string? choice = Console.ReadLine();
+            if (choice is null) throw new EndOfStreamException("控制台输入已关闭。");
+            if (choice?.Trim() is "1" or "2") return ParseCameraBrand(choice.Trim());
+            Console.WriteLine("请输入 1 或 2。");
+        }
+    }
+
+    private static string ParseCameraBrand(string choice) => choice switch
+    {
+        "1" => "MVS",
+        "2" => "Daheng",
+        _ => throw new ArgumentException("相机品牌只能选择 1 或 2。", nameof(choice))
+    };
+
     private static bool AskNewVisionProcessingEnabled()
     {
         while (true)
         {
             Console.Write("是否包含新视觉处理模块？(Y/N): ");
             string? answer = Console.ReadLine()?.Trim();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -149,7 +184,7 @@ internal static class Program
         _ => throw new ArgumentException("新视觉处理模块选择必须是 Y 或 N。", nameof(choice))
     };
 
-    private static void WriteNewVisionProcessingSetting(string packageDirectory, bool enabled)
+    private static void WriteNewVisionProcessingSetting(string packageDirectory, bool enabled, string cameraBrand)
     {
         string settingPath = Path.Combine(packageDirectory, "Setting.json");
         JsonObject settings;
@@ -163,6 +198,12 @@ internal static class Program
         }
         settings.Remove("VisionModuleEnabled");
         settings["NewVisionProcessingIncluded"] = enabled;
+        if (!string.Equals(settings["VisionCameraBrand"]?.GetValue<string>(), cameraBrand, StringComparison.Ordinal))
+        {
+            settings.Remove("VisionCameraDeviceId");
+            settings.Remove("VisionCameraDeviceName");
+        }
+        settings["VisionCameraBrand"] = cameraBrand;
         File.WriteAllText(settingPath, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
@@ -172,6 +213,7 @@ internal static class Program
         {
             Console.Write("是否生成试用版配置文件？(Y/N): ");
             string? answer = Console.ReadLine();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (string.Equals(answer?.Trim(), "Y", StringComparison.OrdinalIgnoreCase))
             {
                 return PackageMode.Trial;
@@ -207,6 +249,7 @@ internal static class Program
         {
             Console.Write("请选择非试用版模式：1. 带完整版权限配置文件 2. 不带完整版权限配置文件 (1/2): ");
             string? answer = Console.ReadLine();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (answer?.Trim() is "1" or "2")
             {
                 return ParseNonTrialPackageMode(answer);
@@ -271,6 +314,20 @@ internal static class Program
             throw new InvalidOperationException(
                 "Single-file publish left loose DLL(s) at the package root: " + string.Join(", ", strayDlls));
         }
+    }
+
+    private static void EnsureCameraSdkLayout(string packageDirectory, string cameraBrand)
+    {
+        string other = Path.Combine(packageDirectory, "CameraSdk", cameraBrand == "MVS" ? "Daheng" : "MVS");
+        if (Directory.Exists(other)) throw new InvalidOperationException("发布包混入了另一品牌的相机 SDK：" + other);
+        if (cameraBrand == "MVS")
+        {
+            string unexpected = Path.Combine(packageDirectory, "CameraSdk", "MVS", "Native");
+            if (Directory.Exists(unexpected)) throw new InvalidOperationException("华睿发布包不应包含新增原生 SDK：" + unexpected);
+            return;
+        }
+        string mainNative = Path.Combine(packageDirectory, "CameraSdk", "Daheng", "Native", "GxIAPICPP.dll");
+        if (!File.Exists(mainNative)) throw new FileNotFoundException("选定相机的原生 SDK 未包含在发布包中。", mainNative);
     }
 
     private static void CopyManualsDirectory(string packageDirectory)

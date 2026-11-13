@@ -31,7 +31,7 @@
 | 网络探测与恢复连接 | `MainWindow/MainWindow.Network.cs` → `RunNetworkProbeAndReconnectAsync()`、`TryConnectWithRetriesAsync()` | `NetworkAdapterProbeService`、`DataAqc.AutoReconnectSuspended` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 曲线 / 实时表格 / 回放 | `MainWindow.xaml.cs` → `InitializePlot()`、`LoadItems_ListChanged()`、`RenderPlayback()` | `LoadPlotController`、`TrialDataStore`、`PlotWindow` | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 摄像头 | `MainWindow.xaml.cs` → `InitializeCameraPreview()`、`ApplySelectedCameraAsync()` | `CameraCaptureService`、选择 / 预览窗口 | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
-| 新视觉处理相机 | `NewVisionProcessingService.IsEnabled` → `VisionCameraPanel` | `IVisionCameraService` → `MvsCameraSdkService` | 与现有相机预览、PLC 重连分离；状态门控与二段速一致，见 `Services/AGENTS.md` |
+| 新视觉处理相机 | `NewVisionProcessingService.IsEnabled` → `VisionCameraPanel` | `IVisionCameraService` → `MvsCameraSdkService` / `DahengCameraSdkService` | 选择由 `VisionCameraSdkResolver` 处理；与 WinRT 预览、PLC 重连分离，见 `Services/AGENTS.md` |
 | 试验控制 / 二段速 / 复位 | `MainWindow.xaml.cs` → `StartTensile_Click()`、`Reset_Click()`、`SwitchToSecondStageAsync()` | `MainViewModel`、`DataAqc`、视觉服务 | `MainWindow/AGENTS.md`、`Models/AGENTS.md` |
 | 实时数据、算法整合、报告与回放导出 | `MainWindow.xaml.cs` → `SaveDataAndReportAsync()`、`SavePlaybackData_Click()` | `DisplacementResamplingService`、`TrialDataStore`、`TestReportService` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 配置 / 配方 | `MainViewModel.cs`、`Models/RAM.cs`、`SettingModel.cs`、`RecipeModel.cs` | Settings / recipe dialogs | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
@@ -396,6 +396,12 @@ dotnet build .\TensileNeW.csproj
 - 新增摄像头画面消费者时必须一并上报需求并在销毁时撤销，否则该消费者会显示被放大的低分辨率画面，或反过来让整条流长期停在过高分辨率。
 - 格式切换通过 `QueueFormatReevaluation()` 串行化到后台任务链，UI 线程不得同步等待 `SetFormatAsync`。设备拒绝切换时保持当前格式并只记警告，不影响正在进行的预览。
 - 需要排查设备真实能力时，把日志级别开到 Debug，`LogSupportedFormats()` 会输出每个格式的 subtype、分辨率和帧率。
+
+## 视觉处理 SDK 相机品牌与打包
+
+- `IVisionCameraServiceFactory` 下华睿与大恒平级；`VisionCameraSdkResolver` 依据 `SettingModel.VisionCameraBrand` 只创建所选相机，旧配置默认华睿。附加调试器时在独立控制台选择相机（1 华睿、2 大恒），不改变持久化品牌。
+- builder / InstallerBuilder 的试用、权限、新视觉选择之后增加相机品牌选择；builder 发布时通过 `CameraSdkBrand` 条件编译仅含所选相机服务和托管 DLL，华睿仅内嵌原有 `MVSDK_Net.dll` 并使用目标机已安装的原生运行库；大恒仅打包其 `CameraSdk/Daheng/Native` SDK；`Setting.json` 写入 `VisionCameraBrand`。单文件发布根部仍不允许散落 DLL。
+- 启动时先核对构建品牌、配置及 SDK 文件，缺失或错配时用现有 HandyControl 提示，主窗口与 PLC 继续运行，仅禁用视觉相机入口；不将 WinRT 摄像头、二段速或新视觉开关误当为视觉相机依赖。视觉相机面板品牌气泡复用配方标签样式。
 
 ## 新视觉与二段速扩展规则
 

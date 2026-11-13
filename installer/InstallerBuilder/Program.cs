@@ -20,7 +20,8 @@ internal static class Program
             string repositoryRoot = FindRepositoryRoot();
             PackageMode packageMode = AskPackageMode();
             bool newVisionProcessingIncluded = AskNewVisionProcessingEnabled();
-            PackageInstaller(repositoryRoot, packageMode, newVisionProcessingIncluded);
+            string cameraChoice = AskCameraBrand();
+            PackageInstaller(repositoryRoot, packageMode, newVisionProcessingIncluded, cameraChoice);
             return 0;
         }
         catch (Exception ex)
@@ -30,7 +31,7 @@ internal static class Program
         }
     }
 
-    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode, bool newVisionProcessingIncluded)
+    private static void PackageInstaller(string repositoryRoot, PackageMode packageMode, bool newVisionProcessingIncluded, string cameraChoice)
     {
         string mainProjectPath = Path.Combine(repositoryRoot, "TensileNeW.csproj");
         string builderProjectPath = Path.Combine(repositoryRoot, "builder", "Builder", "Builder.csproj");
@@ -61,10 +62,12 @@ internal static class Program
             RunProcess(
                 "dotnet",
                 $"exec {Quote(builderDllPath)} pack " +
-                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(newVisionProcessingIncluded ? "Y" : "N")}");
+                $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(newVisionProcessingIncluded ? "Y" : "N")} {cameraChoice}");
 
             EnsurePayloadFileExists(payloadRoot, DacuExecutableName);
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
+
+            RunProcess("dotnet", $"restore {Quote(installerProjectPath)} -r win-x64");
 
             DeleteDirectoryIfExists(publishDirectory);
             Directory.CreateDirectory(publishDirectory);
@@ -90,12 +93,25 @@ internal static class Program
         }
     }
 
+    private static string AskCameraBrand()
+    {
+        while (true)
+        {
+            Console.Write("选择相机品牌：1. 华睿 2. 大恒 (1/2): ");
+            string? answer = Console.ReadLine()?.Trim();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
+            if (answer is "1" or "2") return answer;
+            Console.WriteLine("请输入 1 或 2。");
+        }
+    }
+
     private static bool AskNewVisionProcessingEnabled()
     {
         while (true)
         {
             Console.Write("是否包含新视觉处理模块？(Y/N): ");
             string? answer = Console.ReadLine()?.Trim();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (string.Equals(answer, "Y", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -116,6 +132,7 @@ internal static class Program
         {
             Console.Write("是否生成试用版安装器？(Y/N): ");
             string? answer = Console.ReadLine();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (string.Equals(answer?.Trim(), "Y", StringComparison.OrdinalIgnoreCase))
             {
                 return PackageMode.Trial;
@@ -136,6 +153,7 @@ internal static class Program
         {
             Console.Write("请选择非试用版模式：1. 带完整版权限配置文件 2. 不带完整版权限配置文件 (1/2): ");
             string? answer = Console.ReadLine();
+            if (answer is null) throw new EndOfStreamException("控制台输入已关闭。");
             if (answer?.Trim() is "1")
             {
                 return PackageMode.Full;
@@ -152,7 +170,7 @@ internal static class Program
 
     private static string GetBuilderPackageArguments(PackageMode packageMode) => packageMode switch
     {
-        PackageMode.Trial => "Y",
+        PackageMode.Trial => "Y 1",
         PackageMode.Full => "N 1",
         PackageMode.WithoutFullPermissionConfiguration => "N 2",
         _ => throw new ArgumentOutOfRangeException(nameof(packageMode))

@@ -115,6 +115,7 @@ public partial class MainWindow : Window
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
     private readonly NewVisionProcessingService _newVisionProcessingService;
+    private readonly bool _visionCameraAvailable;
     private readonly VisionSoftwareService _visionSoftware;
     private bool _visionAutomaticSaving;
     private int _visionDetectionGeneration;
@@ -171,7 +172,7 @@ public partial class MainWindow : Window
         new("全部页", true)
     ];
 
-    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult, IVisionCameraServiceFactory visionCameraServiceFactory)
+    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult, string cameraBrand, IVisionCameraService? cameraService)
     {
         _connectedAtStartup = connectedAtStartup;
         _cameraStartupResult = cameraStartupResult ?? new CameraStartupResult([], null, null, null);
@@ -196,8 +197,11 @@ public partial class MainWindow : Window
         VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
         VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
         VisionCameraPanel.DetectionImageFailed = _visionSoftware.ImagePublishFailed;
-        VisionCameraPanel.Configure(
-            visionCameraServiceFactory.Create(),
+        _visionCameraAvailable = cameraService is not null;
+        VisionCameraPanel.SetBrand(cameraBrand);
+        if (cameraService is not null)
+            VisionCameraPanel.Configure(
+                cameraService,
             new VisionCameraPreferences(
                 _viewModel.Setting.VisionCameraDeviceId,
                 _viewModel.Setting.VisionCameraDeviceName,
@@ -337,7 +341,7 @@ public partial class MainWindow : Window
         DataAqc.StartConsumers(Dispatcher);
         LoadHelpDocument();
 
-        if (_newVisionProcessingService.IsEnabled)
+        if (_newVisionProcessingService.IsEnabled && _visionCameraAvailable)
         {
             await VisionCameraPanel.ActivateAsync();
         }
@@ -1304,6 +1308,7 @@ public partial class MainWindow : Window
         AnalysisModeSwitch.Visibility = _newVisionProcessingService.IsEnabled
             ? Visibility.Visible
             : Visibility.Collapsed;
+        CameraModeButton.IsEnabled = _visionCameraAvailable;
         if (!_newVisionProcessingService.IsEnabled)
         {
             ChartModeButton.IsChecked = true;
@@ -1321,7 +1326,7 @@ public partial class MainWindow : Window
 
     private async void CameraMode_Click(object sender, RoutedEventArgs e)
     {
-        if (!_newVisionProcessingService.IsEnabled) return;
+        if (!_newVisionProcessingService.IsEnabled || !_visionCameraAvailable) return;
         ChartModeButton.IsChecked = false;
         CameraModeButton.IsChecked = true;
         SetAnalysisMode(true);

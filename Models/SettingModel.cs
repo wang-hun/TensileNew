@@ -91,6 +91,8 @@ namespace TensileNeW.Models
 
         public bool NewVisionProcessingIncluded { get; set; }
 
+        public string VisionCameraBrand { get; set; } = "MVS";
+
         public string VisionCameraDeviceId { get; set; } = string.Empty;
 
         public string VisionCameraDeviceName { get; set; } = string.Empty;
