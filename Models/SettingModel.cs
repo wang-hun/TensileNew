@@ -107,7 +107,6 @@ namespace TensileNeW.Models
         public int VisionSoftwarePort { get; set; } = 800;
         public string VisionSoftwareImageDirectory { get; set; } = "vision";
         public string VisionSoftwareImageFileName { get; set; } = "latest.bmp";
-        public int VisionSoftwareCaptureIntervalMs { get; set; } = 500;
         public int VisionSoftwareReplyTimeoutMs { get; set; } = 400;
 
         private bool _NewVisionProcessingEnabled;

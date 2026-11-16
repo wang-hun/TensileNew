@@ -25,6 +25,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="RingInspect.Api\RingInspect.Api.csproj" />
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
@@ -38,6 +40,7 @@
     <Compile Remove="demo\**" />
     <Compile Remove="helper\**" />
     <Compile Remove="installer\**" />
+    <Compile Remove="RingInspect.Api\**" />
     <Compile Remove="obj\**" />
     <Compile Remove="SamplingCapture\**" />
     <Compile Remove="测试\**" />

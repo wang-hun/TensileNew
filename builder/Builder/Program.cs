@@ -104,7 +104,7 @@ internal static class Program
                 $"publish --nologo {Quote(projectPath)} -c {Quote(configuration)} -r {Quote(DefaultRuntimeIdentifier)} --self-contained true " +
                 "-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true " +
                 $"-p:DebugType=None -p:DebugSymbols=false -p:CameraSdkBrand={cameraBrand} " +
-                $"-p:BaseIntermediateOutputPath={Quote(intermediateDirectory + "/")} -o {Quote(packageDirectory)}");
+                $"-p:ArtifactsPath={Quote(intermediateDirectory)} -o {Quote(packageDirectory)}");
         }
         finally
         {

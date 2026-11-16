@@ -245,12 +245,15 @@ public sealed class MvsCameraSdkService : IVisionCameraService
         IMVDefine.IMV_Frame frame = new();
         if (_camera.IMV_GetFrame(ref frame, 50) != IMVDefine.IMV_OK) return;
 
-        int width = (int)frame.frameInfo.width;
-        int height = (int)frame.frameInfo.height;
-        int length = checked(width * height * 3);
+        int width;
+        int height;
+        int length;
         byte[] pixels;
         try
         {
+            width = (int)frame.frameInfo.width;
+            height = (int)frame.frameInfo.height;
+            length = checked(width * height * 3);
             if (length > capacity)
             {
                 if (buffer != IntPtr.Zero) Marshal.FreeHGlobal(buffer);

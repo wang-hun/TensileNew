@@ -32,9 +32,12 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private readonly VisionImageSaveQueue _imageSaveQueue = new();
     private string? _saveQueueFailure;
     private bool _continuousSavingRequested;
+    private bool _detectionCaptureActive;
+
     private bool _continuousSavePending;
     private bool _singleSavePending;
     private bool _isReleasing;
+    private bool _isUpdatingAutomaticJudgment;
     private bool _isLoadingDevices;
     private bool _isConnecting;
     private string? _connectedDeviceId;
@@ -58,6 +61,45 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     }
 
     public void SetBrand(string brandName) => CameraBrandBadge.Text = brandName;
+
+    public Action<bool>? AutomaticJudgmentEnabledChanged { get; set; }
+
+    public void SetAutomaticJudgmentEnabled(bool enabled)
+    {
+        _isUpdatingAutomaticJudgment = true;
+        AutomaticJudgmentCheckBox.IsChecked = enabled;
+        _isUpdatingAutomaticJudgment = false;
+    }
+
+    public void ShowDetectionPending() => SetDetectionBadge("检测中", Color.FromRgb(217, 119, 6));
+
+    public void ShowDetectionResult(int defectCount) => SetDetectionBadge(
+        defectCount > 0 ? "NG" : "OK",
+        defectCount > 0 ? Color.FromRgb(185, 28, 28) : Color.FromRgb(21, 128, 61));
+
+    public void ShowDetectionStatus(string status) => SetDetectionBadge(status, Color.FromRgb(100, 116, 139));
+
+    public void ShowDetectionFailure(string detail)
+    {
+        SetDetectionBadge("识别失败", Color.FromRgb(185, 28, 28));
+        DetectionVerdictBorder.ToolTip = detail;
+    }
+
+    private void SetDetectionBadge(string status, Color background)
+    {
+        DetectionVerdictTextBlock.Text = status;
+        DetectionVerdictBorder.Background = new SolidColorBrush(background);
+        DetectionVerdictBorder.ToolTip = null;
+        DetectionVerdictBorder.Visibility = Visibility.Visible;
+    }
+
+    private void AutomaticJudgmentCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isUpdatingAutomaticJudgment)
+        {
+            AutomaticJudgmentEnabledChanged?.Invoke(AutomaticJudgmentCheckBox.IsChecked == true);
+        }
+    }
 
     private void PanelLayout_SizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -95,8 +137,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             Interlocked.Increment(ref _detectionImageGeneration);
         }
     }
-    public Action? DetectionImagePublishing { get; set; }
-    public Action? DetectionImageSaved { get; set; }
+
+    public Action<byte[]>? DetectionImageSaved { get; set; }
     public Action<Exception>? DetectionImageFailed { get; set; }
 
     public async Task EnsureCaptureAsync()
@@ -111,23 +153,25 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         UpdateControlAvailability();
     }
 
-    public async Task StartDetectionCaptureAsync(int intervalMilliseconds)
+    public async Task StartDetectionCaptureAsync()
     {
         await EnsureCaptureAsync();
-        if (!_continuousSavingRequested)
-        {
-            IntervalTextBox.Text = (intervalMilliseconds / 1000d).ToString("0.###", CultureInfo.InvariantCulture);
-            StartInterval_Click(this, new RoutedEventArgs());
-        }
+        _detectionCaptureActive = true;
+        double intervalSeconds = _preferences.SaveIntervalSeconds;
+        if (double.TryParse(IntervalTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double configuredSeconds) &&
+            double.IsFinite(configuredSeconds) && configuredSeconds > 0) intervalSeconds = configuredSeconds;
+        _saveTimer.Interval = TimeSpan.FromSeconds(Math.Max(0.1, intervalSeconds));
+        _saveTimer.Start();
         UpdateControlAvailability();
     }
 
     public void StopDetectionSaving()
     {
         DetectionImagePath = null;
-        StopInterval_Click(this, new RoutedEventArgs());
+        _detectionCaptureActive = false;
+        if (!_continuousSavingRequested) _saveTimer.Stop();
+        UpdateControlAvailability();
     }
-
     public Task ActivateAsync() => RefreshDevicesAsync(autoConnectSavedDevice: true);
 
     public async ValueTask ReleaseAsync()
@@ -331,6 +375,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         try
         {
             await _service.StartCaptureAsync();
+            if (_detectionCaptureActive) _saveTimer.Start();
             StartCaptureButton.IsEnabled = false;
             StopCaptureButton.IsEnabled = true;
             ImageHintPanel.Visibility = Visibility.Collapsed;
@@ -439,7 +484,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private void StopInterval_Click(object sender, RoutedEventArgs e)
     {
         _continuousSavingRequested = false;
-        _saveTimer.Stop();
+        if (!_detectionCaptureActive) _saveTimer.Stop();
         UpdateControlAvailability();
         SetSaveStatus("连续保存已结束");
     }
@@ -449,25 +494,22 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private async Task QueueSingleImageAsync()
     {
         if (_isReleasing || _singleSavePending) return;
-        BitmapSource? latestImage = GetLatestCapturedImage();
-        if (latestImage is null) { SetSaveStatus("等待相机图像后才能保存。"); return; }
+        BitmapSource? image = GetLatestCapturedImage();
+        if (image is null) { SetSaveStatus("\u7b49\u5f85\u76f8\u673a\u56fe\u50cf\u540e\u624d\u80fd\u4fdd\u5b58\u3002"); return; }
         string directory = SavePathTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(directory)) { SetSaveStatus("请先选择图片保存路径。"); return; }
+        if (string.IsNullOrWhiteSpace(directory)) { SetSaveStatus("\u8bf7\u5148\u9009\u62e9\u56fe\u7247\u4fdd\u5b58\u8def\u5f84\u3002"); return; }
 
-        BitmapSource image = latestImage;
         _singleSavePending = true;
         UpdateControlAvailability();
         try
         {
             Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory);
             string file = await completion;
-            if (_saveQueueFailure is null) SetSaveStatus($"图片已保存：{Path.GetFileName(file)}");
+            if (_saveQueueFailure is null) SetSaveStatus($"\u56fe\u7247\u5df2\u4fdd\u5b58\uff1a{Path.GetFileName(file)}");
         }
         catch (Exception exception)
         {
-            _continuousSavingRequested = false;
-            _saveTimer.Stop();
-            _saveQueueFailure = $"保存失败，连续保存已停止：{exception.Message}";
+            _saveQueueFailure = "\u56fe\u7247\u4fdd\u5b58\u5931\u8d25\uff1a" + exception.Message;
             SetSaveStatus(_saveQueueFailure);
         }
         finally
@@ -479,83 +521,48 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 
     private async Task QueueContinuousImageAsync()
     {
-        if (_isReleasing || !_continuousSavingRequested || _continuousSavePending) return;
-        BitmapSource? latestImage = GetLatestCapturedImage();
-        if (latestImage is null)
-        {
-            _continuousSavingRequested = false;
-            _saveTimer.Stop();
-            if (DetectionImagePath is not null && _service?.IsCapturing == true)
-            {
-                _continuousSavingRequested = true;
-                _saveTimer.Start();
-                SetSaveStatus("正在等待相机图像。");
-                return;
-            }
-            SetSaveStatus("连续保存已停止：尚未收到相机图像。");
-            UpdateControlAvailability();
-            return;
-        }
+        if (_isReleasing || (!_continuousSavingRequested && !_detectionCaptureActive) || _continuousSavePending) return;
+        BitmapSource? image = GetLatestCapturedImage();
+        if (image is null) return;
 
         string directory = SavePathTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(directory))
         {
-            _continuousSavingRequested = false;
-            _saveTimer.Stop();
-            SetSaveStatus("连续保存已停止：请先选择图片保存路径。");
+            if (_continuousSavingRequested) _continuousSavingRequested = false;
+            if (_detectionCaptureActive) DetectionImageFailed?.Invoke(new InvalidOperationException("\u8fde\u7eed\u4fdd\u5b58\u8def\u5f84\u4e3a\u7a7a\u3002"));
+            if (!_detectionCaptureActive) _saveTimer.Stop();
             UpdateControlAvailability();
             return;
         }
 
-        BitmapSource image = latestImage;
+        string? detectionPath = _detectionCaptureActive ? DetectionImagePath : null;
+        int detectionGeneration = Volatile.Read(ref _detectionImageGeneration);
         _continuousSavePending = true;
         _saveTimer.Stop();
         UpdateControlAvailability();
         try
         {
-            string? detectionPath = DetectionImagePath;
-            int detectionGeneration = Volatile.Read(ref _detectionImageGeneration);
-            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory, latestPath: detectionPath,
-                latestSaved: DetectionImageSaved, mayPublish: () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration), latestFailed: DetectionImageFailed, latestPublishing: DetectionImagePublishing);
-            SetSaveStatus("图片已加入后台保存队列。");
-            _ = ObserveQueuedSaveAsync(completion);
+            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory,
+                latestPath: detectionPath,
+                latestSaved: detectionPath is null ? null : DetectionImageSaved,
+                mayPublish: detectionPath is null ? null : () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration),
+                latestFailed: detectionPath is null ? null : DetectionImageFailed);
+            string file = await completion;
+            if (_saveQueueFailure is null) SetSaveStatus($"\u56fe\u7247\u5df2\u4fdd\u5b58\uff1a{Path.GetFileName(file)}");
         }
         catch (Exception exception)
         {
-            _continuousSavingRequested = false;
-            _saveQueueFailure = $"连续保存已停止：{exception.Message}";
+            if (_continuousSavingRequested) _continuousSavingRequested = false;
+            _saveQueueFailure = "\u56fe\u7247\u4fdd\u5b58\u5931\u8d25\uff1a" + exception.Message;
             SetSaveStatus(_saveQueueFailure);
+            if (_detectionCaptureActive) DetectionImageFailed?.Invoke(exception);
         }
         finally
         {
             _continuousSavePending = false;
-            if (_continuousSavingRequested && _service?.IsCapturing == true) _saveTimer.Start();
+            if ((_continuousSavingRequested || _detectionCaptureActive) && _service?.IsCapturing == true) _saveTimer.Start();
+            else _saveTimer.Stop();
             UpdateControlAvailability();
-        }
-    }
-
-    private async Task ObserveQueuedSaveAsync(Task<string> completion)
-    {
-        try
-        {
-            string file = await completion;
-            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
-            await Dispatcher.InvokeAsync(() =>
-            {
-                if (_saveQueueFailure is null) SetSaveStatus($"图片已保存：{Path.GetFileName(file)}");
-            });
-        }
-        catch (Exception exception)
-        {
-            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
-            await Dispatcher.InvokeAsync(() =>
-            {
-                _continuousSavingRequested = false;
-                _saveTimer.Stop();
-                UpdateControlAvailability();
-                _saveQueueFailure = $"保存失败，连续保存已停止：{exception.Message}";
-                SetSaveStatus(_saveQueueFailure);
-            });
         }
     }
 

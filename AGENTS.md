@@ -416,9 +416,10 @@ dotnet build .\TensileNeW.csproj
 - 二段速切换顺序固定为：写入二段速配方、调用“压边”、再调用“拉伸”。仅切换期间抑制自动保存和自动数据重置；采集、曲线、实时表格和数据库始终走原有路径，不得延迟或阻断。
 - 真实数据重置执行前，如果当前二段速试验已切换到第二段，必须先写回一段速参数；普通配方和旧流程保持原样。二段速标签和参数不得改写旧配方记录。
 - 打包工具必须把新视觉包含标记写入 `Setting.json`，且不得仅依赖旧 `VisionModuleEnabled` 判断新视觉；安装器和 demo 不得把摄像头或旧视觉逻辑回流到新视觉模块。
-- 主窗口“变量”页标题栏（“新窗口打开”左侧）及独立变量窗口的“新视觉设置”按钮均打开持久化设置弹窗，配置识别软件开关、二段速自动切换、IP/端口、固定 BMP 路径、拍照间隔和回复超时。默认地址 `127.0.0.1:800`，间隔 500ms、超时 400ms。相对图片路径以程序目录为基准。
-- 二段速开始后，自动切换打开时确保已连接相机的实时采集启动，不自动关闭实时采集；同时启用视觉软件时启动连续保存，并在检测结束时停止连续保存。正常结束、停止动作、识别 `stop` 或复位结束检测。
-- 识别软件 TCP 使用换行分隔的 `start`、`end`、`continue`、`stop`。发送状态必须避免重复 start/end；连接和识别异常只记日志及气泡提示，不阻断设备试验。连续保存的帧额外覆盖固定 BMP，并记录识别超时。
+- The vision settings dialog persists the API enable switch, two-stage automation, host/port, fixed BMP path, and reply timeout. The camera page save interval is the only image cadence; legacy detection-interval settings are ignored. Relative image paths resolve from the application directory.
+- 主窗口 SDK 相机页“是否启用自动判断”复用并持久化 `VisionSoftwareEnabled`；关闭时立即结束识别，打开时仅在二段速执行中启动识别。设置变化、二段速状态变化和异步识别结果均按会话代次校验，过期操作不得启动残留采集或触发停机。
+- During second-stage execution, automatic judgment enables the same camera-page save timer and cadence. Each due tick submits one BMP save; when judgment is active, the writer copies that exact saved file to the fixed BMP path and hands its bytes to the detection queue. There is no detection timer, detection interval, second SDK request, or separate capture path. Stopping judgment removes only the copy/handoff behavior and leaves user continuous saving intact.
+- `VisionSoftwareService` 在主进程内托管 RingInspect API，启动后核验 `/api/health`，将严格检测请求在服务端串行执行并记录实际处理耗时；通过 `POST /api/detect/strict` 检测自动判断定时器产出的 BMP；`defectCount > 0` 才触发既有停机动作。图片保存 worker 不等待 HTTP；Base64、文件写盘/副本、检测队列等待、HTTP往返分别记录耗时，超时与 HTTP/API 业务失败分别提示；检测超时设置只限制 HTTP 请求与响应。
 二段速状态机实现细则：
 
 - 二段速确认必须使用产品现有 WPF 弹窗风格，不得调用 `System.Windows.MessageBox`，按钮文案固定使用中文“是/否”；编辑窗口的校验错误也必须在产品窗口内显示，不得弹系统英文提示。

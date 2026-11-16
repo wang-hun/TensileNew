@@ -34,6 +34,8 @@ public partial class MainWindow : Window
         WaitingForSecondStageConfirmation,
         SwitchingToSecondStage,
         SecondStageActive,
+        SecondStageStartFailed,
+        SecondStageCompleted,
         SwitchingToFirstStage
     }
     private const string GrowlToken = "MainGrowl";
@@ -117,8 +119,9 @@ public partial class MainWindow : Window
     private readonly NewVisionProcessingService _newVisionProcessingService;
     private readonly bool _visionCameraAvailable;
     private readonly VisionSoftwareService _visionSoftware;
-    private bool _visionAutomaticSaving;
+
     private int _visionDetectionGeneration;
+    private readonly SemaphoreSlim _visionDetectionTransitionLock = new(1, 1);
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
     private bool? _twoStagePreviousAutoReset;
@@ -188,15 +191,43 @@ public partial class MainWindow : Window
             bool stopped = await _viewModel.TryPulseAsync("停止");
             await Dispatcher.InvokeAsync(() =>
             {
-                EndVisionDetection();
-                if (!stopped) ShowError("识别到裂痕，但停止动作指令发送失败，请立即检查设备。");
+                if (stopped) MarkSecondStageCompleted();
+                else EndVisionDetection();
+                if (!stopped) ShowError("识别到缺陷，但停止动作指令发送失败，请立即检查设备。");
             });
         });
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
             message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }));
-        VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
+
         VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
         VisionCameraPanel.DetectionImageFailed = _visionSoftware.ImagePublishFailed;
+        _visionSoftware.DetectionStarted += () =>
+        {
+            int generation = Volatile.Read(ref _visionDetectionGeneration);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionPending();
+            });
+        };
+        _visionSoftware.DetectionCompleted += defectCount =>
+        {
+            int generation = Volatile.Read(ref _visionDetectionGeneration);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionResult(defectCount);
+            });
+        };
+        _visionSoftware.DetectionFailed += failure =>
+        {
+            int generation = Volatile.Read(ref _visionDetectionGeneration);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionFailure(failure);
+            });
+        };
+        VisionCameraPanel.SetAutomaticJudgmentEnabled(_viewModel.Setting.VisionSoftwareEnabled);
+        VisionCameraPanel.AutomaticJudgmentEnabledChanged = OnAutomaticJudgmentEnabledChanged;
+        VisionCameraPanel.ShowDetectionStatus(_viewModel.Setting.VisionSoftwareEnabled ? "待二段速" : "已关闭");
         _visionCameraAvailable = cameraService is not null;
         VisionCameraPanel.SetBrand(cameraBrand);
         if (cameraService is not null)
@@ -1248,7 +1279,8 @@ public partial class MainWindow : Window
     private async void Stop_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.PulseAsync("停止");
-        EndVisionDetection();
+        if (_twoStageState == TwoStageTrialState.SecondStageActive) MarkSecondStageCompleted();
+        else EndVisionDetection();
     }
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
@@ -1283,6 +1315,27 @@ public partial class MainWindow : Window
         }
     }
     private async void Calibration_Click(object sender, RoutedEventArgs e) => await _viewModel.PulseAsync("传感器标零");
+
+    private void OnAutomaticJudgmentEnabledChanged(bool enabled)
+    {
+        _viewModel.Setting.VisionSoftwareEnabled = enabled;
+        _viewModel.SaveSettings();
+        if (!enabled)
+        {
+            EndVisionDetection();
+            VisionCameraPanel.ShowDetectionStatus("已关闭");
+            return;
+        }
+
+        if (_twoStageState == TwoStageTrialState.SecondStageActive)
+        {
+            _ = BeginVisionDetectionAsync();
+        }
+        else
+        {
+            VisionCameraPanel.ShowDetectionStatus(GetVisionDetectionIdleStatus());
+        }
+    }
     private void NewVisionProcessingSwitch_Changed(object sender, RoutedEventArgs e)
     {
         if (!_newVisionUiInitialized || _newVisionProcessingService == null || NewVisionProcessingCheckBox == null)
@@ -1290,9 +1343,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        _newVisionProcessingService.SetEnabled(NewVisionProcessingCheckBox.IsChecked == true);
+        bool enabled = NewVisionProcessingCheckBox.IsChecked == true;
+        _newVisionProcessingService.SetEnabled(enabled);
+        if (!enabled)
+        {
+            EndVisionDetection();
+        }
         UpdateNewVisionUi();
         _viewModel.SaveSettings();
+        if (enabled && _twoStageState == TwoStageTrialState.SecondStageActive)
+        {
+            _ = BeginVisionDetectionAsync();
+        }
     }
 
     private void UpdateNewVisionUi()
@@ -1456,7 +1518,7 @@ public partial class MainWindow : Window
             if (!await _viewModel.TryPulseAsync("压边"))
             {
                 TrialDataStore.CancelCaptureContinuation();
-                _twoStageState = TwoStageTrialState.SecondStageActive;
+                _twoStageState = TwoStageTrialState.SecondStageStartFailed;
                 RestoreTwoStageAutoResetSetting();
                 ShowError("压边指令发送失败，未启动二段拉伸。请检查设备并重置数据。");
                 return;
@@ -1474,7 +1536,7 @@ public partial class MainWindow : Window
             if (!await _viewModel.TryPulseAsync("拉伸"))
             {
                 TrialDataStore.CancelCaptureContinuation();
-                _twoStageState = TwoStageTrialState.SecondStageActive;
+                _twoStageState = TwoStageTrialState.SecondStageStartFailed;
                 RestoreTwoStageAutoResetSetting();
                 ShowError("拉伸指令发送失败，请检查设备并重置数据。");
                 return;
@@ -1518,6 +1580,7 @@ public partial class MainWindow : Window
             _twoStageState = TwoStageTrialState.None;
             _viewModel.DisplayRecipeStage(null);
             RestoreTwoStageAutoResetSetting();
+            VisionCameraPanel.ShowDetectionStatus(GetVisionDetectionIdleStatus());
             return true;
         }
         finally
@@ -2060,7 +2123,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_twoStageState == TwoStageTrialState.SecondStageActive) EndVisionDetection();
+        MarkSecondStageCompleted();
 
         if (DataAqc.CurrentCollectionWasReset &&
             (_twoStageState != TwoStageTrialState.None ||
@@ -2089,7 +2152,8 @@ public partial class MainWindow : Window
     private bool IsTwoStageTransitioning =>
         _twoStageState is TwoStageTrialState.WaitingForSecondStageConfirmation
             or TwoStageTrialState.SwitchingToSecondStage
-            or TwoStageTrialState.SwitchingToFirstStage;
+            or TwoStageTrialState.SwitchingToFirstStage
+            or TwoStageTrialState.SecondStageStartFailed;
 
     private async Task RunAutomaticSaveAsync()
     {
@@ -2472,48 +2536,105 @@ public partial class MainWindow : Window
 
     private async Task BeginVisionDetectionAsync()
     {
-        if (!_newVisionProcessingService.IsEnabled) return;
-        bool softwareEnabled = _viewModel.Setting.VisionSoftwareEnabled;
-        int generation = ++_visionDetectionGeneration;
+        await _visionDetectionTransitionLock.WaitAsync();
         try
         {
-            if (softwareEnabled)
+            if (!_newVisionProcessingService.IsEnabled)
             {
-                string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
-                VisionCameraPanel.DetectionImagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+                VisionCameraPanel.ShowDetectionStatus("新视觉关闭");
+                return;
             }
-            if (_viewModel.Setting.TwoStageAutomaticSwitch && softwareEnabled)
+            if (_twoStageState != TwoStageTrialState.SecondStageActive)
             {
-                await VisionCameraPanel.StartDetectionCaptureAsync(_viewModel.Setting.VisionSoftwareCaptureIntervalMs);
-                if (generation != _visionDetectionGeneration)
+                VisionCameraPanel.ShowDetectionStatus(GetVisionDetectionIdleStatus());
+                return;
+            }
+            bool softwareEnabled = _viewModel.Setting.VisionSoftwareEnabled;
+            int generation = ++_visionDetectionGeneration;
+            try
+            {
+                if (softwareEnabled)
                 {
-                    VisionCameraPanel.StopDetectionSaving();
-                    return;
+                    string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
+                    VisionCameraPanel.DetectionImagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+                    if (!await _visionSoftware.StartAsync())
+                    {
+                        EndVisionDetection();
+                        return;
+                    }
+
+                    if (!IsVisionDetectionStartCurrent(generation))
+                    {
+                        await _visionSoftware.EndAsync();
+                        return;
+                    }
+
+                    VisionCameraPanel.ShowDetectionStatus("等待图像");
+                    await VisionCameraPanel.StartDetectionCaptureAsync();
+                    if (!IsVisionDetectionStartCurrent(generation))
+                    {
+                        VisionCameraPanel.StopDetectionSaving();
+                        await _visionSoftware.EndAsync();
+                        return;
+                    }
+
                 }
-                _visionAutomaticSaving = true;
+                else if (_viewModel.Setting.TwoStageAutomaticSwitch)
+                {
+                    await VisionCameraPanel.EnsureCaptureAsync();
+                }
             }
-            else if (_viewModel.Setting.TwoStageAutomaticSwitch)
+            catch (Exception exception)
             {
-                await VisionCameraPanel.EnsureCaptureAsync();
+                if (!IsVisionDetectionStartCurrent(generation)) return;
+                EndVisionDetection();
+                VisionCameraPanel.ShowDetectionStatus("启动失败");
+                Logger.Warn(exception, "视觉检测启动失败。");
+                ShowWarning($"视觉检测启动失败：{exception.Message}");
             }
         }
-        catch (Exception exception)
+        finally
         {
-            Logger.Warn(exception, "视觉相机启动失败。");
-            ShowWarning($"视觉相机启动失败：{exception.Message}");
+            _visionDetectionTransitionLock.Release();
         }
-        if (softwareEnabled && generation == _visionDetectionGeneration) await _visionSoftware.StartAsync();
+    }
+    private bool IsVisionDetectionStartCurrent(int generation) =>
+        generation == _visionDetectionGeneration &&
+        !_isClosing &&
+        _newVisionProcessingService.IsEnabled &&
+        _twoStageState == TwoStageTrialState.SecondStageActive;
+
+    private bool IsVisionDetectionResultCurrent(int generation) =>
+        generation == Volatile.Read(ref _visionDetectionGeneration) &&
+        !_isClosing &&
+        _newVisionProcessingService.IsEnabled &&
+        _viewModel.Setting.VisionSoftwareEnabled &&
+        _twoStageState == TwoStageTrialState.SecondStageActive;
+
+    private string GetVisionDetectionIdleStatus() =>
+        !_viewModel.Setting.VisionSoftwareEnabled
+            ? "已关闭"
+            : _twoStageState switch
+            {
+                TwoStageTrialState.SecondStageCompleted => "二段速已结束，等待复位",
+                TwoStageTrialState.SecondStageStartFailed => "二段速启动失败，请复位",
+                _ => "待二段速"
+            };
+
+    private void MarkSecondStageCompleted()
+    {
+        if (_twoStageState != TwoStageTrialState.SecondStageActive) return;
+        EndVisionDetection();
+        _twoStageState = TwoStageTrialState.SecondStageCompleted;
+        VisionCameraPanel.ShowDetectionStatus(GetVisionDetectionIdleStatus());
     }
 
     private void EndVisionDetection()
     {
         _visionDetectionGeneration++;
         VisionCameraPanel.DetectionImagePath = null;
-        if (_visionAutomaticSaving)
-        {
-            VisionCameraPanel.StopDetectionSaving();
-            _visionAutomaticSaving = false;
-        }
+        VisionCameraPanel.StopDetectionSaving();
+
         _ = _visionSoftware.EndAsync();
     }
 
@@ -2525,9 +2646,13 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true)
         {
             EndVisionDetection();
-            await _visionSoftware.EndAsync();
             _viewModel.SaveSettings();
-            _visionSoftware.Reconnect();
+            VisionCameraPanel.SetAutomaticJudgmentEnabled(_viewModel.Setting.VisionSoftwareEnabled);
+            if (_twoStageState == TwoStageTrialState.SecondStageActive)
+            {
+                _ = BeginVisionDetectionAsync();
+            }
+
         }
     }
 
