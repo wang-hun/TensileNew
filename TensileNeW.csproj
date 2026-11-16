@@ -39,6 +39,7 @@
     <Compile Remove="demo\**" />
     <Compile Remove="helper\**" />
     <Compile Remove="installer\**" />
+    <Compile Remove="RingInspect.Api\**" />
     <Compile Remove="**\obj\**" />
     <Compile Remove="SamplingCapture\**" />
     <Compile Remove="测试\**" />
@@ -49,6 +50,7 @@
     <EmbeddedResource Remove="demo\**" />
     <EmbeddedResource Remove="helper\**" />
     <EmbeddedResource Remove="installer\**" />
+    <EmbeddedResource Remove="RingInspect.Api\**" />
     <EmbeddedResource Remove="**\obj\**" />
     <EmbeddedResource Remove="SamplingCapture\**" />
     <EmbeddedResource Remove="测试\**" />
@@ -59,6 +61,7 @@
     <None Remove="demo\**" />
     <None Remove="helper\**" />
     <None Remove="installer\**" />
+    <None Remove="RingInspect.Api\**" />
     <None Remove="**\obj\**" />
     <None Remove="SamplingCapture\**" />
     <None Remove="测试\**" />
@@ -69,6 +72,7 @@
     <Page Remove="demo\**" />
     <Page Remove="helper\**" />
     <Page Remove="installer\**" />
+    <Page Remove="RingInspect.Api\**" />
     <Page Remove="**\obj\**" />
     <Page Remove="SamplingCapture\**" />
     <Page Remove="测试\**" />
