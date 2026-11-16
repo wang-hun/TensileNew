@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MVSDK_Net;
+using NLog;
 
 namespace TensileNeW.Services;
 
@@ -13,6 +14,7 @@ public sealed class MvsCameraSdkServiceFactory : IVisionCameraServiceFactory
 
 public sealed class MvsCameraSdkService : IVisionCameraService
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly BlockingCollection<Action> _commands = new();
     private readonly MyCamera _camera = new();
     private readonly Thread _workerThread;
@@ -210,6 +212,7 @@ public sealed class MvsCameraSdkService : IVisionCameraService
                 catch (Exception exception)
                 {
                     _capturing = false;
+                    Logger.Error(exception, "华睿相机实时采集失败；设备序列号：{0}", _connectedDeviceId);
                     try { CaptureFailed?.Invoke(this, new VisionCameraErrorEventArgs(exception.Message)); }
                     catch { }
                 }

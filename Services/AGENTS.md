@@ -29,5 +29,6 @@ UI 入口和重试实现在 `../MainWindow/MainWindow.Network.cs`：`RunNetworkP
 仅在用户明确要求时新增 `SineDebugDataService.cs`，不得作为产品功能提交。公式、重置、连接即停止和验收边界见根 `AGENTS.md`“本地调试”。调试点只能调用 `DataAqc.Enqueue()`，不得直接写曲线、`loadModels`、`TrialDataStore` 或 `LoadDataChanged`。
 
 - 新视觉 SDK 相机的 UI、上次设备选择、图片保存路径与连续保存间隔由 `VisionCameraPanel` 持久化到 `Setting.json`；仅在 `NewVisionProcessingService.IsEnabled` 时启动枚举与自动连接。`MvsCameraSdkService` 以稳定设备序列号重新解析当前索引，不能持久化即插即变的枚举索引。
+- 视觉相机 worker 的实时采集失败必须记录带原始异常的 NLog Error，再通知 UI；大恒 GetImage 的等待超时只表示本次尚未收到图像，不能因超时次数自动停采；连续无帧需节流记录带原始异常的警告，其他采集异常仍记录错误并通知 UI。日志路径由根目录 NLog.config 配置。
 
 - VisionCameraSdkResolver.Resolve() 使用包内品牌构建标记、配置品牌与所选原生 SDK 可用性选定单一工厂；华睿探测目标机已安装的 `MVSDKmd.dll`，大恒检查包内 `CameraSdk/Daheng/Native`；缺失时不创建服务，主窗仍运行并提示管理员。大恒 SDK 初始化、枚举、采集、图像转换与销毁均在专属 worker；品牌选择不得改变 WinRT 摄像头预览路径。大恒仅保留 GenTL 支持的 USB/GigE/U3V/CXP 传输及所需原生依赖；不打包未使用的 Camera Link 串口模块。华睿不复制原生库，缺少目标机运行库时禁用相机并提示管理员。
