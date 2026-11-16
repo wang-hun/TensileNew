@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using GxIAPINET;
+using NLog;
 
 namespace TensileNeW.Services;
 
@@ -13,6 +14,9 @@ public sealed class DahengCameraSdkServiceFactory : IVisionCameraServiceFactory
 
 public sealed class DahengCameraSdkService : IVisionCameraService
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private const int ImageWaitMilliseconds = 500;
+    private const int ImageTimeoutWarningInterval = 60;
     private readonly BlockingCollection<Action> _commands = new();
     private readonly Thread _workerThread;
     private readonly ManualResetEventSlim _initializationCompleted = new();
@@ -149,6 +153,7 @@ public sealed class DahengCameraSdkService : IVisionCameraService
 
     private void WorkerLoop()
     {
+        int consecutiveImageTimeouts = 0;
         try
         {
             _factory = IGXFactory.GetInstance();
@@ -161,27 +166,49 @@ public sealed class DahengCameraSdkService : IVisionCameraService
             if (_commands.TryTake(out Action? command, _capturing ? 0 : Timeout.Infinite))
             {
                 command();
+                if (!_capturing) consecutiveImageTimeouts = 0;
                 continue;
             }
             if (!_capturing) continue;
-            try { CaptureOneFrame(); }
+            try
+            {
+                if (CaptureOneFrame()) consecutiveImageTimeouts = 0;
+            }
             catch (Exception exception)
             {
+                if (IsImageWaitTimeout(exception))
+                {
+                    consecutiveImageTimeouts++;
+                    if (consecutiveImageTimeouts == 3 || consecutiveImageTimeouts % ImageTimeoutWarningInterval == 0)
+                        Logger.Warn(exception, "大恒相机尚未收到图像，继续等待；设备序列号：{0}；连续等待超时次数：{1}",
+                            _connectedDeviceId, consecutiveImageTimeouts);
+                    continue;
+                }
+                Logger.Error(exception, "大恒相机实时采集失败；设备序列号：{0}", _connectedDeviceId);
+                consecutiveImageTimeouts = 0;
                 try { StopCaptureCore(); }
-                catch { _capturing = false; }
+                catch (Exception stopException)
+                {
+                    _capturing = false;
+                    Logger.Error(stopException, "大恒相机采集失败后停止采集也失败；设备序列号：{0}", _connectedDeviceId);
+                }
                 try { CaptureFailed?.Invoke(this, new VisionCameraErrorEventArgs(exception.Message)); }
                 catch { }
             }
         }
     }
 
-    private void CaptureOneFrame()
+    private static bool IsImageWaitTimeout(Exception exception) =>
+        exception.Message.Contains("{-1011}", StringComparison.Ordinal) &&
+        exception.Message.Contains("Event wait timeout", StringComparison.OrdinalIgnoreCase);
+
+    private bool CaptureOneFrame()
     {
-        IImageData? frame = _stream?.GetImage(50);
-        if (frame is null) return;
+        IImageData? frame = _stream?.GetImage(ImageWaitMilliseconds);
+        if (frame is null) return false;
         try
         {
-            if (frame.GetStatus() != GX_FRAME_STATUS_LIST.GX_FRAME_STATUS_SUCCESS) return;
+            if (frame.GetStatus() != GX_FRAME_STATUS_LIST.GX_FRAME_STATUS_SUCCESS) return false;
             int width = checked((int)frame.GetWidth());
             int height = checked((int)frame.GetHeight());
             int length = checked(width * height * 3);
@@ -204,6 +231,7 @@ public sealed class DahengCameraSdkService : IVisionCameraService
             BitmapSource image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr24, null, pixels, width * 3);
             image.Freeze();
             FrameArrived?.Invoke(this, new VisionCameraFrameEventArgs(image));
+            return true;
         }
         finally { frame.Destroy(); }
     }
