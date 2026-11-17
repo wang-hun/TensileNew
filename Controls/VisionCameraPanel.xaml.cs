@@ -503,7 +503,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         UpdateControlAvailability();
         try
         {
-            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory);
+            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory,
+                nativeSave: _service is IVisionCameraNativeImageSaver saver ? path => saver.SaveFrameAsync(path) : null);
             string file = await completion;
             if (_saveQueueFailure is null) SetSaveStatus($"\u56fe\u7247\u5df2\u4fdd\u5b58\uff1a{Path.GetFileName(file)}");
         }
@@ -545,7 +546,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory,
                 latestPath: detectionPath,
                 latestSaved: detectionPath is null ? null : DetectionImageSaved,
-                mayPublish: detectionPath is null ? null : () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration));
+                mayPublish: detectionPath is null ? null : () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration),
+                nativeSave: _service is IVisionCameraNativeImageSaver saver ? path => saver.SaveFrameAsync(path) : null);
             string file = await completion;
             if (_saveQueueFailure is null) SetSaveStatus($"\u56fe\u7247\u5df2\u4fdd\u5b58\uff1a{Path.GetFileName(file)}");
         }

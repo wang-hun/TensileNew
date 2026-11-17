@@ -9,6 +9,7 @@ public sealed class VisionDebugSettingsWindow : Window
 {
     private readonly CheckBox _enabled = new() { Content = "启用 RingInspect 图像检测", Margin = new Thickness(0, 4, 0, 4) };
     private readonly CheckBox _automatic = new() { Content = "二段速自动切换", Margin = new Thickness(0, 4, 0, 4) };
+    private readonly CheckBox _timing = new() { Content = "记录视觉处理耗时", Margin = new Thickness(0, 4, 0, 4) };
     private readonly TextBox _directory = new();
     private readonly TextBox _fileName = new();
     private readonly TextBox _timeout = new();
@@ -29,10 +30,13 @@ public sealed class VisionDebugSettingsWindow : Window
         Content = panel;
         _enabled.IsChecked = setting.VisionSoftwareEnabled;
         _automatic.IsChecked = setting.TwoStageAutomaticSwitch;
+        _timing.IsChecked = setting.VisionTimingEnabled;
         _enabled.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
         _automatic.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
+        _timing.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
         panel.Children.Add(_enabled);
         panel.Children.Add(_automatic);
+        panel.Children.Add(_timing);
         TextBlock apiInfo = new()
         {
             Text = "检测由主程序内嵌托管，调用 POST /api/detect/strict；缺陷数大于 0 时触发停机。",
@@ -86,6 +90,7 @@ public sealed class VisionDebugSettingsWindow : Window
         }
         _setting.VisionSoftwareEnabled = _enabled.IsChecked == true;
         _setting.TwoStageAutomaticSwitch = _automatic.IsChecked == true;
+        _setting.VisionTimingEnabled = _timing.IsChecked == true;
         _setting.VisionSoftwareImageDirectory = _directory.Text.Trim();
         _setting.VisionSoftwareImageFileName = fileName;
         _setting.VisionSoftwareReplyTimeoutMs = timeout;

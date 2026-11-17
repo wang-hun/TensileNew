@@ -118,7 +118,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         lock (_sessionSync)
         {
             if (!_active || _detectEndpoint is null || _activeSessionCancellation is null) return;
-            work = new DetectionWork(imagePath, Volatile.Read(ref _sessionGeneration), Stopwatch.GetTimestamp(), _activeSessionCancellation.Token);
+            work = new DetectionWork(imagePath, Volatile.Read(ref _sessionGeneration), _settings.VisionTimingEnabled ? Stopwatch.GetTimestamp() : 0, _activeSessionCancellation.Token);
         }
 
         if (!_detectionQueue.Writer.TryWrite(work))
@@ -145,8 +145,10 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     {
         if (_detectEndpoint is null || !IsCurrentSession(work.SessionGeneration)) return;
 
-        Stopwatch total = Stopwatch.StartNew();
-        Stopwatch stageTimer = Stopwatch.StartNew();
+        bool measureTiming = _settings.VisionTimingEnabled && work.QueuedAtTimestamp != 0;
+        double queueWaitMilliseconds = measureTiming ? Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds : 0;
+        Stopwatch? total = measureTiming ? Stopwatch.StartNew() : null;
+        Stopwatch? stageTimer = measureTiming ? Stopwatch.StartNew() : null;
         CancellationTokenSource? timeout = null;
         string stage = "路径提交";
         double httpMilliseconds = 0;
@@ -168,14 +170,16 @@ public sealed class VisionSoftwareService : IAsyncDisposable
 
             stage = "响应JSON解析";
             DetectResult? result = await response.Content.ReadFromJsonAsync<DetectResult>(cancellationToken: timeout.Token).ConfigureAwait(false);
-            httpMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
+            if (stageTimer is not null) httpMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
             if (!IsCurrentSession(work.SessionGeneration)) return;
             if (result is null || !result.Ok)
             {
                 string detail = result is null
                     ? "API返回空响应。"
                     : $"API检测失败 [{result.ErrorCode ?? "未知错误码"}]：{result.Error ?? "未提供错误详情。"}";
-                string failure = $"{detail} API算法 {result?.TimeMs ?? 0:F1}ms，HTTP往返及解析 {httpMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。";
+                string failure = measureTiming
+                    ? $"{detail} API算法 {result?.TimeMs ?? 0:F1}ms，HTTP往返及解析 {httpMilliseconds:F1}ms，检测队列等待 {queueWaitMilliseconds:F1}ms。"
+                    : detail;
                 DetectionFailed?.Invoke(failure);
                 ReportFailure($"RingInspect 检测返回失败：{failure}");
                 return;
@@ -183,9 +187,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
 
             Interlocked.Exchange(ref _failureNotified, 0);
             DetectionCompleted?.Invoke(result.DefectCount);
-            Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}，API算法 {2:F1}ms，HTTP往返及解析 {3:F1}ms，检测队列等待 {4:F1}ms。",
-                result.Verdict ?? "完成", result.DefectCount, result.TimeMs, httpMilliseconds,
-                Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds);
+            if (measureTiming)
+                Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}，API算法 {2:F1}ms，HTTP往返及解析 {3:F1}ms，检测队列等待 {4:F1}ms。",
+                    result.Verdict ?? "完成", result.DefectCount, result.TimeMs, httpMilliseconds, queueWaitMilliseconds);
+            else
+                Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}。", result.Verdict ?? "完成", result.DefectCount);
             bool triggerDefect = false;
             if (result.DefectCount > 0)
             {
@@ -208,11 +214,15 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         {
             string message = $"检测超时：{stage}阶段超过 {Math.Max(100, _settings.VisionSoftwareReplyTimeoutMs)}ms。";
             DetectionFailed?.Invoke(message);
-            ReportFailure($"{message} 总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，当前阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。{exception.Message}");
+            ReportFailure(measureTiming
+                ? $"{message} 总耗时 {total!.Elapsed.TotalMilliseconds:F1}ms，当前阶段 {stageTimer!.Elapsed.TotalMilliseconds:F1}ms，检测队列等待 {queueWaitMilliseconds:F1}ms。{exception.Message}"
+                : $"{message} {exception.Message}");
         }
         catch (HttpRequestException exception)
         {
-            string message = $"API HTTP调用失败（{stage}，HTTP {exception.StatusCode?.ToString() ?? "无状态码"}）：{exception.Message}；总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，HTTP阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms。";
+            string message = measureTiming
+                ? $"API HTTP调用失败（{stage}，HTTP {exception.StatusCode?.ToString() ?? "无状态码"}）：{exception.Message}；总耗时 {total!.Elapsed.TotalMilliseconds:F1}ms，HTTP阶段 {stageTimer!.Elapsed.TotalMilliseconds:F1}ms。"
+                : $"API HTTP调用失败（{stage}，HTTP {exception.StatusCode?.ToString() ?? "无状态码"}）：{exception.Message}";
             DetectionFailed?.Invoke(message);
             ReportFailure(message);
         }
@@ -259,17 +269,19 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                 return;
             }
 
-            long queuedAt = Stopwatch.GetTimestamp();
+            bool measureTiming = _settings.VisionTimingEnabled;
+            long queuedAt = measureTiming ? Stopwatch.GetTimestamp() : 0;
             try { await _apiRequestGate.WaitAsync(context.RequestAborted); }
             catch (OperationCanceledException) { return; }
 
-            double waitMilliseconds = Stopwatch.GetElapsedTime(queuedAt).TotalMilliseconds;
-            Stopwatch processing = Stopwatch.StartNew();
+            double waitMilliseconds = measureTiming ? Stopwatch.GetElapsedTime(queuedAt).TotalMilliseconds : 0;
+            Stopwatch? processing = measureTiming ? Stopwatch.StartNew() : null;
             try { await next(context); }
             finally
             {
-                Logger.Info("RingInspect 请求进入 API：排队 {0:F1}ms，服务端处理 {1:F1}ms，请求已取消 {2}。",
-                    waitMilliseconds, processing.Elapsed.TotalMilliseconds, context.RequestAborted.IsCancellationRequested);
+                if (processing is not null)
+                    Logger.Info("RingInspect 请求进入 API：排队 {0:F1}ms，服务端处理 {1:F1}ms，请求已取消 {2}。",
+                        waitMilliseconds, processing.Elapsed.TotalMilliseconds, context.RequestAborted.IsCancellationRequested);
                 _apiRequestGate.Release();
             }
         });
