@@ -138,7 +138,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         }
     }
 
-    public Action<byte[]>? DetectionImageSaved { get; set; }
+    public Action<string>? DetectionImageSaved { get; set; }
     public Action<Exception>? DetectionImageFailed { get; set; }
 
     public async Task EnsureCaptureAsync()
@@ -545,8 +545,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory,
                 latestPath: detectionPath,
                 latestSaved: detectionPath is null ? null : DetectionImageSaved,
-                mayPublish: detectionPath is null ? null : () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration),
-                latestFailed: detectionPath is null ? null : DetectionImageFailed);
+                mayPublish: detectionPath is null ? null : () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration));
             string file = await completion;
             if (_saveQueueFailure is null) SetSaveStatus($"\u56fe\u7247\u5df2\u4fdd\u5b58\uff1a{Path.GetFileName(file)}");
         }

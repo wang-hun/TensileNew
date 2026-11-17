@@ -18,11 +18,11 @@
    - [POST /api/detect/{key}](#46-post-apidetectkey单参数调控16-个)
    - [POST /api/detect/batch](#47-post-apidetectbatch批量)
    - [POST /api/debug/pixels](#48-post-apidebugpixels调试)
-5. [参数详解（16 个）](#5-参数详解16-个)
+5. [参数详解（17 个）](#5-参数详解17-个)
 6. [响应字段](#6-响应字段)
 7. [错误码](#7-错误码)
 8. [调用示例](#8-调用示例)
-9. [性能与限制](#9-性能与限制)
+9. [性能与限制](#9-性能与限制)（含 20-40MB 大图实测与优化）
 
 ---
 
@@ -33,7 +33,7 @@
 | 基地址 | `http://127.0.0.1:60454` |
 | 协议 | HTTP/1.1，JSON（UTF-8） |
 | 图片上传 | **base64**（纯 base64 或 `data:image/png;base64,...` 均可） |
-| 参数个数 | 16 个，**每个参数一个独立接口** |
+| 参数个数 | 17 个，**每个参数一个独立接口** |
 | 默认预设 | 默认参数 + 严格模式 = `POST /api/detect/strict` |
 | 算法来源 | 网页版 `E:\Opencv\缺陷检测网页程序\detect.js`（V6）逐行移植 |
 
@@ -43,11 +43,18 @@
 |---|---|---|
 | GET | `/` | 服务自述（接口目录） |
 | GET | `/api/health` | 健康检查 |
-| GET | `/api/params` | **参数文档**：16 个参数的默认值/范围/单位/提示/对应接口 |
+| GET | `/api/params` | **参数文档**：17 个参数的默认值/范围/单位/提示/对应接口 |
 | POST | `/api/detect/strict` | **默认参数 + 严格模式**（固定预设，不读 `params`） |
 | POST | `/api/detect` | 全参数自定义（`params` 里想传几个传几个） |
 | POST | `/api/detect/{key}` | **单参数调控**：只改一个参数，其余用默认值 |
 | POST | `/api/detect/batch` | 批量检测（一次最多 64 张，共用同一组参数） |
+| POST | `/api/detect/path` | **只传本地路径**：服务端自己读文件解码，**20-40MB 大图最快** |
+| POST | `/api/detect/path/strict` | 本地路径 + 默认严格预设 |
+| POST | `/api/detect/path/batch` | 多个本地路径，批量检测 |
+| POST | `/api/detect/blob` | 图片原始字节直接放 body（不做 base64） |
+| POST | `/api/detect/blob/strict` | 原始字节 + 默认严格预设 |
+| GET/POST | `/api/detect/fast` | **极速接口**：只要图片路径，固定严格预设，响应最精简 |
+| GET/POST | `/api/switch` | 检测启停开关（与桌面界面共用同一状态） |
 | POST | `/api/debug/pixels` | 调试：返回解码后 RGBA 的 SHA-256（用于核对解码一致性） |
 
 ---
@@ -99,6 +106,11 @@ curl.exe http://127.0.0.1:60454/api/health
 - 别名：`imageBase64`、`base64`（三者任选其一，`image` 优先）。
 - 支持格式：PNG、JPEG、BMP、GIF、TIFF、WebP 等 ImageSharp 能识别的格式。
 - 透明度：忽略 alpha 通道，灰度取 `max(r, g, b)`——与网页版完全一致。
+- **不想走 base64** 时有两个更快的入口：`POST /api/detect/blob`（原始字节放 body）、
+  `POST /api/detect/path`（只传本地路径，服务端自己读文件）。大图（20-40MB）建议用路径接口。
+- 响应里的 `baseImage`（JPEG 底图）**默认不返回**；需要时加 `"includeBaseImage": true`。
+  不带底图时响应只有 2~3 KB，便宜很多。
+- 所有检测接口都会做启停开关检查：开关关闭时统一返回 HTTP 409 + `DETECTION_PAUSED`。
 
 ### 3.2 角度、坐标与尺寸换算
 
@@ -155,7 +167,7 @@ curl.exe http://127.0.0.1:60454/api/health
     "strictPreset": "POST /api/detect/strict",
     "custom": "POST /api/detect",
     "batch": "POST /api/detect/batch",
-    "singleParam": "POST /api/detect/{参数名}（16 个参数各一个，见 GET /api/params）",
+    "singleParam": "POST /api/detect/{参数名}（17 个参数各一个，见 GET /api/params）",
     "debugPixels": "POST /api/debug/pixels"
   }
 }
@@ -182,7 +194,7 @@ curl.exe http://127.0.0.1:60454/api/health
 
 ### 4.3 GET /api/params
 
-**参数文档接口**：返回 16 个参数的定义、默认值、范围、步长、单位、网页提示、所属分组，以及每个参数对应的接口路径。
+**参数文档接口**：返回 17 个参数的定义、默认值、范围、步长、单位、网页提示、所属分组，以及每个参数对应的接口路径。
 
 ```json
 {
@@ -190,7 +202,7 @@ curl.exe http://127.0.0.1:60454/api/health
   "profilePoints": 1440,
   "note": "所有长度/面积参数均以“外半径 500px”为基准，检测时按实测半径自动换算。",
   "defaults": {
-    "darkTh": 128, "debrisTh": 230, "gap": 3, "band": 70,
+    "darkTh": 128, "debrisTh": 240, "gap": 3, "band": 70,
     "minArea": 14, "minReach": 12, "minElong": 2.2,
     "notchDepth": 14, "notchMinWidth": 1, "baselineWin": 20,
     "pairDist": 40, "bigNotchDepth": 30,
@@ -255,7 +267,7 @@ curl.exe http://127.0.0.1:60454/api/health
   "ring": { "area": 401630, "bbox": [173, 66, 1036, 929] },
   "band": { "gap": 2.5803755484563684, "band": 60.20876279731526, "pixels": 174924 },
   "params": {
-    "darkTh": 128, "debrisTh": 230, "gap": 3, "band": 70,
+    "darkTh": 128, "debrisTh": 240, "gap": 3, "band": 70,
     "minArea": 14, "minReach": 12, "minElong": 2.2,
     "notchDepth": 14, "notchMinWidth": 1, "baselineWin": 20,
     "pairDist": 40, "bigNotchDepth": 30,
@@ -320,11 +332,11 @@ curl.exe http://127.0.0.1:60454/api/health
 }
 ```
 
-- `params` 里的 key 必须是 16 个参数之一；未知 key 会被忽略。
+- `params` 里的 key 必须是 17 个参数之一；未知 key 会被忽略。
 - 数值超出范围 → `400 INVALID_PARAM`（范围见第 5 节）。
-- 响应与 `/api/detect/strict` 相同，`params` 字段回显本次生效的全部 16 个参数。
+- 响应与 `/api/detect/strict` 相同，`params` 字段回显本次生效的全部 17 个参数。
 
-### 4.6 POST /api/detect/{key}（单参数调控，16 个）
+### 4.6 POST /api/detect/{key}（单参数调控，17 个）
 
 每个参数一个独立接口，**只改这一个参数，其余全部用默认值**：
 
@@ -390,7 +402,7 @@ POST /api/detect/debrisTh?value=250
 
 | 情况 | HTTP | errorCode |
 |---|---|---|
-| `{key}` 不是 16 个参数之一 | 404 | `UNKNOWN_PARAM` |
+| `{key}` 不是 17 个参数之一 | 404 | `UNKNOWN_PARAM` |
 | 没传 `value` | 400 | `MISSING_VALUE` |
 | `value` 类型不对 / 超出范围 | 400 | `INVALID_PARAM` |
 
@@ -447,11 +459,83 @@ POST /api/detect/debrisTh?value=250
 
 ---
 
-## 5. 参数详解（16 个）
+### 4.9 GET / POST /api/switch（检测启停开关）
+
+和桌面（WPF）界面上的开关是**同一份状态**（同进程单例），网页/脚本也能改。
+
+```powershell
+curl.exe http://127.0.0.1:60454/api/switch
+# {"ok":true,"enabled":true,"state":"running"}
+
+curl.exe -X POST http://127.0.0.1:60454/api/switch ^
+  -H "Content-Type: application/json" -d "{\"enabled\":false}"
+# {"ok":true,"enabled":false,"state":"paused"}
+```
+
+- `enabled` 省略时表示**取反**当前状态。
+- 关闭后所有检测接口返回 HTTP **409** + `DETECTION_PAUSED`（`/api/health` 的 `detectionEnabled` 也会变 false）。
+
+### 4.10 POST /api/detect/path · /api/detect/blob（不走 base64）
+
+**路径接口**（服务端自己读文件，最省时间，适合 20-40MB 的大图）：
+
+```json
+POST /api/detect/path/strict
+{
+  "path": "图集1\\相机_20261106_145813_578_000047.bmp",
+  "includeProfile": false,
+  "includeOverlay": false,
+  "includeBaseImage": false
+}
+```
+
+- `path`（别名 `file`）可以是绝对路径，也可以是相对环境变量 `RINGINSPECT_ROOT` 的相对路径；
+  未配置 `RINGINSPECT_ROOT` 时路径接口不可用（防目录穿越），返回 `BAD_PATH`。
+- 批量：`POST /api/detect/path/batch`，body 里用 `"paths": ["a.bmp", "b.bmp"]`（≤ 64 张）。
+
+**原始字节接口**：`POST /api/detect/blob[/strict]?includeProfile=false&includeOverlay=false&includeBaseImage=false&strict=true`，
+body 直接放图片原始字节（`Content-Type: application/octet-stream`），参数走 query string。
+
+### 4.11 GET/POST /api/detect/fast（极速接口，只要路径）
+
+最省事也最快的单图接口：**只传图片路径**，固定用严格预设（17 个参数与 `/api/detect/path/strict` 完全相同），
+不返回剖线/底图，响应结构与 `/api/detect/path/strict`（`includeProfile=false`、`includeOverlay=false`）**逐字段一致**。
+
+```bash
+# GET：路径放 query（中文要 URL 编码）
+curl "http://127.0.0.1:5080/api/detect/fast?path=%E5%9B%BE%E9%9B%863%2F%E7%9B%B8%E6%9C%BA_20261116_171144_400_000033.bmp"
+
+# POST：JSON 里只放 path（别名 file / imagePath 也可以）
+curl -X POST http://127.0.0.1:5080/api/detect/fast -H "Content-Type: application/json" -d "{\"path\":\"图集3/相机_20261116_171144_400_000033.bmp\"}"
+```
+
+- 路径规则与 `/api/detect/path` 一致：绝对路径，或相对 `RINGINSPECT_ROOT` 的路径；未配置根目录返回 `BAD_PATH`。
+- 检测开关关闭时返回 `409 DETECTION_PAUSED`；读盘失败 `400 READ_FAILED`；解码失败 `200 {"ok":false,"errorCode":"DECODE_FAILED"}`。
+- 与 `/api/detect/path/strict` 的关系：**检测结果逐字段相同**（342 张图全量比对 0 差异），
+  只是请求体更小（只有一个路径）+ 读文件用未清零直读，往返再省 5~10%。
+
+联机（桌面版接上位机）时还有几条行为：
+
+- **不给 path**：宿主配了「默认文件夹 + 默认文件名」就自动检测那个文件（适合上位机原地覆盖同一张图）；
+  独立部署的 API 没配则返回 `400 BAD_PATH`。
+- **自动重试**：读盘 / 解码失败会连续重试 3 次（间隔 30 ms），并核对读取前后的文件长度与修改时间，
+  避免把"写了一半的图"当成品检；重试次数用环境变量 `RINGINSPECT_FAST_RETRY` 调。
+- **联机武装（NOT_ARMED）**：宿主收到上位机 `start` 之前，本接口返回 `409 NOT_ARMED`；收到 `end` 之后继续拒绝，
+  直到下一次 `start`。独立部署时不启用这一层（没有宿主）。
+- **根目录限制**：桌面版内嵌运行时放开（`ApiEndpoints.AllowAnyPath = true`，本机可信），
+  独立部署仍受 `RINGINSPECT_ROOT` 约束；宿主也可以编程设置 `ApiEndpoints.RootOverride` 指定根目录。
+- **桌面端内部调用**：桌面版界面里选「走接口」时，请求带 `X-RingInspect-Internal: 1`，此时即使上位机还没发 `start`
+  也不返回 409（本机自己批量检测不受联机武装限制）；外部调用带不带这个头都不影响原有逻辑。
+- **读文件**：`ImageCodec.ReadAllBytesFast`（未清零直读 + 放开共享读写）也对外开放，
+  桌面端 / 宿主直接用它读图，省掉「读文件 → base64 → 再解回字节」的两次大块搬运。
+
+---
+
+## 5. 参数详解（17 个）
 
 | 参数 key | 界面名称 | 类型 | 默认值 | 取值范围 | 步长 | 单位 | 接口 |
 |---|---|---|---|---|---|---|---|
-| `debrisTh` | 碎屑灰度阈值 | 数字 | 230 | 60 ~ 250 | 1 | - | `POST /api/detect/debrisTh` |
+| `debrisTh` | 碎屑灰度阈值 | 数字 | 240 | 60 ~ 250 | 1 | - | `POST /api/detect/debrisTh` |
 | `minArea` | 碎屑最小面积 | 数字 | 14 | 2 ~ 300 | 1 | px² | `POST /api/detect/minArea` |
 | `minReach` | 尖端最小伸出长度 | 数字 | 12 | 0 ~ 40 | 0.5 | px | `POST /api/detect/minReach` |
 | `notchDepth` | 缺口最小深度 | 数字 | 14 | 3 ~ 60 | 0.5 | px | `POST /api/detect/notchDepth` |
@@ -460,6 +544,7 @@ POST /api/detect/debrisTh?value=250
 | `loneDebrisNG` | 独立尖刺/异物判缺陷 | 开关 | true | true / false | - | - | `POST /api/detect/loneDebrisNG` |
 | `pairDist` | 缺口-异物最大间距 | 数字 | 40 | 5 ~ 120 | 1 | px | `POST /api/detect/pairDist` |
 | `bigNotchDepth` | 大缺口独立判定深度 | 数字 | 30 | 0 ~ 80 | 1 | px | `POST /api/detect/bigNotchDepth` |
+| `breakMinWidth` | 断裂最小弧长 | 数字 | 11 | 2 ~ 200 | 1 | px | `POST /api/detect/breakMinWidth` |
 | `minElong` | 尖刺最小细长比 | 数字 | 2.2 | 1.2 ~ 5 | 0.1 | - | `POST /api/detect/minElong` |
 | `darkTh` | 零件暗阈值 | 数字 | 128 | 40 ~ 220 | 1 | - | `POST /api/detect/darkTh` |
 | `gap` | 检测带内边距 | 数字 | 3 | 2 ~ 60 | 0.5 | px | `POST /api/detect/gap` |
@@ -481,6 +566,7 @@ POST /api/detect/debrisTh?value=250
 | `loneDebrisNG` | **仅宽松模式生效**；开启可检出无缺口的独立细丝/尖刺 |
 | `pairDist` | 缺口在此距离（px）内有异物才配对 |
 | `bigNotchDepth` | 缺口深度达到此值时，没有尖端也直接判缺陷；`0` = 关闭；严格模式下自动失效 |
+| `breakMinWidth` | **断口弧长短于此值就当作零件自带的开口（细缝），不判断裂**；按外半径 500px 计。零件自带开口一般 15px 以内，真断口一般 ≥ 20px，默认 11 兼顾两类图集 |
 | `minElong` | 连通块主轴长/宽至少达到此比值才算细长尖刺，用来滤除圆钝滚花齿 |
 | `darkTh` | 比它暗的像素当作零件本体（找圆环用） |
 | `gap` | 离外缘多远开始找碎屑，用来避开边缘齿纹和模糊 |
@@ -493,6 +579,9 @@ POST /api/detect/debrisTh?value=250
 - `strictPair = true` 时，`loneDebrisNG` 和 `bigNotchDepth` **都不生效**（严格模式只认配对）。
 - `strictPair = false` 时，才轮到 `loneDebrisNG`、`bigNotchDepth` 起作用。
 - `bigNotchDepth = 0` 表示关闭“大缺口独立判定”。
+- `breakMinWidth` 只影响“整条径向都没有材料”的断口；缺口/尖刺判定不受影响。
+  **断裂与缺口的分界**：某个角度上从外缘往里 3px 内都没有材料 → 断口；缺口只是外缘凹进去，
+  凹口下面仍有材料 → 仍按缺口/配对判定。
 
 ---
 
@@ -512,7 +601,7 @@ POST /api/detect/debrisTh?value=250
 | `scale` | number | 尺寸换算系数 `s = R / 500` |
 | `ring` | object | 零件本体：`area`（像素数）、`bbox`（`[x0,y0,x1,y1]`） |
 | `band` | object | 检测带：`gap`、`band`（换算后 px）、`pixels`（带内像素数） |
-| `params` | object | 本次生效的 16 个参数 |
+| `params` | object | 本次生效的 17 个参数 |
 | `scaled` | object | 换算后的实际阈值：`gap`、`band`、`minArea`、`minReach`、`notchDepth`、`pairDist` |
 | `defects` | array | 判定为缺陷的条目（见 6.2） |
 | `candidates` | array | 被规则过滤掉的可疑项（字段同 defects，无 `id`） |
@@ -520,6 +609,8 @@ POST /api/detect/debrisTh?value=250
 | `filteredCount` | int | `candidates.length` |
 | `profile` | object | 仅 `includeProfile:true` 时返回，见 6.3 |
 | `overlay` | string | 仅 `includeOverlay:true` 时返回，`data:image/png;base64,...` |
+| `baseImage` | string | 仅 `includeBaseImage:true` 时返回，全尺寸 JPEG data URL（默认不返回） |
+| `timing` | object | 耗时明细（毫秒）：`readMs` 读文件（blob 模式为收取请求体）、`decodeMs` 解码、`detectMs` 检测、`encodeMs` 底图编码、`totalMs` 合计、`fileBytes` 文件字节数；另含检测内部阶段 `lumMs` 亮度、`clearMs` 缓冲清零、`fillMs` 连通域填充、`scanMs` 径向扫描、`bandMs` 碎屑带+配对、`components` 连通域个数 |
 | `applied` | object | 仅单参数接口返回：`{key, kind, value}` |
 
 ### 6.2 `defects[]` / `candidates[]`
@@ -527,7 +618,7 @@ POST /api/detect/debrisTh?value=250
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | int | 缺陷序号（按角度从小到大 1..n；candidates 没有） |
-| `type` | string | `paired`（缺口+尖刺配对）/ `bignotch`（大缺口）/ `notch`（缺口候选）/ `spike` / `debris` / `burr` |
+| `type` | string | `paired`（缺口+尖刺配对）/ `bignotch`（大缺口）/ `broken`（**圆环断裂**）/ `notch`（缺口候选）/ `spike` / `debris` / `burr` |
 | `typeName` | string | 中文类型名 |
 | `angle` | number | 缺陷中心角度（度） |
 | `bbox` | number[4] | 包围盒 `[x0,y0,x1,y1]`（像素，浮点） |
@@ -551,6 +642,20 @@ POST /api/detect/debrisTh?value=250
 | `debrisBoxes` | number[4][] | 配对时每个异物的框 |
 
 > 不同 `type` 只会出现对应的字段，其余字段为 `null`（JSON 里直接省略）。
+
+`broken`（圆环断裂）的字段：
+
+| 字段 | 说明 |
+|---|---|
+| `angle` | 断口中心角度（度） |
+| `widthDeg` | 断口宽度（度） |
+| `arcLenPx` | 断口弧长（像素，按实测半径） |
+| `angFrom` / `angTo` | 断口起止角度 |
+| `bbox` / `x` / `y` | 包围盒与中心 |
+| `depthPx` / `depthNorm` | 恒为 0（断裂是整条径向都没材料，没有“深度”一说） |
+
+**断环（环体被切成几段圆弧）**：拟合时会先把几段“共圆”的圆弧拼回同一个环，
+因此断环不再返回 `NO_RING`，而是正常出结果并把每个断口报成 `broken` 缺陷（判定 NG）。
 
 ### 6.3 `profile`（`includeProfile: true`）
 
@@ -578,6 +683,9 @@ POST /api/detect/debrisTh?value=250
 | `BATCH_TOO_LARGE` | 400 | 超过 64 张 | 拆批 |
 | `NO_RING` | 200 | 没找到圆环零件 | 调 `darkTh`，或检查图片 |
 | `FIT_FAILED` | 200 | 圆拟合失败 | 检查图片是否被裁切/遮挡 |
+| `BAD_PATH` | 400 | 路径为空/越界/不存在（路径接口） | 配好 `RINGINSPECT_ROOT`，传合法路径 |
+| `READ_FAILED` | 400 | 路径正确但读文件失败（被占用/无权限） | 检查文件权限 |
+| `DETECTION_PAUSED` | 409 | 检测开关已关闭 | `POST /api/switch {"enabled":true}` 或打开桌面界面开关 |
 | `INTERNAL_ERROR` | 500 | 未捕获异常 | 看服务端日志 |
 
 `NO_RING` 的完整提示与网页版一字不差：
@@ -678,16 +786,53 @@ var json = await res.Content.ReadAsStringAsync();   // 直接拿 JSON 原文
 
 ## 9. 性能与限制
 
-### 9.1 服务端检测耗时（响应里的 `timeMs`，不含解码）
+### 9.1 本地路径接口实测（`POST /api/detect/path/strict`，本机 loopback，2026-11-16）
 
-| 图片尺寸 | 检测耗时 |
-|---|---|
-| 600 × 500 | 约 23 ms |
-| 1200 × 1000 | 约 56 ms |
-| 1800 × 1500 | 约 114 ms |
-| 2448 × 2048 | 约 193 ms |
+整集跑完取中位数（客户端只发一个 JSON 路径，不传图）：
 
-### 9.2 C# 客户端端到端耗时（实测）
+| 图集 | 张数 | 尺寸 | 文件 | 往返中位 | p95 | 其中：读文件 | 解码 | 检测 |
+|---|---|---|---|---|---|---|---|---|
+| 图集1 | 88 | 2448 × 2048 | 15.0 MB | **65.5 ms** | 87.3 ms | 3 ms | 6 ms | 50 ms |
+| 图集2 | 216 | 2448 × 2048 | 15.0 MB | **64.2 ms** | 73.2 ms | 3 ms | 6 ms | 49 ms |
+| 图集3 | 38 | 4024 × 3036 | **36.7 MB** | **142.9 ms** | 159.0 ms | 9 ms | 12 ms | 101 ms |
+
+图集3（12.2 MP）检测内部拆分：亮度图 18 ms + 连通域填充 57 ms + 径向扫描 11 ms + 碎屑带/配对 12 ms。
+
+> 2026-11-16 第三轮优化（连通域换成行程+并查集）后：图集1 **57.5 ms**、图集2 **43.0 ms**、
+> 图集3 **99.0 ms**，检测内部拆分变成亮度 16 + 填充 13 + 径向扫描 21 + 碎屑带 14 ms，详见 9.5。
+响应体不含底图时只有 **2~3 KB**（`includeBaseImage:true` 会变成几百 KB ~ 1 MB）。
+
+### 9.2 20-40MB 大图优化（精度零损失）
+
+**不改格式、不转码、不缩放**：BMP / PNG / JPEG 只是解码方式不同，解码后一律按原始像素检测，
+检测前**不会把图转成 JPEG**，也不会重采样。实测同一张 12.2MP 图：
+BMP 原图 vs PNG 无损 → 拟合半径、缺陷完全一致（R 差 0.000 px）；
+转成 JPEG(q=92) → 缺陷深度 68.78 → 68.19 px、圆心偏移 0.05 px（JPEG 的画质扰动会改判据，所以不能用）。
+响应里唯一出现 JPEG 的地方是可选的 aseImage（只给前端画框当底图，默认不返回，永不参与检测）。
+
+**没有做任何缩放/降采样**——所有判断仍然逐像素在原图上做（`max(r,g,b)` 灰度、4 邻域连通域、
+每 0.25° 一条射线），因此判定结果与优化前**逐字段一致**（图集1 88 张、图集2 216 张 0 差异；
+图集3 仅 6 张断环图由 `NO_RING` 变为 NG，属于本次新增的断裂检测）。
+
+做的都是“不改变数值”的工程优化：
+
+| 优化 | 说明 | 效果 |
+|---|---|---|
+| 底图默认不返回 | `baseImage` 改为 `includeBaseImage:true` 才生成 | 大图省 30~60 ms + 几百 KB~1MB 传输 |
+| 缓冲区池化 | `lum/debLum/lab/stack/hit/seen` 改用 `ArrayPool` 复用，不再每张图向 LOH 申请 ~150 MB | 消除 Gen2 停顿 |
+| 扫描线连通域填充 | 整行区间入栈代替逐像素 DFS，去掉每像素两次除法；阈值提到本地变量 | 12.2 MP：95 ms → 57 ms |
+| 径向扫描并行 | 1440 条射线互不共享写入，改 `Parallel.For` | 36 ms → 11 ms |
+| 服务端 GC | `ServerGarbageCollection` + `ConcurrentGarbageCollection` | 减少大图停顿 |
+
+优化前后对比（同一台机器、同一批图、`POST /api/detect/path/strict`）：
+
+| 图集 | 优化前 中位 | 优化后 中位 | 提升 |
+|---|---|---|---|
+| 图集1（15.0 MB） | 116.8 ms | **65.5 ms** | 1.8× |
+| 图集2（15.0 MB） | 111.3 ms | **64.2 ms** | 1.7× |
+| 图集3（36.7 MB） | 234.8 ms | **142.9 ms** | 1.6× |
+
+### 9.3 C# 客户端端到端耗时（base64 模式，优化前的历史数据，仅供对比）
 
 用 `E:\Opencv\compare\bench`（`HttpClient`，本机 loopback、keep-alive、预热 3 次后跑 20 次取中位数，
 目标框架同样是 `net8.0`）测得：
@@ -715,7 +860,90 @@ dotnet run -c Release -- http://127.0.0.1:60454 20 --decode     # 只上传+解�
 
 原始输出见 `E:\Opencv\compare\out\bench_csharp.txt`。
 
-### 9.3 限制
+### 9.4 blob 模式（body 直传）为什么比路径慢，以及 2026-11-16 的二次优化
+
+**现象**：同样一张 35 MB（4024 × 3036）的图，`/api/detect/path/strict` 往返 130~145 ms，
+`/api/detect/blob/strict` 要 190~225 ms。差的这 60~80 ms 不是算法，而是“图要先进服务器”。
+
+| 环节 | path 模式 | blob 模式 | 说明 |
+|---|---|---|---|
+| 图怎么进来 | 服务端 `File.ReadAllBytes` **7 ms** | 走 HTTP 收 body **38 ms**（python 客户端）/ **78 ms**（Chrome 页面） | 35 MB 必须经过网络栈与浏览器上传通道，物理成本 |
+| 解码 | 7 ms | 7 ms | 相同 |
+| 检测 | 118 ms | 118~141 ms | 相同（blob 多一份 35 MB body 常驻，GC 压力略高） |
+| 合计 | **~132 ms** | **~190 ms** | 差值 ≈ 上传 |
+
+**本次做的三件事（都不动一个像素的判定）**：
+
+| 优化 | 改前 | 改后 | 效果（35 MB 图） |
+|---|---|---|---|
+| 收 body 直接读进目标数组 | `new MemoryStream()` + `CopyToAsync` + `ToArray()`：扩容复制 + 尾部复制，35 MB 图多拷约 **110 MB** | 按 `Content-Length` 一次分配、循环 `ReadAsync` 读满；未清零分配 | 收 body **47.0 → 38.3 ms**（14 MB 图 15.2 → 13.4 ms） |
+| BMP 24/32bpp 直解 | ImageSharp `Identify` + `Load<Rgba32>`：多一份 49 MB 中间位图再拷一遍 | 自己解析头、BGR(A)→RGBA 直接写进目标数组，按行分块 `Parallel.For`，未清零分配 | 解码 **11.6 → 7.8 ms**（14 MB 图 5.4 → 3.2 ms） |
+| 其余格式 | — | 不满足 24/32bpp + BI_RGB 就原样交给 ImageSharp（PNG/JPEG/RLE/压缩 BMP 行为不变） | 无回归 |
+
+`/api/detect/path/strict` 同步受益（解码同样走快速通道）：
+
+| 图集 | 优化前中位 | 优化后中位 | 提升 |
+|---|---|---|---|
+| 图集1（88 张，15.0 MB） | 71.2 ms | **75.5 ms** | 持平（小图解码只占 6 ms，波动为主） |
+| 图集2（216 张，15.0 MB） | 70.4 ms | **64.4 ms** | 1.09× |
+| 图集3（38 张，36.7 MB） | 149.5 ms | **126.8 ms** | 1.18× |
+
+**精度验证（关键）**：
+
+- 解码器逐字节比对：`VerifyDecode` 把 `ImageCodec` 快速通道的 RGBA 与 ImageSharp 通用解码的 RGBA 各算一次 SHA-256，
+  14 个用例全部一致——24bpp / 32bpp、bottom-up / top-down、奇数宽度（行 4 字节对齐）、1×1、
+  32bpp alpha 全 0 / 单个 1 / 全 0xFF，以及 4 张实拍图（2448×2048、4024×3036）。
+- 判定回归：图集1 88 张、图集2 216 张 **0 差异**；图集3 仅 6 张断环图 `NO_RING → NG`（与新增断裂检测一致）。
+- 复现：`E:\Opencv\compare\VerifyDecode\bin\Release\net8.0\VerifyDecode.exe <图片...>`，
+  `--bench` 参数可对比两种解码耗时；`E:\Opencv\compare\blob_bench.py` 可复测 blob/path 延迟。
+
+**调试开关（默认关闭，用于 A/B 对比）**：
+
+```powershell
+$env:RINGINSPECT_NO_FASTDECODE='1'   # 退回 ImageSharp 通用解码
+$env:RINGINSPECT_OLD_BODYREAD='1'    # 退回 MemoryStream + CopyToAsync 的老写法
+```
+
+**还能再快的地方**（未做，按收益排序）：
+
+1. **连通域填充**：12.2 MP 图里占 86 ms（检测总耗时 110~140 ms 的大头），目前单线程；
+   改成并行连通域标记可望降到 25~30 ms，整体再快 25~30%。属于算法级改动，需要逐字节回归。
+2. **body 缓冲池化**：35 MB 数组走 `ArrayPool` 复用，省掉每次 LOH 分配（约 2~3 ms + GC 压力）。
+3. **不做**：把图压成 JPEG/PNG 再传。JPEG 会改判据（深度 68.78 → 68.19 px）；PNG 无损但解码慢 6 倍
+   （实测 PNG 64 ms vs BMP 33 ms），省下的上传时间抵不过解码时间。
+
+### 9.5 连通域填充：逐像素扫描线 → 行程 + 并查集（2026-11-16 第三轮）
+
+`fillMs` 原本是 12.2 MP 图里最大的一段（86 ms）：逐像素扫描线填充，每行逐个像素找种子，
+再整行左右扩张 + 上下邻行逐像素找新种子，12 M 像素要走 3~4 遍；`lab` 是 48 MB 的 int 数组，随机访问也贵。
+
+改成**行程（run）+ 并查集**：
+
+1. 每行先压成若干「暗色连续段」（`Parallel.For`，一遍字节比较）；
+2. 相邻两行的段只要区间有交集就 union —— 与原来的上下邻行判定等价（4 邻接）；
+3. 每个根汇总面积/质心/外接框，**公式与逐像素实现逐字对应**（连 `(xa+xb)*len/2` 的整数除法位置都一样）；
+4. 标签按「行优先首次出现」顺序编号，与原来一一对应，最后并行把 `lab` 整幅写回（下游径向扫描要用）。
+
+| 指标 | 优化前 | 优化后 |
+|---|---|---|
+| 12.2 MP 单图 `fillMs` | 86 ms | **12.8 ms** |
+| 图集1（88 张，中位） | 75.5 ms | **57.5 ms** |
+| 图集2（216 张，中位） | 64.4 ms | **43.0 ms** |
+| 图集3（38 张，中位） | 126.8 ms | **99.0 ms** |
+| 单张 12.2 MP（`/api/detect/fast`） | 126.9 ms | **82.5 ms** |
+
+精度验证：
+
+- `RINGINSPECT_OLD_FILL=1` 可切回逐像素实现做 A/B；
+- 三套图集 342 张逐字段比对 **0 差异**（图集3 仍是那 6 张断环图 `NO_RING → NG`，属预期）；
+- `/api/detect/fast` vs `/api/detect/path/strict` 全量 342 张 **0 差异**；
+- WPF 内置检测（同一份源码）与 WebAPI **完全一致 ✅**；BMP 快速解码 14 个变体与 ImageSharp 逐字节一致。
+
+> 现在这条流水线基本是内存带宽受限：12.2 MP 一张要过
+> 读文件 35 MB + 解码（35 MB 读、49 MB 写）+ 亮度（48 MB 读、24 MB 写）+ 标签（约 60 MB）+ 径向扫描（随机读约 60 MB）。
+> 再往下压只能靠“合并遍历 / 换数据结构”，收益远小于这一轮。
+
+### 9.6 限制
 
 - 单图 ≤ 4000 万像素（约 6300×6300），请求体 ≤ 128 MB。
 - 批量接口一次 ≤ 64 张，串行处理；`includeProfile` / `includeOverlay` 会让响应明显变大

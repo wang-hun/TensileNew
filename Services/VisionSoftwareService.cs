@@ -7,6 +7,8 @@ using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using RingInspect.Api;
@@ -108,16 +110,15 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         ReportFailure($"视觉识别图片保存失败：{exception.Message}");
     }
 
-    public void ImagePublished(byte[] imageBytes)
+    public void ImagePublished(string imagePath)
     {
-        if (imageBytes.Length == 0) return;
+        if (string.IsNullOrWhiteSpace(imagePath)) return;
 
         DetectionWork work;
         lock (_sessionSync)
         {
             if (!_active || _detectEndpoint is null || _activeSessionCancellation is null) return;
-            work = new DetectionWork(imageBytes, _settings.VisionSoftwareImageFileName,
-                Volatile.Read(ref _sessionGeneration), Stopwatch.GetTimestamp(), _activeSessionCancellation.Token);
+            work = new DetectionWork(imagePath, Volatile.Read(ref _sessionGeneration), Stopwatch.GetTimestamp(), _activeSessionCancellation.Token);
         }
 
         if (!_detectionQueue.Writer.TryWrite(work))
@@ -127,7 +128,6 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             DetectionFailed?.Invoke(message);
         }
     }
-
     private async Task ProcessDetectionQueueAsync()
     {
         try
@@ -146,29 +146,18 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         if (_detectEndpoint is null || !IsCurrentSession(work.SessionGeneration)) return;
 
         Stopwatch total = Stopwatch.StartNew();
-        Stopwatch stageTimer = new();
+        Stopwatch stageTimer = Stopwatch.StartNew();
         CancellationTokenSource? timeout = null;
-        string stage = "Base64编码";
-        double base64Milliseconds = 0;
+        string stage = "路径提交";
         double httpMilliseconds = 0;
         try
         {
             DetectionStarted?.Invoke();
-            stageTimer.Start();
-            string imageBase64 = Convert.ToBase64String(work.ImageBytes);
-            base64Milliseconds = stageTimer.Elapsed.TotalMilliseconds;
-
-            stage = "HTTP请求及响应";
             int replyTimeoutMilliseconds = Math.Max(100, _settings.VisionSoftwareReplyTimeoutMs);
             timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, work.SessionToken);
             timeout.CancelAfter(TimeSpan.FromMilliseconds(replyTimeoutMilliseconds));
-            stageTimer.Restart();
             using HttpResponseMessage response = await _httpClient.PostAsJsonAsync(_detectEndpoint,
-                new DetectRequest
-                {
-                    Image = imageBase64,
-                    FileName = work.FileName,
-                }, timeout.Token).ConfigureAwait(false);
+                new { path = work.ImagePath }, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 string responseBody = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
@@ -186,7 +175,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                 string detail = result is null
                     ? "API返回空响应。"
                     : $"API检测失败 [{result.ErrorCode ?? "未知错误码"}]：{result.Error ?? "未提供错误详情。"}";
-                string failure = $"{detail} API算法 {result?.TimeMs ?? 0:F1}ms，Base64 {base64Milliseconds:F1}ms，HTTP往返及解析 {httpMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。";
+                string failure = $"{detail} API算法 {result?.TimeMs ?? 0:F1}ms，HTTP往返及解析 {httpMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。";
                 DetectionFailed?.Invoke(failure);
                 ReportFailure($"RingInspect 检测返回失败：{failure}");
                 return;
@@ -194,8 +183,8 @@ public sealed class VisionSoftwareService : IAsyncDisposable
 
             Interlocked.Exchange(ref _failureNotified, 0);
             DetectionCompleted?.Invoke(result.DefectCount);
-            Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}，API算法 {2:F1}ms，Base64 {3:F1}ms，HTTP往返及解析 {4:F1}ms，检测队列等待 {5:F1}ms。",
-                result.Verdict ?? "完成", result.DefectCount, result.TimeMs, base64Milliseconds, httpMilliseconds,
+            Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}，API算法 {2:F1}ms，HTTP往返及解析 {3:F1}ms，检测队列等待 {4:F1}ms。",
+                result.Verdict ?? "完成", result.DefectCount, result.TimeMs, httpMilliseconds,
                 Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds);
             bool triggerDefect = false;
             if (result.DefectCount > 0)
@@ -219,11 +208,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         {
             string message = $"检测超时：{stage}阶段超过 {Math.Max(100, _settings.VisionSoftwareReplyTimeoutMs)}ms。";
             DetectionFailed?.Invoke(message);
-            ReportFailure($"{message} 总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，Base64 {base64Milliseconds:F1}ms，当前阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。{exception.Message}");
+            ReportFailure($"{message} 总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，当前阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms，检测队列等待 {Stopwatch.GetElapsedTime(work.QueuedAtTimestamp).TotalMilliseconds - total.Elapsed.TotalMilliseconds:F1}ms。{exception.Message}");
         }
         catch (HttpRequestException exception)
         {
-            string message = $"API HTTP调用失败（{stage}，HTTP {exception.StatusCode?.ToString() ?? "无状态码"}）：{exception.Message}；总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，Base64 {base64Milliseconds:F1}ms，HTTP阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms。";
+            string message = $"API HTTP调用失败（{stage}，HTTP {exception.StatusCode?.ToString() ?? "无状态码"}）：{exception.Message}；总耗时 {total.Elapsed.TotalMilliseconds:F1}ms，HTTP阶段 {stageTimer.Elapsed.TotalMilliseconds:F1}ms。";
             DetectionFailed?.Invoke(message);
             ReportFailure(message);
         }
@@ -248,10 +237,23 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     {
         if (_detectEndpoint is not null) return;
 
-        WebApplication app = RingInspectApiHost.Create([], "http://127.0.0.1:0");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 128L * 1024 * 1024);
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            options.SerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+        });
+        builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+        WebApplication app = builder.Build();
+        app.UseCors();
+        ApiEndpoints.AllowAnyPath = true;
+        ApiEndpoints.RootOverride = null;
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path != "/api/detect/strict")
+            if (context.Request.Path != "/api/detect/fast")
             {
                 await next(context);
                 return;
@@ -292,7 +294,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                 throw new InvalidOperationException("RingInspect 健康检查返回了非预期服务。");
 
             _apiHost = app;
-            _detectEndpoint = new Uri(baseAddress, "/api/detect/strict");
+            _detectEndpoint = new Uri(baseAddress, "/api/detect/fast");
             Logger.Info("RingInspect API 已在进程内启动：{0}", baseAddress);
         }
         catch
@@ -341,5 +343,5 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         _apiRequestGate.Dispose();
     }
 
-    private sealed record DetectionWork(byte[] ImageBytes, string FileName, int SessionGeneration, long QueuedAtTimestamp, CancellationToken SessionToken);
+    private sealed record DetectionWork(string ImagePath, int SessionGeneration, long QueuedAtTimestamp, CancellationToken SessionToken);
 }

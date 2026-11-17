@@ -1,0 +1,33 @@
+﻿圆环外缘缺陷检测 · 最小 API（源码包）
+=====================================
+
+1. 环境：.NET 8 SDK（Windows / Linux 都行，无其它依赖）
+2. 编译运行：
+       cd RingInspect.Api
+       dotnet run
+   默认监听 http://127.0.0.1:60454（随机端口），改端口用：
+       dotnet run -- --urls http://0.0.0.0:5080
+   或编译后：
+       dotnet bin\Debug\net8.0\RingInspect.Api.dll --urls http://0.0.0.0:5080
+
+3. 路径类接口（/api/detect/path、/api/detect/path/strict、/api/detect/path/batch、
+   /api/detect/fast）需要先指定允许读取的根目录，否则返回 BAD_PATH：
+       PowerShell:  $env:RINGINSPECT_ROOT='E:\Opencv'
+       CMD:         set RINGINSPECT_ROOT=E:\Opencv
+       Linux:       export RINGINSPECT_ROOT=/data/images
+
+4. 快速自检：
+       curl http://127.0.0.1:5080/api/health
+       curl -X POST http://127.0.0.1:5080/api/detect/fast -H "Content-Type: application/json" -d "{\"path\":\"图集1/xxx.bmp\"}"
+
+5. 完整接口说明（17 个参数、错误码、耗时实测、优化记录）见 API接口文档.md
+
+6. 第三方依赖只有 SixLabors.ImageSharp 2.1.3（NuGet.config 已配好源）；
+   BMP 走自带的快速解码，不经过 ImageSharp，其它格式才回退到 ImageSharp。
+
+7. 可调环境变量（A/B 与调试用，正常不用设）：
+       RINGINSPECT_ROOT          允许读取的根目录（路径接口必需）
+       RINGINSPECT_FAST_RETRY    极速接口读文件失败时的重试次数（默认 3）
+       RINGINSPECT_NO_FASTDECODE 设为 1 关掉 BMP 快速解码，全走 ImageSharp
+       RINGINSPECT_OLD_FILL      设为 1 用回逐像素连通域填充（A/B 用）
+       RINGINSPECT_OLD_BODYREAD  设为 1 用回老的文件流读 body（A/B 用）

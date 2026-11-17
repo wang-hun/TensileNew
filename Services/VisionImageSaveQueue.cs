@@ -25,9 +25,9 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         _writerThread.Start();
     }
 
-    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action<byte[]>? latestSaved = null, Func<bool>? mayPublish = null, Action<Exception>? latestFailed = null)
+    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action<string>? latestSaved = null, Func<bool>? mayPublish = null)
     {
-        SaveRequest request = CreateRequest(image, directory, latestPath, latestSaved, mayPublish, latestFailed);
+        SaveRequest request = CreateRequest(image, directory, latestPath, latestSaved, mayPublish);
         await _requests.Writer.WriteAsync(request, ct).ConfigureAwait(false);
         return request.Completion.Task;
     }
@@ -38,11 +38,11 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         await Task.Run(_writerThread.Join).ConfigureAwait(false);
     }
 
-    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action<byte[]>? latestSaved, Func<bool>? mayPublish, Action<Exception>? latestFailed)
+    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action<string>? latestSaved, Func<bool>? mayPublish)
     {
         string filePath = Path.Combine(directory, $"相机_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Interlocked.Increment(ref _fileSequence):D6}.bmp");
         TaskCompletionSource<string> result = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        return new SaveRequest(image, filePath, result, latestPath, latestSaved, mayPublish, latestFailed, Stopwatch.GetTimestamp());
+        return new SaveRequest(image, filePath, result, latestPath, latestSaved, mayPublish, Stopwatch.GetTimestamp());
     }
 
     private void ImageWriterLoop()
@@ -54,49 +54,33 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
                 try
                 {
                     Stopwatch total = Stopwatch.StartNew();
-                    SaveImage(request.Image, request.FilePath);
-                    double writeMilliseconds = total.Elapsed.TotalMilliseconds;
-                    double copyMilliseconds = 0;
-                    double readMilliseconds = 0;
-                    int imageLength = 0;
-                    if (request.LatestPath is not null && request.MayPublish?.Invoke() != false)
+                    bool publishLatest = request.LatestPath is not null && request.MayPublish?.Invoke() != false;
+                    double fixedWriteMilliseconds = 0;
+                    double continuousCopyMilliseconds = 0;
+                    if (publishLatest)
                     {
-                        string? temporaryPath = null;
-                        try
-                        {
-                            string latestDirectory = Path.GetDirectoryName(request.LatestPath) ?? throw new InvalidOperationException();
-                            Directory.CreateDirectory(latestDirectory);
-                            temporaryPath = request.LatestPath + ".tmp";
-                            Stopwatch stage = Stopwatch.StartNew();
-                            File.Copy(request.FilePath, temporaryPath, true);
-                            if (request.MayPublish?.Invoke() != false)
-                            {
-                                File.Move(temporaryPath, request.LatestPath, true);
-                                temporaryPath = null;
-                                copyMilliseconds = stage.Elapsed.TotalMilliseconds;
-                                if (request.LatestSaved is not null)
-                                {
-                                    stage.Restart();
-                                    byte[] detectionImage = File.ReadAllBytes(request.LatestPath);
-                                    readMilliseconds = stage.Elapsed.TotalMilliseconds;
-                                    imageLength = detectionImage.Length;
-                                    Stopwatch handoff = Stopwatch.StartNew();
-                                    request.LatestSaved(detectionImage);
-                                    Logger.Info("视觉检测图片交接：保存队列等待 {0:F1}ms，BMP写盘 {1:F1}ms，固定文件副本 {2:F1}ms，读副本 {3:F1}ms，入检测队列 {4:F1}ms，字节数 {5}。",
-                                        Stopwatch.GetElapsedTime(request.QueuedAtTimestamp, Stopwatch.GetTimestamp()).TotalMilliseconds - total.Elapsed.TotalMilliseconds,
-                                        writeMilliseconds, copyMilliseconds, readMilliseconds, handoff.Elapsed.TotalMilliseconds, imageLength);
-                                }
-                            }
-                        }
-                        catch (Exception exception)
-                        {
-                            request.LatestFailed?.Invoke(exception);
-                        }
-                        finally
-                        {
-                            if (temporaryPath is not null && File.Exists(temporaryPath)) File.Delete(temporaryPath);
-                        }
+                        Stopwatch stage = Stopwatch.StartNew();
+                        SaveImage(request.Image, request.LatestPath!, overwrite: true);
+                        fixedWriteMilliseconds = stage.Elapsed.TotalMilliseconds;
+                        Stopwatch handoff = Stopwatch.StartNew();
+                        request.LatestSaved?.Invoke(request.LatestPath!);
+                        Logger.Info("视觉检测图片交接：保存队列等待 {0:F1}ms，固定路径落盘 {1:F1}ms，路径入检测队列 {2:F1}ms。",
+                            Stopwatch.GetElapsedTime(request.QueuedAtTimestamp, Stopwatch.GetTimestamp()).TotalMilliseconds - total.Elapsed.TotalMilliseconds,
+                            fixedWriteMilliseconds, handoff.Elapsed.TotalMilliseconds);
+
+                        stage.Restart();
+                        File.Copy(request.LatestPath!, request.FilePath, true);
+                        continuousCopyMilliseconds = stage.Elapsed.TotalMilliseconds;
                     }
+                    else
+                    {
+                        Stopwatch stage = Stopwatch.StartNew();
+                        SaveImage(request.Image, request.FilePath);
+                        fixedWriteMilliseconds = stage.Elapsed.TotalMilliseconds;
+                    }
+
+                    Logger.Info("视觉图片保存完成：总耗时 {0:F1}ms，固定路径写盘 {1:F1}ms，连续路径副本 {2:F1}ms，文件 {3}。",
+                        total.Elapsed.TotalMilliseconds, fixedWriteMilliseconds, continuousCopyMilliseconds, request.FilePath);
                     request.Completion.TrySetResult(request.FilePath);
                 }
                 catch (Exception exception)
@@ -107,16 +91,20 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         }
     }
 
-    private static void SaveImage(BitmapSource image, string filePath)
+    private static void SaveImage(BitmapSource image, string filePath, bool overwrite = false)
     {
         string? directory = Path.GetDirectoryName(filePath);
         if (string.IsNullOrWhiteSpace(directory)) throw new InvalidOperationException("图片保存路径无效。");
         Directory.CreateDirectory(directory);
+        string targetPath = overwrite ? filePath + ".tmp" : filePath;
         BmpBitmapEncoder encoder = new();
         encoder.Frames.Add(BitmapFrame.Create(image));
-        using FileStream stream = new(filePath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        encoder.Save(stream);
+        using (FileStream stream = new(targetPath, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            encoder.Save(stream);
+        }
+        if (overwrite) File.Move(targetPath, filePath, true);
     }
 
-    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action<byte[]>? LatestSaved, Func<bool>? MayPublish, Action<Exception>? LatestFailed, long QueuedAtTimestamp);
+    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action<string>? LatestSaved, Func<bool>? MayPublish, long QueuedAtTimestamp);
 }

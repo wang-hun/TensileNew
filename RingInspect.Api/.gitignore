@@ -1,0 +1,15 @@
+# 构建产物
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.pdb
+
+# 工具缓存
+.mimosa/
+
+# 系统文件
+Thumbs.db
+desktop.ini
+.DS_Store

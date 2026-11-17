@@ -113,6 +113,27 @@ public sealed class AppliedParamDto
     public object? Value { get; set; }
 }
 
+/// <summary>服务端耗时明细（毫秒）：读文件 / 解码 / 检测 / 底图编码 / 合计。</summary>
+public sealed class TimingDto
+{
+    public double ReadMs { get; set; }
+    public double DecodeMs { get; set; }
+    public double DetectMs { get; set; }
+    public double EncodeMs { get; set; }
+    public double TotalMs { get; set; }
+    public long FileBytes { get; set; }
+    /// <summary>检测内部：亮度图 / 连通域 / 径向扫描 / 碎屑带 的耗时。</summary>
+    public double LumMs { get; set; }
+    public double LabelMs { get; set; }
+    public double ScanMs { get; set; }
+    public double BandMs { get; set; }
+    /// <summary>缓冲清零 / 扫描线填充 细分。</summary>
+    public double ClearMs { get; set; }
+    public double FillMs { get; set; }
+    /// <summary>暗色连通域个数。</summary>
+    public int Components { get; set; }
+}
+
 public sealed class DetectResult
 {
     public bool Ok { get; set; }
@@ -135,6 +156,10 @@ public sealed class DetectResult
     public int FilteredCount => Candidates?.Count ?? 0;
     public ProfileDto? Profile { get; set; }
     public string? Overlay { get; set; }
+    /// <summary>路径模式专用：服务端生成的轻量 JPEG 底图（data URL）。默认不生成，需要时传 includeBaseImage=true。</summary>
+    public string? BaseImage { get; set; }
+    /// <summary>服务端耗时明细（读文件/解码/检测/编码）。</summary>
+    public TimingDto? Timing { get; set; }
     public AppliedParamDto? Applied { get; set; }
 
     public static DetectResult Failure(string code, string message, double timeMs = 0) => new()

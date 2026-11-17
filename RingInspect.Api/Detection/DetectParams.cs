@@ -9,7 +9,7 @@ namespace RingInspect.Api.Detection;
 public sealed class DetectParams
 {
     [JsonPropertyName("darkTh")] public double DarkTh { get; set; } = 128;
-    [JsonPropertyName("debrisTh")] public double DebrisTh { get; set; } = 230;
+    [JsonPropertyName("debrisTh")] public double DebrisTh { get; set; } = 240;
     [JsonPropertyName("gap")] public double Gap { get; set; } = 3;
     [JsonPropertyName("band")] public double Band { get; set; } = 70;
     [JsonPropertyName("minArea")] public double MinArea { get; set; } = 14;
@@ -20,6 +20,8 @@ public sealed class DetectParams
     [JsonPropertyName("baselineWin")] public double BaselineWin { get; set; } = 20;
     [JsonPropertyName("pairDist")] public double PairDist { get; set; } = 40;
     [JsonPropertyName("bigNotchDepth")] public double BigNotchDepth { get; set; } = 30;
+    /// <summary>断裂最小弧长（按外半径 500px 计）：断口短于此值视为零件自带开口，不算断裂。</summary>
+    [JsonPropertyName("breakMinWidth")] public double BreakMinWidth { get; set; } = 11;
     [JsonPropertyName("loneDebrisNG")] public bool LoneDebrisNg { get; set; } = true;
     [JsonPropertyName("strictPair")] public bool StrictPair { get; set; } = true;
     [JsonPropertyName("angFrom")] public double AngFrom { get; set; } = 0;
@@ -48,6 +50,7 @@ public sealed class DetectParamsInput
     [JsonPropertyName("baselineWin")] public double? BaselineWin { get; set; }
     [JsonPropertyName("pairDist")] public double? PairDist { get; set; }
     [JsonPropertyName("bigNotchDepth")] public double? BigNotchDepth { get; set; }
+    [JsonPropertyName("breakMinWidth")] public double? BreakMinWidth { get; set; }
     [JsonPropertyName("loneDebrisNG")] [JsonConverter(typeof(FlexibleBoolConverter))] public bool? LoneDebrisNg { get; set; }
     [JsonPropertyName("strictPair")] [JsonConverter(typeof(FlexibleBoolConverter))] public bool? StrictPair { get; set; }
     [JsonPropertyName("angFrom")] public double? AngFrom { get; set; }
@@ -84,7 +87,7 @@ public static class ParamRegistry
     {
         new()
         {
-            Key = "debrisTh", Label = "碎屑灰度阈值", Kind = "number", DefaultNumber = 230, Min = 60, Max = 250, Step = 1,
+            Key = "debrisTh", Label = "碎屑灰度阈值", Kind = "number", DefaultNumber = 240, Min = 60, Max = 250, Step = 1,
             Hint = "外缘外侧比它暗的像素算可疑。越大越敏感，背景脏时会误报",
             Get = p => p.DebrisTh, Set = (p, v) => p.DebrisTh = v,
         },
@@ -137,6 +140,12 @@ public static class ParamRegistry
             Key = "bigNotchDepth", Label = "大缺口独立判定深度", Kind = "number", DefaultNumber = 30, Min = 0, Max = 80, Step = 1, Unit = "px",
             Hint = "缺口深度达到此值（px，按外半径 500px 计）时，没有尖端也直接判缺陷；0 = 关闭；严格模式下自动失效",
             Get = p => p.BigNotchDepth, Set = (p, v) => p.BigNotchDepth = v,
+        },
+        new()
+        {
+            Key = "breakMinWidth", Label = "断裂最小弧长", Kind = "number", DefaultNumber = 11, Min = 2, Max = 200, Step = 1, Unit = "px",
+            Hint = "断口弧长短于此值（px，按外半径 500px 计）当作零件自带开口，不判断裂；够长就判 NG",
+            Get = p => p.BreakMinWidth, Set = (p, v) => p.BreakMinWidth = v,
         },
         new()
         {
