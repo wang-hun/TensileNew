@@ -351,7 +351,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             double.TryParse(GainTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double gain) && double.IsFinite(gain);
         StartCaptureButton.IsEnabled = connected && !capturing;
         StopCaptureButton.IsEnabled = capturing;
-        StartIntervalButton.IsEnabled = capturing && !_continuousSavingRequested && !_continuousSavePending;
+        StartIntervalButton.IsEnabled = capturing && !_continuousSavingRequested;
         StopIntervalButton.IsEnabled = _continuousSavingRequested;
         SaveOneButton.IsEnabled = capturing && GetLatestCapturedImage() is not null && !_singleSavePending;
         RefreshDevicesButton.IsEnabled = !_isRefreshingDevices && !_isConnecting;
@@ -538,6 +538,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 
         string? detectionPath = _detectionCaptureActive ? DetectionImagePath : null;
         int detectionGeneration = Volatile.Read(ref _detectionImageGeneration);
+        bool userSavingOnRequest = _continuousSavingRequested;
         _continuousSavePending = true;
         _saveTimer.Stop();
         UpdateControlAvailability();
@@ -553,7 +554,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         }
         catch (Exception exception)
         {
-            if (_continuousSavingRequested) _continuousSavingRequested = false;
+            if (userSavingOnRequest && _continuousSavingRequested) _continuousSavingRequested = false;
             _saveQueueFailure = "\u56fe\u7247\u4fdd\u5b58\u5931\u8d25\uff1a" + exception.Message;
             SetSaveStatus(_saveQueueFailure);
             if (_detectionCaptureActive) DetectionImageFailed?.Invoke(exception);
