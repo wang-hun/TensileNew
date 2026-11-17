@@ -9,18 +9,8 @@ public sealed record VisionCameraSdkSelection(string BrandName, IVisionCameraSer
 
 public static class VisionCameraSdkResolver
 {
-    private const uint LoadWithAlteredSearchPath = 0x00000008;
     private const string MvsBrand = "MVS";
     private const string DahengBrand = "Daheng";
-    private static readonly string[] DahengNativeFiles =
-    [
-        "GxIAPI.dll", "GxIAPICPP.dll", "DxImageProc.dll", "GCBase_MD_VC120_v3_0.dll",
-        "GenApi_MD_VC120_v3_0.dll", "MathParser_MD_VC120_v3_0.dll", "XmlParser_MD_VC120_v3_0.dll",
-        "Log_MD_VC120_v3_0.dll", "NodeMapData_MD_VC120_v3_0.dll", "log4cpp_MD_VC120_v3_0.dll",
-        "msvcr100.dll", "msvcp100.dll", "msvcr120.dll", "msvcp120.dll", "msvcp140.dll",
-        "vcruntime140.dll", "vcomp140.dll", "GenCP_MD_VC120_v3_0.dll",
-        "GxGVTL.cti", "GxU3VTL.cti", "GxUSBTL.cti", "GxGevGrabberTL.cti", "GxCXPTL.cti"
-    ];
     public static VisionCameraSdkSelection Resolve()
     {
         string selected = RAM.SettingModel.VisionCameraBrand;
@@ -50,20 +40,7 @@ public static class VisionCameraSdkResolver
                     throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
                 FreeLibrary(installedSdk);
             }
-            else
-            {
-                string directory = Path.Combine(AppContext.BaseDirectory, "CameraSdk", DahengBrand, "Native");
-                foreach (string nameOfFile in DahengNativeFiles)
-                    if (!File.Exists(Path.Combine(directory, nameOfFile)))
-                        throw new FileNotFoundException(nameOfFile);
-                Environment.SetEnvironmentVariable("GENICAM_GENTL64_PATH", directory);
-                if (!SetDllDirectory(directory))
-                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
-                IntPtr nativeSdk = LoadLibraryEx(Path.Combine(directory, "GxIAPICPP.dll"), IntPtr.Zero, LoadWithAlteredSearchPath);
-                if (nativeSdk == IntPtr.Zero)
-                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
-                FreeLibrary(nativeSdk);
-            }
+
             IVisionCameraServiceFactory factory = selected switch
             {
 #if !CAMERA_DAHENG_ONLY
@@ -98,9 +75,6 @@ public static class VisionCameraSdkResolver
             Console.WriteLine("请输入 1 或 2。");
         }
     }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool SetDllDirectory(string path);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr LoadLibraryEx(string fileName, IntPtr file, uint flags);

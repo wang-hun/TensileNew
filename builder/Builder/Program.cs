@@ -111,9 +111,6 @@ internal static class Program
             DeleteDirectoryIfExists(intermediateDirectory);
         }
 
-        if (cameraBrand == "Daheng")
-            CopyDirectory(Path.Combine(Path.GetDirectoryName(projectPath)!, "CameraSdk", cameraBrand, "Native"),
-                Path.Combine(packageDirectory, "CameraSdk", cameraBrand, "Native"));
         DeleteNonWindowsRuntimes(packageDirectory);
         DeleteUnneededPublishArtifacts(packageDirectory);
         EnsureSingleFileLayout(packageDirectory, assemblyName);
@@ -320,14 +317,8 @@ internal static class Program
     {
         string other = Path.Combine(packageDirectory, "CameraSdk", cameraBrand == "MVS" ? "Daheng" : "MVS");
         if (Directory.Exists(other)) throw new InvalidOperationException("发布包混入了另一品牌的相机 SDK：" + other);
-        if (cameraBrand == "MVS")
-        {
-            string unexpected = Path.Combine(packageDirectory, "CameraSdk", "MVS", "Native");
-            if (Directory.Exists(unexpected)) throw new InvalidOperationException("华睿发布包不应包含新增原生 SDK：" + unexpected);
-            return;
-        }
-        string mainNative = Path.Combine(packageDirectory, "CameraSdk", "Daheng", "Native", "GxIAPICPP.dll");
-        if (!File.Exists(mainNative)) throw new FileNotFoundException("选定相机的原生 SDK 未包含在发布包中。", mainNative);
+        string unexpected = Path.Combine(packageDirectory, "CameraSdk", cameraBrand, "Native");
+        if (Directory.Exists(unexpected)) throw new InvalidOperationException("发布包不应包含额外原生相机 SDK：" + unexpected);
     }
 
     private static void CopyManualsDirectory(string packageDirectory)
