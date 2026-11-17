@@ -9,6 +9,7 @@
         MinWidth="420"
         MinHeight="300"
         WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
         WindowStyle="None"
         ResizeMode="CanResize"
         Background="{DynamicResource AppSurfaceBackgroundBrush}"

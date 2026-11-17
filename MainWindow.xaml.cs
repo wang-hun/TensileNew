@@ -2668,8 +2668,7 @@ public partial class MainWindow : Window
         _visionDefectWindow = new VisionDefectWindow { Owner = this };
         _visionDefectWindow.Closed += (_, _) => _visionDefectWindow = null;
         _visionDefectWindow.ShowResult(imagePath, pending.Value.Result);
-        _visionDefectWindow.Show();
-        _visionDefectWindow.Activate();
+        _visionDefectWindow.ShowDialog();
     }
 
     private void OpenVisionSettings_Click(object sender, RoutedEventArgs e) => ShowVisionDebugSettings();
