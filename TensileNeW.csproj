@@ -97,10 +97,6 @@
       <HintPath>CameraSdk\Daheng\GxIAPINET.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Content Include="CameraSdk\Daheng\Native\**\*" Condition="'$(CameraSdkBrand)' != 'MVS'">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="EPPlus" Version="4.5.3.3" />
     <PackageReference Include="HandyControl" Version="3.5.1" />

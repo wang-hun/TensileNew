@@ -10,4 +10,4 @@
 
 不要在仓库根目录执行 builder 输出验证：builder 会清理历史发布目录。使用仓库外临时输出根。完整绿色版验收标准见仓库根 `AGENTS.md`。
 
-- 控制台新视觉选择后询问相机品牌（1 华睿 / 2 大恒），安装器将该选择完整传给 builder；使用 CameraSdkBrand 条件编译且只发布对应的托管 SDK，华睿只内嵌托管 `MVSDK_Net.dll`（原生 SDK 由目标机安装），大恒从 `CameraSdk/Daheng/Native` 复制原生 SDK 到发布包，publish 使用输出根下独立中间目录防止品牌切换复用旧 deps.json，完成后清理，写入 Setting.json 的 VisionCameraBrand，断言另一品牌目录不存在。
+- 控制台新视觉选择后询问相机品牌（1 华睿 / 2 大恒），安装器将选择传给 builder；使用 CameraSdkBrand 条件编译且只发布对应托管 SDK，华睿使用 MVSDK_Net.dll，大恒使用现有 GxIAPINET.dll，原生运行库由目标机安装，禁止复制或打包 CameraSdk/Daheng/Native。publish 使用输出根下独立中间目录防止品牌切换复用旧 deps.json，完成后清理，写入 Setting.json 的 VisionCameraBrand，断言另一品牌及额外原生目录不存在。

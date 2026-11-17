@@ -400,7 +400,7 @@ dotnet build .\TensileNeW.csproj
 ## 视觉处理 SDK 相机品牌与打包
 
 - `IVisionCameraServiceFactory` 下华睿与大恒平级；`VisionCameraSdkResolver` 依据 `SettingModel.VisionCameraBrand` 只创建所选相机，旧配置默认华睿。附加调试器时在独立控制台选择相机（1 华睿、2 大恒），不改变持久化品牌。
-- builder / InstallerBuilder 的试用、权限、新视觉选择之后增加相机品牌选择；builder 发布时通过 `CameraSdkBrand` 条件编译仅含所选相机服务和托管 DLL，华睿仅内嵌原有 `MVSDK_Net.dll` 并使用目标机已安装的原生运行库；大恒仅打包其 `CameraSdk/Daheng/Native` SDK；`Setting.json` 写入 `VisionCameraBrand`。单文件发布根部仍不允许散落 DLL。
+- builder / InstallerBuilder 的试用、权限、新视觉选择之后选择相机品牌；通过 CameraSdkBrand 条件编译所选服务和托管 SDK，华睿使用现有 MVSDK_Net.dll，大恒使用现有 GxIAPINET.dll，均依赖目标机安装的厂商原生运行库，禁止复制或打包 CameraSdk/Daheng/Native。所有大恒相机操作必须走 GxIAPINET.dll；严禁越权替代厂商接口或擅自增加依赖。Setting.json 写入 VisionCameraBrand，单文件发布根部不允许散落 DLL。
 - 启动时先核对构建品牌、配置及 SDK 文件，缺失或错配时用现有 HandyControl 提示，主窗口与 PLC 继续运行，仅禁用视觉相机入口；不将 WinRT 摄像头、二段速或新视觉开关误当为视觉相机依赖。视觉相机面板品牌气泡复用配方标签样式。
 
 ## 新视觉与二段速扩展规则
