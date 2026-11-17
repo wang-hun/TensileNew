@@ -394,9 +394,11 @@ public sealed class RingInspector
             // 每个角度上，从外缘往里还有多少材料（单位：0.5px 采样点数）。
             // 缺口只是外缘凹进去一块，下面仍有材料；断裂则是整条径向都没有材料。
             var thick = new int[Na];
+            var hasEdge = new bool[Na];
             for (int k = 0; k < Na; k++)
             {
                 if (r[k] <= 0) continue;
+                hasEdge[k] = true;
                 double a = (double)k / Na * 2 * Math.PI;
                 double ca = Math.Cos(a), sa = Math.Sin(a);
                 int dark = 0;
@@ -412,13 +414,45 @@ public sealed class RingInspector
             }
             var tArr = new double[Na];
             for (int k = 0; k < Na; k++) tArr[k] = thick[k];
-            int need = Math.Max(6, (int)(Median(tArr) * 0.03));
+            double medThick = Median(tArr);
+            int need = Math.Max(6, (int)(medThick * 0.03));
+            // 复核用的扫描深度：一个典型壁厚（仍以 0.5px 采样点计）。
+            int wallSamples = Math.Max(6, (int)medThick);
             var covered = new bool[Na];
             int uncovered = 0;
             for (int k = 0; k < Na; k++)
             {
-                covered[k] = thick[k] >= need;
-                if (!covered[k]) uncovered++;
+                bool ok;
+                if (!hasEdge[k])
+                {
+                    // 整个角度都找不到环体 → 真断裂
+                    ok = false;
+                }
+                else if (thick[k] >= need)
+                {
+                    ok = true;
+                }
+                else
+                {
+                    // 连续暗像素不足：可能只是最外侧 1~2 个采样点落在边缘过渡带（灰度略高于阈值）。
+                    // 真断裂应是整条环壁位置都没材料，所以再看往里一个壁厚范围内的暗像素占比。
+                    double a = (double)k / Na * 2 * Math.PI;
+                    double ca = Math.Cos(a), sa = Math.Sin(a);
+                    int darkAll = 0, totalAll = 0;
+                    for (double t = r[k] - 1.5; t > 1 && totalAll < wallSamples; t -= 0.5)
+                    {
+                        int x = JsRound(cx0 + ca * t);
+                        int y = JsRound(cy0 + sa * t);
+                        if (x < 0 || y < 0 || x >= w || y >= h) break;
+                        totalAll++;
+                        if (lum[y * w + x] < p.DarkTh) darkAll++;
+                    }
+                    // 暗占比 >= 85% 说明边缘过渡带下方仍有完整实体材料，不算断裂；
+                    // 真断裂处整条径向几乎没有材料（实测 0%~67%）。
+                    ok = totalAll > 0 && darkAll * 100 >= totalAll * 85;
+                }
+                covered[k] = ok;
+                if (!ok) uncovered++;
             }
             if (uncovered > 0 && uncovered < Na)
             {

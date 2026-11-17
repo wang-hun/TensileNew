@@ -39,7 +39,7 @@ public sealed class VisionDebugSettingsWindow : Window
         panel.Children.Add(_timing);
         TextBlock apiInfo = new()
         {
-            Text = "检测由主程序内嵌托管，调用 POST /api/detect/strict；缺陷数大于 0 时触发停机。",
+            Text = "检测由主程序内嵌托管，调用 POST /api/detect/fast；缺陷数大于 0 时触发停机。",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 6, 0, 8)
         };

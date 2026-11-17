@@ -103,6 +103,9 @@ public partial class MainWindow : Window
     private LoadDataWindow? _loadDataWindow;
     private PlotWindow? _plotWindow;
     private CameraPreviewWindow? _cameraPreviewWindow;
+    private readonly object _visionResultSync = new();
+    private (RingInspect.Api.Detection.DetectResult Result, Task<string> SavedImageTask)? _pendingVisionDefect;
+    private VisionDefectWindow? _visionDefectWindow;
     private CameraCaptureService? _cameraCaptureService;
     private BitmapSource? _currentCameraBitmap;
     private bool _isClosing;
@@ -194,6 +197,7 @@ public partial class MainWindow : Window
                 if (stopped) MarkSecondStageCompleted();
                 else EndVisionDetection();
                 if (!stopped) ShowError("识别到缺陷，但停止动作指令发送失败，请立即检查设备。");
+                _ = ShowPendingVisionDefectAsync();
             });
         });
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
@@ -209,12 +213,16 @@ public partial class MainWindow : Window
                 if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionPending();
             });
         };
-        _visionSoftware.DetectionCompleted += defectCount =>
+        _visionSoftware.DetectionCompleted += (result, savedImageTask) =>
         {
             int generation = Volatile.Read(ref _visionDetectionGeneration);
+            if (result.DefectCount > 0)
+            {
+                lock (_visionResultSync) _pendingVisionDefect = (result, savedImageTask);
+            }
             Dispatcher.BeginInvoke(() =>
             {
-                if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionResult(defectCount);
+                if (IsVisionDetectionResultCurrent(generation)) VisionCameraPanel.ShowDetectionResult(result.DefectCount);
             });
         };
         _visionSoftware.DetectionFailed += failure =>
@@ -534,6 +542,7 @@ public partial class MainWindow : Window
         _loadDataWindow?.Close();
         _plotWindow?.Close();
         _cameraPreviewWindow?.Close();
+        _visionDefectWindow?.Close();
         ReleaseCameraInBackground();
         CloseManualXpsDocument();
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
@@ -2636,6 +2645,31 @@ public partial class MainWindow : Window
         VisionCameraPanel.StopDetectionSaving();
 
         _ = _visionSoftware.EndAsync();
+    }
+
+    private async Task ShowPendingVisionDefectAsync()
+    {
+        (RingInspect.Api.Detection.DetectResult Result, Task<string> SavedImageTask)? pending;
+        lock (_visionResultSync)
+        {
+            pending = _pendingVisionDefect;
+            _pendingVisionDefect = null;
+        }
+        if (pending is null || _isClosing) return;
+        string imagePath;
+        try { imagePath = await pending.Value.SavedImageTask; }
+        catch (Exception exception)
+        {
+            if (!_isClosing) ShowWarning($"缺陷图片保存失败：{exception.Message}");
+            return;
+        }
+        if (_isClosing) return;
+        if (_visionDefectWindow is { IsVisible: true }) _visionDefectWindow.Close();
+        _visionDefectWindow = new VisionDefectWindow { Owner = this };
+        _visionDefectWindow.Closed += (_, _) => _visionDefectWindow = null;
+        _visionDefectWindow.ShowResult(imagePath, pending.Value.Result);
+        _visionDefectWindow.Show();
+        _visionDefectWindow.Activate();
     }
 
     private void OpenVisionSettings_Click(object sender, RoutedEventArgs e) => ShowVisionDebugSettings();

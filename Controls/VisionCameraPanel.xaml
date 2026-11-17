@@ -39,7 +39,7 @@
       </Grid>
     </Viewbox>
     <Border x:Name="CameraPreviewBorder" Grid.Row="1" Background="#111827" Margin="0,0,0,8">
-      <Grid x:Name="CameraViewport" Background="Transparent" ClipToBounds="True" SizeChanged="CameraViewport_SizeChanged" PreviewMouseWheel="CameraViewport_MouseWheel" PreviewMouseLeftButtonDown="CameraViewport_MouseLeftButtonDown" PreviewMouseMove="CameraViewport_MouseMove" PreviewMouseLeftButtonUp="CameraViewport_MouseLeftButtonUp" LostMouseCapture="CameraViewport_LostMouseCapture">
+      <Grid x:Name="CameraViewport" Background="Transparent" ClipToBounds="True">
         <Canvas x:Name="CameraImageCanvas" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" Background="Transparent">
           <Image x:Name="CameraImage" Stretch="Fill" HorizontalAlignment="Left" VerticalAlignment="Top" />
         </Canvas>

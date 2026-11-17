@@ -27,6 +27,36 @@ public static class ImageCodec
     private static readonly bool FastDecodeDisabled =
         Environment.GetEnvironmentVariable("RINGINSPECT_NO_FASTDECODE") == "1";
 
+    /// <summary>
+    /// 按路径读整文件：按长度一次分配（未清零）+ 顺序扫描标志，比 File.ReadAllBytes 少一次 35MB 清零；
+    /// 共享方式放开读写，上位机原地覆盖同一张图时也能读。
+    /// </summary>
+    public static byte[] ReadAllBytesFast(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
+        long lenL = fs.Length;
+        if (lenL <= 0) throw new IOException("文件大小不合法");
+        int len = (int)lenL;
+        var buf = GC.AllocateUninitializedArray<byte>(len);
+        int read = 0;
+        while (read < len)
+        {
+            int n = fs.Read(buf, read, len - read);
+            if (n <= 0) break;
+            read += n;
+        }
+        if (read != len) Array.Resize(ref buf, read);
+        return buf;
+    }
+
+    /// <summary>
+    /// 按路径直接解码成 RGBA（桌面端 / 宿主用，省掉读文件 → base64 → 再解码的两次搬运）。
+    /// 与 <see cref="TryDecodeBytes"/> 完全等价，只是顺手把文件读进来。
+    /// </summary>
+    public static bool TryDecodeFile(string path, out byte[] rgba, out int width, out int height, out string? error)
+        => TryDecodeBytes(ReadAllBytesFast(path), out rgba, out width, out height, out error);
+
     /// <summary>从原始图片字节直接解出 RGBA（供"本地路径"接口使用，跳过 base64）。</summary>
     public static bool TryDecodeBytes(byte[] bytes, out byte[] rgba, out int width, out int height, out string? error)
     {

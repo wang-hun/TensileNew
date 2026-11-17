@@ -54,7 +54,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     }
 
     public event Action? DetectionStarted;
-    public event Action<int>? DetectionCompleted;
+    public event Action<DetectResult, Task<string>>? DetectionCompleted;
     public event Action<string>? DetectionFailed;
 
     public async Task<bool> StartAsync()
@@ -110,7 +110,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         ReportFailure($"视觉识别图片保存失败：{exception.Message}");
     }
 
-    public void ImagePublished(string imagePath)
+    public void ImagePublished(string imagePath, Task<string> savedImageTask)
     {
         if (string.IsNullOrWhiteSpace(imagePath)) return;
 
@@ -118,7 +118,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         lock (_sessionSync)
         {
             if (!_active || _detectEndpoint is null || _activeSessionCancellation is null) return;
-            work = new DetectionWork(imagePath, Volatile.Read(ref _sessionGeneration), _settings.VisionTimingEnabled ? Stopwatch.GetTimestamp() : 0, _activeSessionCancellation.Token);
+            work = new DetectionWork(imagePath, savedImageTask, Volatile.Read(ref _sessionGeneration), _settings.VisionTimingEnabled ? Stopwatch.GetTimestamp() : 0, _activeSessionCancellation.Token);
         }
 
         if (!_detectionQueue.Writer.TryWrite(work))
@@ -186,7 +186,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             }
 
             Interlocked.Exchange(ref _failureNotified, 0);
-            DetectionCompleted?.Invoke(result.DefectCount);
+            DetectionCompleted?.Invoke(result, work.SavedImageTask);
             if (measureTiming)
                 Logger.Info("RingInspect 检测完成：{0}，缺陷数 {1}，API算法 {2:F1}ms，HTTP往返及解析 {3:F1}ms，检测队列等待 {4:F1}ms。",
                     result.Verdict ?? "完成", result.DefectCount, result.TimeMs, httpMilliseconds, queueWaitMilliseconds);
@@ -356,5 +356,5 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         _apiRequestGate.Dispose();
     }
 
-    private sealed record DetectionWork(string ImagePath, int SessionGeneration, long QueuedAtTimestamp, CancellationToken SessionToken);
+    private sealed record DetectionWork(string ImagePath, Task<string> SavedImageTask, int SessionGeneration, long QueuedAtTimestamp, CancellationToken SessionToken);
 }

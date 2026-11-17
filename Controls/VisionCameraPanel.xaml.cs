@@ -13,9 +13,6 @@ namespace TensileNeW.Controls;
 
 public partial class VisionCameraPanel : System.Windows.Controls.UserControl
 {
-    private const double MinimumImageZoom = 0.1;
-    private const double MaximumImageZoom = 16;
-    private const double ImageZoomStep = 1.15;
     private const double MinimumPreviewHeight = 120;
     private readonly DispatcherTimer _parameterTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _saveTimer = new();
@@ -41,20 +38,13 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private bool _isLoadingDevices;
     private bool _isConnecting;
     private string? _connectedDeviceId;
-    private readonly ScaleTransform _imageScale = new(1, 1);
-    private readonly TranslateTransform _imageTranslation = new();
-    private double _fitScale = 1;
-    private double _userZoom = 1;
-    private bool _imageViewAdjusted;
-    private Point _dragStartPointer;
-    private Point _dragStartTranslation;
-    private bool _isDraggingImage;
+    private readonly ZoomableImageViewport _imageViewport;
     private VisionCameraPreferences _preferences = new(string.Empty, string.Empty, string.Empty);
 
     public VisionCameraPanel()
     {
         InitializeComponent();
-        CameraImageCanvas.RenderTransform = new TransformGroup { Children = { _imageScale, _imageTranslation } };
+        _imageViewport = new ZoomableImageViewport(CameraViewport, CameraImageCanvas, () => ResetImageViewButton.IsMouseOver);
         SavePathTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ECS");
         _parameterTimer.Tick += async (_, _) => await ReadParametersAsync(false);
         _saveTimer.Tick += async (_, _) => await QueueContinuousImageAsync();
@@ -138,7 +128,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         }
     }
 
-    public Action<string>? DetectionImageSaved { get; set; }
+    public Action<string, Task<string>>? DetectionImageSaved { get; set; }
     public Action<Exception>? DetectionImageFailed { get; set; }
 
     public async Task EnsureCaptureAsync()
@@ -632,10 +622,9 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
                     CameraImageCanvas.Height = image.Height;
                     CameraImage.Width = image.Width;
                     CameraImage.Height = image.Height;
-                    _imageViewAdjusted = false;
+                    _imageViewport.ImageSizeChanged();
                 }
                 ResetImageViewButton.IsEnabled = true;
-                if (!_imageViewAdjusted) ResetImageView();
                 ImageHintPanel.Visibility = Visibility.Collapsed;
                 UpdateControlAvailability();
             });
@@ -650,91 +639,7 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         }
     }
 
-    private void CameraViewport_MouseWheel(object sender, MouseWheelEventArgs e)
-    {
-        if (CameraImage.Source is null) return;
-        Point pointer = e.GetPosition(CameraViewport);
-        double factor = e.Delta > 0 ? ImageZoomStep : 1 / ImageZoomStep;
-        double zoom = Math.Clamp(_userZoom * factor, MinimumImageZoom, MaximumImageZoom);
-        factor = zoom / _userZoom;
-        _userZoom = zoom;
-        _imageViewAdjusted = true;
-        _imageTranslation.X = pointer.X - (pointer.X - _imageTranslation.X) * factor;
-        _imageTranslation.Y = pointer.Y - (pointer.Y - _imageTranslation.Y) * factor;
-        _imageScale.ScaleX = _fitScale * _userZoom;
-        _imageScale.ScaleY = _fitScale * _userZoom;
-        ConstrainImageTranslation();
-        e.Handled = true;
-    }
-
-    private void CameraViewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (CameraImage.Source is null) return;
-        if (ResetImageViewButton.IsMouseOver) return;
-        _isDraggingImage = true;
-        _dragStartPointer = e.GetPosition(CameraViewport);
-        _dragStartTranslation = new Point(_imageTranslation.X, _imageTranslation.Y);
-        _imageViewAdjusted = true;
-        CameraViewport.Cursor = Cursors.SizeAll;
-        CameraViewport.CaptureMouse();
-        e.Handled = true;
-    }
-
-    private void CameraViewport_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDraggingImage) return;
-        Point pointer = e.GetPosition(CameraViewport);
-        _imageTranslation.X = _dragStartTranslation.X + pointer.X - _dragStartPointer.X;
-        _imageTranslation.Y = _dragStartTranslation.Y + pointer.Y - _dragStartPointer.Y;
-        ConstrainImageTranslation();
-    }
-
-    private void CameraViewport_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!_isDraggingImage) return;
-        _isDraggingImage = false;
-        CameraViewport.ReleaseMouseCapture();
-        CameraViewport.Cursor = Cursors.Arrow;
-    }
-
-    private void CameraViewport_LostMouseCapture(object sender, MouseEventArgs e)
-    {
-        _isDraggingImage = false;
-        CameraViewport.Cursor = Cursors.Arrow;
-    }
-
-    private void CameraViewport_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (!_imageViewAdjusted) ResetImageView();
-        else ConstrainImageTranslation();
-    }
-
-    private void ResetImageView_Click(object sender, RoutedEventArgs e) => ResetImageView();
-
-    private void ResetImageView()
-    {
-        if (CameraImage.Source is not BitmapSource image || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
-        _fitScale = Math.Min(CameraViewport.ActualWidth / image.Width, CameraViewport.ActualHeight / image.Height);
-        if (!double.IsFinite(_fitScale) || _fitScale <= 0) _fitScale = 1;
-        _userZoom = 1;
-        _imageScale.ScaleX = _fitScale;
-        _imageScale.ScaleY = _fitScale;
-        _imageTranslation.X = (CameraViewport.ActualWidth - image.Width * _fitScale) / 2;
-        _imageTranslation.Y = (CameraViewport.ActualHeight - image.Height * _fitScale) / 2;
-        _imageViewAdjusted = false;
-    }
-    private void ConstrainImageTranslation()
-    {
-        if (CameraImage.Source is null || CameraViewport.ActualWidth <= 0 || CameraViewport.ActualHeight <= 0) return;
-        double scaledWidth = CameraImageCanvas.Width * _imageScale.ScaleX;
-        double scaledHeight = CameraImageCanvas.Height * _imageScale.ScaleY;
-        _imageTranslation.X = scaledWidth <= CameraViewport.ActualWidth
-            ? (CameraViewport.ActualWidth - scaledWidth) / 2
-            : Math.Clamp(_imageTranslation.X, CameraViewport.ActualWidth - scaledWidth, 0);
-        _imageTranslation.Y = scaledHeight <= CameraViewport.ActualHeight
-            ? (CameraViewport.ActualHeight - scaledHeight) / 2
-            : Math.Clamp(_imageTranslation.Y, CameraViewport.ActualHeight - scaledHeight, 0);
-    }
+    private void ResetImageView_Click(object sender, RoutedEventArgs e) => _imageViewport.Reset();
 
     private void Service_CaptureFailed(object? sender, VisionCameraErrorEventArgs e) => Dispatcher.BeginInvoke(async () =>
     {

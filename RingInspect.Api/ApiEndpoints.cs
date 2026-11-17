@@ -285,17 +285,17 @@ public static class ApiEndpoints
         app.MapGet("/api/detect/fast", async (HttpRequest http) =>
         {
             if (Paused() is { } paused) return paused;
-            if (NotArmed() is { } armed) return armed;
+            if (NotArmed() is { } armed && !IsInternalCall(http)) return armed;
             var raw = http.Query["path"].ToString();
             if (string.IsNullOrWhiteSpace(raw)) raw = DefaultImagePath?.Invoke() ?? "";
             if (!TryResolvePath(raw, out var full, out var err)) return Error("BAD_PATH", err!);
             return await ExecuteFastAsync(full);
         });
 
-        app.MapPost("/api/detect/fast", async (PathRequest? req) =>
+        app.MapPost("/api/detect/fast", async (PathRequest? req, HttpRequest http) =>
         {
             if (Paused() is { } paused) return paused;
-            if (NotArmed() is { } armed) return armed;
+            if (NotArmed() is { } armed && !IsInternalCall(http)) return armed;
             var raw = req?.GetPath();
             if (string.IsNullOrWhiteSpace(raw)) raw = DefaultImagePath?.Invoke() ?? "";
             if (!TryResolvePath(raw, out var full, out var err)) return Error("BAD_PATH", err!);
@@ -735,26 +735,15 @@ public static class ApiEndpoints
     }
 
     /// <summary>
-    /// 读整文件：按长度一次分配（未清零）+ 顺序扫描标志，省掉 File.ReadAllBytes 的 35MB 清零。
-    /// 共享方式放开读写，上位机原地覆盖同一张图时也能读。
+    /// 读整文件：委托给 ImageCodec.ReadAllBytesFast（未清零直读 + 放开共享读写），
+    /// 这里额外守住单张图片的体积上限。
     /// </summary>
     private static byte[] ReadFileFast(string full)
     {
-        using var fs = new FileStream(full, FileMode.Open, FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
-        long lenL = fs.Length;
-        if (lenL <= 0 || lenL > MaxImageBytes) throw new IOException("文件大小不合法");
-        int len = (int)lenL;
-        var buf = GC.AllocateUninitializedArray<byte>(len);
-        int read = 0;
-        while (read < len)
-        {
-            int n = fs.Read(buf, read, len - read);
-            if (n <= 0) break;
-            read += n;
-        }
-        if (read != len) Array.Resize(ref buf, read);
-        return buf;
+        var info = new FileInfo(full);
+        if (!info.Exists) throw new FileNotFoundException("文件不存在");
+        if (info.Length <= 0 || info.Length > MaxImageBytes) throw new IOException("文件大小不合法");
+        return ImageCodec.ReadAllBytesFast(full);
     }
 
     private static DetectResult RunDetect(byte[] rgba, int w, int h, DetectParams p,
@@ -867,6 +856,13 @@ public static class ApiEndpoints
             : Error("DETECTION_PAUSED",
                     "检测已暂停（开关已关闭）。用桌面界面的开关或 POST /api/switch {\"enabled\":true} 恢复。",
                     409);
+
+    /// <summary>
+    /// 桌面端自己发起的调用（界面里选了「走接口」）带这个头，不受联机武装限制：
+    /// 上位机没发 start 时，本机界面照样能自己批量检测。
+    /// </summary>
+    private static bool IsInternalCall(HttpRequest http) =>
+        http.Headers.TryGetValue("X-RingInspect-Internal", out var v) && v.ToString() == "1";
 
     /// <summary>联机武装检查：上位机还没发 start（或已发 end）时，极速接口不接单。</summary>
     private static IResult? NotArmed() =>

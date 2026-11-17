@@ -26,7 +26,7 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         _writerThread.Start();
     }
 
-    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action<string>? latestSaved = null, Func<bool>? mayPublish = null, Func<string, Task>? nativeSave = null)
+    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action<string, Task<string>>? latestSaved = null, Func<bool>? mayPublish = null, Func<string, Task>? nativeSave = null)
     {
         SaveRequest request = CreateRequest(image, directory, latestPath, latestSaved, mayPublish, nativeSave);
         await _requests.Writer.WriteAsync(request, ct).ConfigureAwait(false);
@@ -39,7 +39,7 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         await Task.Run(_writerThread.Join).ConfigureAwait(false);
     }
 
-    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action<string>? latestSaved, Func<bool>? mayPublish, Func<string, Task>? nativeSave)
+    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action<string, Task<string>>? latestSaved, Func<bool>? mayPublish, Func<string, Task>? nativeSave)
     {
         string filePath = Path.Combine(directory, $"相机_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Interlocked.Increment(ref _fileSequence):D6}.bmp");
         TaskCompletionSource<string> result = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -66,7 +66,7 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
                         SaveImage(request.Image, request.LatestPath!, request.NativeSave, overwrite: true);
                         if (stage is not null) fixedWriteMilliseconds = stage.Elapsed.TotalMilliseconds;
                         Stopwatch? handoff = measureTiming ? Stopwatch.StartNew() : null;
-                        request.LatestSaved?.Invoke(request.LatestPath!);
+                        request.LatestSaved?.Invoke(request.LatestPath!, request.Completion.Task);
                         if (handoff is not null)
                             Logger.Info("视觉检测图片交接：保存队列等待 {0:F1}ms，固定路径落盘 {1:F1}ms，路径入检测队列 {2:F1}ms。",
                                 queueWaitMilliseconds, fixedWriteMilliseconds, handoff.Elapsed.TotalMilliseconds);
@@ -119,5 +119,5 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
             if (overwrite && File.Exists(targetPath)) File.Delete(targetPath);
         }
     }
-    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action<string>? LatestSaved, Func<bool>? MayPublish, Func<string, Task>? NativeSave, long QueuedAtTimestamp);
+    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action<string, Task<string>>? LatestSaved, Func<bool>? MayPublish, Func<string, Task>? NativeSave, long QueuedAtTimestamp);
 }
