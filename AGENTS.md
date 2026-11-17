@@ -418,8 +418,8 @@ dotnet build .\TensileNeW.csproj
 - 打包工具必须把新视觉包含标记写入 `Setting.json`，且不得仅依赖旧 `VisionModuleEnabled` 判断新视觉；安装器和 demo 不得把摄像头或旧视觉逻辑回流到新视觉模块。
 - The vision settings dialog persists the API enable switch, two-stage automation, host/port, fixed BMP path, and reply timeout. The camera page save interval is the only image cadence; legacy detection-interval settings are ignored. Relative image paths resolve from the application directory.
 - 主窗口 SDK 相机页“是否启用自动判断”复用并持久化 `VisionSoftwareEnabled`；关闭时立即结束识别，打开时仅在二段速执行中启动识别。设置变化、二段速状态变化和异步识别结果均按会话代次校验，过期操作不得启动残留采集或触发停机。
-- During second-stage execution, automatic judgment enables the same camera-page save timer and cadence. Each due tick submits one BMP save; when judgment is active, the writer copies that exact saved file to the fixed BMP path and hands its bytes to the detection queue. There is no detection timer, detection interval, second SDK request, or separate capture path. Stopping judgment removes only the copy/handoff behavior and leaves user continuous saving intact.
-- `VisionSoftwareService` 在主进程内托管 RingInspect API，启动后核验 `/api/health`，将严格检测请求在服务端串行执行并记录实际处理耗时；通过 `POST /api/detect/strict` 检测自动判断定时器产出的 BMP；`defectCount > 0` 才触发既有停机动作。图片保存 worker 不等待 HTTP；Base64、文件写盘/副本、检测队列等待、HTTP往返分别记录耗时，超时与 HTTP/API 业务失败分别提示；检测超时设置只限制 HTTP 请求与响应。
+- During second-stage execution, automatic judgment enables the same camera-page save timer and cadence. Each due tick submits one BMP save; when judgment is active, the writer copies that exact saved file to the fixed BMP path and hands its path to the detection queue. There is no detection timer, detection interval, second SDK request, or separate capture path. Stopping judgment removes only the copy/handoff behavior and leaves user continuous saving intact.
+- `VisionSoftwareService` 在主进程内托管 RingInspect API，先注册路由再启动并核验 `/api/health`，将严格检测请求在服务端串行执行并记录实际处理耗时；通过 `POST /api/detect/fast` 传入自动判断保存的 BMP 路径（固定严格预设、读盘/解码异常短暂重试）；`defectCount > 0` 才触发既有停机动作。图片保存 worker 不等待 HTTP；文件写盘/副本、检测队列等待、HTTP 往返分别记录耗时，超时与 HTTP/API 业务失败分别提示；检测超时设置只限制 HTTP 请求与响应。
 二段速状态机实现细则：
 
 - 二段速确认必须使用产品现有 WPF 弹窗风格，不得调用 `System.Windows.MessageBox`，按钮文案固定使用中文“是/否”；编辑窗口的校验错误也必须在产品窗口内显示，不得弹系统英文提示。

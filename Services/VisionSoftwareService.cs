@@ -285,6 +285,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                 _apiRequestGate.Release();
             }
         });
+        ApiEndpoints.Map(app);
         try
         {
             await app.StartAsync(_shutdown.Token).ConfigureAwait(false);
