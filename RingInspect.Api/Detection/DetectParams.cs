@@ -9,7 +9,7 @@ namespace RingInspect.Api.Detection;
 public sealed class DetectParams
 {
     [JsonPropertyName("darkTh")] public double DarkTh { get; set; } = 128;
-    [JsonPropertyName("debrisTh")] public double DebrisTh { get; set; } = 240;
+    [JsonPropertyName("debrisTh")] public double DebrisTh { get; set; } = 230;
     [JsonPropertyName("gap")] public double Gap { get; set; } = 3;
     [JsonPropertyName("band")] public double Band { get; set; } = 70;
     [JsonPropertyName("minArea")] public double MinArea { get; set; } = 14;
