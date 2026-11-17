@@ -10,6 +10,7 @@ public sealed class VisionDebugSettingsWindow : Window
 {
     private readonly CheckBox _enabled = new() { Content = "启用视觉软件", Margin = new Thickness(0, 4, 0, 4) };
     private readonly CheckBox _automatic = new() { Content = "二段速自动切换", Margin = new Thickness(0, 4, 0, 4) };
+    private readonly CheckBox _timing = new() { Content = "记录视觉处理耗时", Margin = new Thickness(0, 4, 0, 4) };
     private readonly TextBox _host = new();
     private readonly TextBox _port = new();
     private readonly TextBox _directory = new();
@@ -33,10 +34,13 @@ public sealed class VisionDebugSettingsWindow : Window
         Content = panel;
         _enabled.IsChecked = setting.VisionSoftwareEnabled;
         _automatic.IsChecked = setting.TwoStageAutomaticSwitch;
+        _timing.IsChecked = setting.VisionTimingEnabled;
         _enabled.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
         _automatic.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
+        _timing.SetResourceReference(ForegroundProperty, "AppMetricNameForegroundBrush");
         panel.Children.Add(_enabled);
         panel.Children.Add(_automatic);
+        panel.Children.Add(_timing);
         AddField(panel, "识别软件 IP", _host, setting.VisionSoftwareHost);
         AddField(panel, "端口", _port, setting.VisionSoftwarePort.ToString());
         AddField(panel, "识别图片目录（相对程序目录或绝对路径）", _directory, setting.VisionSoftwareImageDirectory);
@@ -79,6 +83,7 @@ public sealed class VisionDebugSettingsWindow : Window
         }
         _setting.VisionSoftwareEnabled = _enabled.IsChecked == true;
         _setting.TwoStageAutomaticSwitch = _automatic.IsChecked == true;
+        _setting.VisionTimingEnabled = _timing.IsChecked == true;
         _setting.VisionSoftwareHost = _host.Text.Trim();
         _setting.VisionSoftwarePort = port;
         _setting.VisionSoftwareImageDirectory = _directory.Text.Trim();

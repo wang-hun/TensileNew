@@ -36,3 +36,8 @@ public interface IVisionCameraServiceFactory
 {
     IVisionCameraService Create();
 }
+
+public interface IVisionCameraNativeImageSaver
+{
+    Task SaveFrameAsync(string filePath, CancellationToken cancellationToken = default);
+}

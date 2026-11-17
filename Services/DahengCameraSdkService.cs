@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using GxIAPINET;
 using NLog;
+using TensileNeW.Models;
 
 namespace TensileNeW.Services;
 
@@ -12,7 +14,7 @@ public sealed class DahengCameraSdkServiceFactory : IVisionCameraServiceFactory
     public IVisionCameraService Create() => new DahengCameraSdkService();
 }
 
-public sealed class DahengCameraSdkService : IVisionCameraService
+public sealed class DahengCameraSdkService : IVisionCameraService, IVisionCameraNativeImageSaver
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const int ImageWaitMilliseconds = 500;
@@ -32,6 +34,7 @@ public sealed class DahengCameraSdkService : IVisionCameraService
     private volatile bool _disposed;
     private Exception? _initializationError;
     private string? _connectedDeviceId;
+    private (string Path, TaskCompletionSource<bool> Completion)? _pendingSave;
 
     public event EventHandler<VisionCameraFrameEventArgs>? FrameArrived;
     public event EventHandler<VisionCameraErrorEventArgs>? CaptureFailed;
@@ -105,6 +108,17 @@ public sealed class DahengCameraSdkService : IVisionCameraService
     public Task StopCaptureAsync(CancellationToken cancellationToken = default) =>
         RunOnWorkerAsync(StopCaptureCore, cancellationToken);
 
+    public async Task SaveFrameAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        await RunOnWorkerAsync(() =>
+        {
+            if (!_capturing) throw new InvalidOperationException("相机尚未采集图像。");
+            if (_pendingSave is not null) throw new InvalidOperationException("相机图片保存尚未完成。");
+            _pendingSave = (filePath, completion);
+        }, cancellationToken).ConfigureAwait(false);
+        await completion.Task.ConfigureAwait(false);
+    }
     public Task<VisionCameraParameters> GetParametersAsync(CancellationToken cancellationToken = default) => RunOnWorkerAsync(() =>
     {
         if (!_connected || _features is null) throw new InvalidOperationException("相机尚未连接。");
@@ -182,9 +196,11 @@ public sealed class DahengCameraSdkService : IVisionCameraService
                     if (consecutiveImageTimeouts == 3 || consecutiveImageTimeouts % ImageTimeoutWarningInterval == 0)
                         Logger.Warn(exception, "大恒相机尚未收到图像，继续等待；设备序列号：{0}；连续等待超时次数：{1}",
                             _connectedDeviceId, consecutiveImageTimeouts);
+                    if (consecutiveImageTimeouts >= 3) FailPendingSave(new TimeoutException("等待大恒相机保存帧超时。", exception));
                     continue;
                 }
                 Logger.Error(exception, "大恒相机实时采集失败；设备序列号：{0}", _connectedDeviceId);
+                FailPendingSave(exception);
                 consecutiveImageTimeouts = 0;
                 try { StopCaptureCore(); }
                 catch (Exception stopException)
@@ -208,14 +224,18 @@ public sealed class DahengCameraSdkService : IVisionCameraService
         if (frame is null) return false;
         try
         {
-            if (frame.GetStatus() != GX_FRAME_STATUS_LIST.GX_FRAME_STATUS_SUCCESS) return false;
+            if (frame.GetStatus() != GX_FRAME_STATUS_LIST.GX_FRAME_STATUS_SUCCESS)
+            {
+                FailPendingSave(new InvalidOperationException("相机返回的图像帧无效。"));
+                return false;
+            }
             int width = checked((int)frame.GetWidth());
             int height = checked((int)frame.GetHeight());
-            int length = checked(width * height * 3);
+            SavePendingFrame(frame);
             IntPtr source = frame.GetBuffer();
-            if (frame.GetPixelFormat() != GX_PIXEL_FORMAT_ENTRY.GX_PIXEL_FORMAT_BGR8)
+            if (frame.GetPixelFormat() != GX_PIXEL_FORMAT_ENTRY.GX_PIXEL_FORMAT_MONO8)
             {
-                _converter!.SetDstFormat(GX_PIXEL_FORMAT_ENTRY.GX_PIXEL_FORMAT_BGR8);
+                _converter!.SetDstFormat(GX_PIXEL_FORMAT_ENTRY.GX_PIXEL_FORMAT_MONO8);
                 ulong required = _converter.GetBufferSizeForConversion(frame);
                 if (required > _conversionCapacity)
                 {
@@ -226,18 +246,55 @@ public sealed class DahengCameraSdkService : IVisionCameraService
                 _converter.Convert(frame, _conversionBuffer, required, false);
                 source = _conversionBuffer;
             }
+
+            int length = checked(width * height);
             byte[] pixels = new byte[length];
             Marshal.Copy(source, pixels, 0, length);
-            BitmapSource image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgr24, null, pixels, width * 3);
+            BitmapSource image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Gray8, null, pixels, width);
             image.Freeze();
             FrameArrived?.Invoke(this, new VisionCameraFrameEventArgs(image));
             return true;
         }
         finally { frame.Destroy(); }
     }
+    private void SavePendingFrame(IImageData frame)
+    {
+        if (_pendingSave is not { } request) return;
+        _pendingSave = null;
+        try
+        {
+            GX_PIXEL_FORMAT_ENTRY format = frame.GetPixelFormat();
+            if (!format.ToString().StartsWith("GX_PIXEL_FORMAT_MONO", StringComparison.Ordinal))
+                throw new InvalidOperationException($"相机输出格式 {format} 不是灰度图像。");
+            GX_SAVE_IMAGE_INFO saveInfo = new()
+            {
+                pImageBuffer = frame.GetBuffer(),
+                nWidth = checked((uint)frame.GetWidth()),
+                nHeight = checked((uint)frame.GetHeight()),
+                emSrcFormat = format,
+                emCfaMethod = GX_CFA_METHOD.GX_CFA_METHOD_BALANCE,
+                emImgFormat = GX_IMAGE_FORMAT_TYPE.GX_IMAGE_FORMAT_BMP,
+                pImgPath = request.Path
+            };
+            Stopwatch? saveClock = RAM.SettingModel?.VisionTimingEnabled != false ? Stopwatch.StartNew() : null;
+            _factory!.SaveImage(ref saveInfo);
+            if (saveClock is not null)
+                Logger.Info("大恒 SDK 灰度帧原生保存耗时 {0:F1}ms，像素格式 {1}。", saveClock.Elapsed.TotalMilliseconds, format);
+            request.Completion.TrySetResult(true);
+        }
+        catch (Exception exception) { request.Completion.TrySetException(exception); }
+    }
+
+    private void FailPendingSave(Exception exception)
+    {
+        if (_pendingSave is not { } request) return;
+        _pendingSave = null;
+        request.Completion.TrySetException(exception);
+    }
 
     private void StopCaptureCore()
     {
+        FailPendingSave(new InvalidOperationException("相机采集已停止。"));
         if (!_capturing) return;
         _capturing = false;
         try { _features?.GetCommandFeature("AcquisitionStop").Execute(); }

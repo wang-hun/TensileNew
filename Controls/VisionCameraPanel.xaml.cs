@@ -459,7 +459,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         UpdateControlAvailability();
         try
         {
-            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory);
+            Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory,
+                nativeSave: _service is IVisionCameraNativeImageSaver saver ? path => saver.SaveFrameAsync(path) : null);
             string file = await completion;
             if (_saveQueueFailure is null) SetSaveStatus($"图片已保存：{Path.GetFileName(file)}");
         }
@@ -516,7 +517,8 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             string? detectionPath = DetectionImagePath;
             int detectionGeneration = Volatile.Read(ref _detectionImageGeneration);
             Task<string> completion = await _imageSaveQueue.QueueAsync(image, directory, latestPath: detectionPath,
-                latestSaved: DetectionImageSaved, mayPublish: () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration), latestFailed: DetectionImageFailed, latestPublishing: DetectionImagePublishing);
+                latestSaved: DetectionImageSaved, mayPublish: () => detectionGeneration == Volatile.Read(ref _detectionImageGeneration), latestFailed: DetectionImageFailed, latestPublishing: DetectionImagePublishing,
+                nativeSave: _service is IVisionCameraNativeImageSaver saver ? path => saver.SaveFrameAsync(path) : null);
             SetSaveStatus("图片已加入后台保存队列。");
             _ = ObserveQueuedSaveAsync(completion);
         }

@@ -1,12 +1,16 @@
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Channels;
 using System.Windows.Media.Imaging;
+using NLog;
+using TensileNeW.Models;
 
 namespace TensileNeW.Services;
 
 public sealed class VisionImageSaveQueue : IAsyncDisposable
 {
     private const int QueueCapacity = 2;
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly Channel<SaveRequest> _requests = Channel.CreateBounded<SaveRequest>(new BoundedChannelOptions(QueueCapacity)
     {
         FullMode = BoundedChannelFullMode.Wait,
@@ -26,9 +30,9 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         _writerThread.Start();
     }
 
-    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action? latestSaved = null, Func<bool>? mayPublish = null, Action<Exception>? latestFailed = null, Action? latestPublishing = null)
+    public async ValueTask<Task<string>> QueueAsync(BitmapSource image, string directory, CancellationToken ct = default, string? latestPath = null, Action? latestSaved = null, Func<bool>? mayPublish = null, Action<Exception>? latestFailed = null, Action? latestPublishing = null, Func<string, Task>? nativeSave = null)
     {
-        SaveRequest request = CreateRequest(image, directory, latestPath, latestSaved, mayPublish, latestFailed, latestPublishing);
+        SaveRequest request = CreateRequest(image, directory, latestPath, latestSaved, mayPublish, latestFailed, latestPublishing, nativeSave);
         await _requests.Writer.WriteAsync(request, ct).ConfigureAwait(false);
         return request.Completion.Task;
     }
@@ -39,11 +43,11 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         await Task.Run(_writerThread.Join).ConfigureAwait(false);
     }
 
-    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action? latestSaved, Func<bool>? mayPublish, Action<Exception>? latestFailed, Action? latestPublishing)
+    private SaveRequest CreateRequest(BitmapSource image, string directory, string? latestPath, Action? latestSaved, Func<bool>? mayPublish, Action<Exception>? latestFailed, Action? latestPublishing, Func<string, Task>? nativeSave)
     {
         string filePath = Path.Combine(directory, $"相机_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Interlocked.Increment(ref _fileSequence):D6}.bmp");
         TaskCompletionSource<string> result = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        return new SaveRequest(image, filePath, result, latestPath, latestSaved, mayPublish, latestFailed, latestPublishing);
+        return new SaveRequest(image, filePath, result, latestPath, latestSaved, mayPublish, latestFailed, latestPublishing, nativeSave, RAM.SettingModel?.VisionTimingEnabled != false ? Stopwatch.GetTimestamp() : 0);
     }
 
     private void ImageWriterLoop()
@@ -54,7 +58,11 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
             {
                 try
                 {
-                    SaveImage(request.Image, request.FilePath);
+                    bool measureTiming = request.QueuedAtTimestamp != 0 && RAM.SettingModel?.VisionTimingEnabled != false;
+                    double queueWaitMilliseconds = measureTiming ? Stopwatch.GetElapsedTime(request.QueuedAtTimestamp).TotalMilliseconds : 0;
+                    Stopwatch? total = measureTiming ? Stopwatch.StartNew() : null;
+                    SaveImage(request.Image, request.FilePath, request.NativeSave);
+                    double saveMilliseconds = total?.Elapsed.TotalMilliseconds ?? 0;
                     if (request.LatestPath is not null && request.MayPublish?.Invoke() != false)
                     {
                         try
@@ -73,6 +81,9 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
                         }
                         catch (Exception exception) { request.LatestFailed?.Invoke(exception); }
                     }
+                    if (total is not null)
+                        Logger.Info("视觉图片保存完成：队列等待 {0:F1}ms，图像写盘 {1:F1}ms，固定路径复制交接 {2:F1}ms，文件 {3}。",
+                            queueWaitMilliseconds, saveMilliseconds, total.Elapsed.TotalMilliseconds - saveMilliseconds, request.FilePath);
                     request.Completion.TrySetResult(request.FilePath);
                 }
                 catch (Exception exception)
@@ -86,16 +97,21 @@ public sealed class VisionImageSaveQueue : IAsyncDisposable
         }
     }
 
-    private static void SaveImage(BitmapSource image, string filePath)
+    private static void SaveImage(BitmapSource image, string filePath, Func<string, Task>? nativeSave)
     {
         string? directory = Path.GetDirectoryName(filePath);
         if (string.IsNullOrWhiteSpace(directory)) throw new InvalidOperationException("图片保存路径无效。");
         Directory.CreateDirectory(directory);
+        if (nativeSave is not null)
+        {
+            nativeSave(filePath).GetAwaiter().GetResult();
+            return;
+        }
         BmpBitmapEncoder encoder = new();
         encoder.Frames.Add(BitmapFrame.Create(image));
         using FileStream stream = new(filePath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         encoder.Save(stream);
     }
 
-    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action? LatestSaved, Func<bool>? MayPublish, Action<Exception>? LatestFailed, Action? LatestPublishing);
+    private sealed record SaveRequest(BitmapSource Image, string FilePath, TaskCompletionSource<string> Completion, string? LatestPath, Action? LatestSaved, Func<bool>? MayPublish, Action<Exception>? LatestFailed, Action? LatestPublishing, Func<string, Task>? NativeSave, long QueuedAtTimestamp);
 }
