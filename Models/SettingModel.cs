@@ -100,6 +100,9 @@ namespace TensileNeW.Models
         public string VisionCameraSavePath { get; set; } = string.Empty;
 
         public double VisionCameraSaveIntervalSeconds { get; set; } = 1;
+        public bool VisionCameraAutoSetParameters { get; set; }
+        public double VisionCameraExposure { get; set; } = 30000;
+        public double VisionCameraGain { get; set; } = 16;
 
         public bool VisionSoftwareEnabled { get; set; }
         public bool TwoStageAutomaticSwitch { get; set; } = true;

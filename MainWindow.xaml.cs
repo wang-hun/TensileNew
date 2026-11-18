@@ -253,6 +253,16 @@ public partial class MainWindow : Window
                 _viewModel.Setting.VisionCameraSavePath = preferences.SavePath;
                 _viewModel.Setting.VisionCameraSaveIntervalSeconds = preferences.SaveIntervalSeconds;
                 _viewModel.SaveSettings();
+            },
+            _viewModel.Setting.VisionCameraAutoSetParameters,
+            _viewModel.Setting.VisionCameraExposure,
+            _viewModel.Setting.VisionCameraGain,
+            (enabled, exposure, gain) =>
+            {
+                _viewModel.Setting.VisionCameraAutoSetParameters = enabled;
+                _viewModel.Setting.VisionCameraExposure = exposure;
+                _viewModel.Setting.VisionCameraGain = gain;
+                _viewModel.SaveSettings();
             });
         InitializeDacuButton();
         bool newVisionIncluded = NewVisionProcessingService.IsIncludedByPackage;

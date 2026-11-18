@@ -25,6 +25,10 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     private bool _parameterReadPending;
     private bool _updatingParameters;
     private bool _parametersEdited;
+    private bool _parameterSettingsInitialized;
+    private bool _autoSetParameters;
+    private double _automaticExposure = 30000;
+    private double _automaticGain = 16;
     private bool _isRefreshingDevices;
     private readonly VisionImageSaveQueue _imageSaveQueue = new();
     private string? _saveQueueFailure;
@@ -98,11 +102,20 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             - CameraPreviewBorder.Margin.Bottom);
     }
 
-    public void Configure(IVisionCameraService service, VisionCameraPreferences preferences, Action<VisionCameraPreferences> savePreferences)
+    public void Configure(IVisionCameraService service, VisionCameraPreferences preferences, Action<VisionCameraPreferences> savePreferences,
+        bool autoSetParameters, double exposure, double gain, Action<bool, double, double> saveParameterSettings)
     {
         _service = service;
         _preferences = preferences;
         _savePreferences = savePreferences;
+        _autoSetParameters = autoSetParameters;
+        _automaticExposure = double.IsFinite(exposure) ? exposure : 30000;
+        _automaticGain = double.IsFinite(gain) ? gain : 16;
+        _saveParameterSettings = saveParameterSettings;
+        ExposureTextBox.Text = _automaticExposure.ToString("0.###", CultureInfo.InvariantCulture);
+        GainTextBox.Text = _automaticGain.ToString("0.###", CultureInfo.InvariantCulture);
+        AutoSetParametersCheckBox.IsChecked = _autoSetParameters;
+        _parameterSettingsInitialized = true;
         SavePathTextBox.Text = string.IsNullOrWhiteSpace(preferences.SavePath)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "ECS")
             : preferences.SavePath;
@@ -115,6 +128,19 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     }
 
     private Action<VisionCameraPreferences>? _savePreferences;
+    private Action<bool, double, double>? _saveParameterSettings;
+
+    private void AutoSetParametersCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_parameterSettingsInitialized) return;
+        _autoSetParameters = AutoSetParametersCheckBox.IsChecked == true;
+        SaveParameterSettings();
+    }
+
+    private void SaveParameterSettings()
+    {
+        _saveParameterSettings?.Invoke(_autoSetParameters, _automaticExposure, _automaticGain);
+    }
 
     private string? _detectionImagePath;
     private int _detectionImageGeneration;
@@ -297,7 +323,20 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             ConnectionStatusText.Text = $"已连接：{device.DisplayName}";
             ConnectButton.Content = "已连接";
             SavePreferences(device);
-            await ReadParametersAsync(true);
+            bool autoSetAttempted = _autoSetParameters;
+            if (autoSetAttempted)
+            {
+                try
+                {
+                    await _service.SetParametersAsync(_automaticExposure, _automaticGain);
+                    SetStatus("已按开机设置应用相机参数");
+                }
+                catch (Exception exception)
+                {
+                    SetStatus($"自动设置相机参数失败：{exception.Message}");
+                }
+            }
+            await ReadParametersAsync(!autoSetAttempted);
             _parameterTimer.Start();
             UpdateControlAvailability();
             ImageHintText.Text = "相机已连接，点击“开始实时采集”显示实时画面。";
@@ -427,6 +466,9 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
         try
         {
             await _service.SetParametersAsync(exposure, gain);
+            _automaticExposure = exposure;
+            _automaticGain = gain;
+            SaveParameterSettings();
             _parametersEdited = false;
             await ReadParametersAsync(false);
             UpdateControlAvailability();
