@@ -1672,8 +1672,8 @@
               <DataGrid.Columns>
                 <DataGridTextColumn Header="变量名称" Binding="{Binding Name}" Width="300" />
                 <DataGridTextColumn Header="变量地址" Binding="{Binding Address}" Width="160" />
-                <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="160" />
-                <DataGridTextColumn Header="当前值" Binding="{Binding CurrentValue}" Width="*" />
+                <DataGridTextColumn Header="数据类型" Binding="{Binding DisplayDataType}" Width="160" />
+                <DataGridTextColumn Header="当前值" Binding="{Binding DisplayValue}" Width="*" />
               </DataGrid.Columns>
             </DataGrid>
           </Grid>

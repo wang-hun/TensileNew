@@ -27,7 +27,7 @@
 | 启动、主题、配置、PLC 首连 | `App.xaml.cs` → `App.Application_Startup()`、`TryConnectWithTimeoutAsync()` | `RAM.Init()`、`DataAqc.InitVariables()`、`StartupWaitWindow`、`MainWindow()` | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 主窗口交互与职责分区 | `MainWindow.xaml` 事件绑定 → `MainWindow.xaml.cs` / `MainWindow.MainWindow()` | 下列 partial、`MainViewModel`、Services | `MainWindow/AGENTS.md` |
 | 主窗口帮助 / 文档 | `MainWindow.xaml` → 帮助事件 | `MainWindow/MainWindow.Help.cs` → `ManualDocumentService` → `HelpDocumentViewer` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
-| PLC / 实时采集 | `MainViewModel.cs` → PLC 写入命令；`Models/DataAqc.cs` → `InitVariables()`、`TryConnect()`、`Refresh()`、`StartConsumers()` | `Tools/DeltaPLC2.cs`、`ModbusAddressHelper.cs`、`TrialDataStore` | `Models/AGENTS.md`、`Tools/AGENTS.md` |
+| PLC / 实时采集 | `MainViewModel.cs` → PLC 写入命令；`Models/DataAqc.cs` → `InitVariables()`、`TryConnect()`、`Refresh()`、`StartConsumers()` | `Tools/DeltaPLC2.cs`、`ModbusAddressHelper.cs`、`TrialDataStore` | `COMMUNICATION_PROTOCOL.md`（地址及含义）、`Models/AGENTS.md`、`Tools/AGENTS.md` |
 | 网络探测与恢复连接 | `MainWindow/MainWindow.Network.cs` → `RunNetworkProbeAndReconnectAsync()`、`TryConnectWithRetriesAsync()` | `NetworkAdapterProbeService`、`DataAqc.AutoReconnectSuspended` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 曲线 / 实时表格 / 回放 | `MainWindow.xaml.cs` → `InitializePlot()`、`LoadItems_ListChanged()`、`RenderPlayback()` | `LoadPlotController`、`TrialDataStore`、`PlotWindow` | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 摄像头 | `MainWindow.xaml.cs` → `InitializeCameraPreview()`、`ApplySelectedCameraAsync()` | `CameraCaptureService`、选择 / 预览窗口 | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
