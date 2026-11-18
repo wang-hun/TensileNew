@@ -13,10 +13,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
-    <Version>2.3.6.2611</Version>
-    <AssemblyVersion>2.3.6.2611</AssemblyVersion>
-    <FileVersion>2.3.6.2611</FileVersion>
-    <InformationalVersion>V2.3.6.2611 B-视觉特供</InformationalVersion>
+    <Version>2.3.7.2611</Version>
+    <AssemblyVersion>2.3.7.2611</AssemblyVersion>
+    <FileVersion>2.3.7.2611</FileVersion>
+    <InformationalVersion>V2.3.7.2611 B-视觉特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <CameraSdkBrand Condition="'$(CameraSdkBrand)' == ''">Both</CameraSdkBrand>
     <DefineConstants Condition="'$(CameraSdkBrand)' == 'MVS'">$(DefineConstants);CAMERA_MVS_ONLY</DefineConstants>
@@ -33,7 +33,6 @@
     <Compile Remove="BasicDemo\**" />
     <Compile Remove="builder\**" />
     <Compile Remove="**\bin\**" />
-    <Compile Remove="BasicDemo\**" />
     <Compile Remove="codex_obj\**" />
     <Compile Remove="demo\**" />
     <Compile Remove="helper\**" />
@@ -44,7 +43,6 @@
     <EmbeddedResource Remove="BasicDemo\**" />
     <EmbeddedResource Remove="builder\**" />
     <EmbeddedResource Remove="**\bin\**" />
-    <EmbeddedResource Remove="BasicDemo\**" />
     <EmbeddedResource Remove="codex_obj\**" />
     <EmbeddedResource Remove="demo\**" />
     <EmbeddedResource Remove="helper\**" />
@@ -55,7 +53,6 @@
     <None Remove="BasicDemo\**" />
     <None Remove="builder\**" />
     <None Remove="**\bin\**" />
-    <None Remove="BasicDemo\**" />
     <None Remove="codex_obj\**" />
     <None Remove="demo\**" />
     <None Remove="helper\**" />
@@ -66,7 +63,6 @@
     <Page Remove="BasicDemo\**" />
     <Page Remove="builder\**" />
     <Page Remove="**\bin\**" />
-    <Page Remove="BasicDemo\**" />
     <Page Remove="codex_obj\**" />
     <Page Remove="demo\**" />
     <Page Remove="helper\**" />

@@ -1611,6 +1611,11 @@ public partial class MainWindow : Window
 
     private void SaveData_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryPrepareConfiguredExcelFolder(out string configuredFolderPath))
+        {
+            return;
+        }
+
         using var _ = BeginCurrentTrialPlotScope();
         if (_viewModel.SaveDataAs())
         {
@@ -1622,8 +1627,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            string folderPath = RAM.SettingModel.ExcelFolderPath;
-            Directory.CreateDirectory(folderPath);
+            if (!TryPrepareConfiguredExcelFolder(out string folderPath))
+            {
+                return;
+            }
 
             Process.Start(new ProcessStartInfo
             {
@@ -1757,6 +1764,11 @@ public partial class MainWindow : Window
 
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
         bool saved = false;
+        if (!TryPrepareConfiguredExcelFolder(out string configuredFolderPath))
+        {
+            return;
+        }
+
         TrialDataStore.TrialPlaybackData? data = _selectedPlaybackData;
         if (data == null || data.Points.Count == 0)
         {
@@ -1767,7 +1779,7 @@ public partial class MainWindow : Window
         var dialog = new SaveFileDialog
         {
             Filter = "Excel (*.xlsx)|*.xlsx",
-            InitialDirectory = RAM.SettingModel.ExcelFolderPath,
+            InitialDirectory = configuredFolderPath,
             FileName = BuildPlaybackBaseFileName(data)
         };
         if (dialog.ShowDialog() != true)
@@ -1818,6 +1830,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!TryPrepareConfiguredExcelFolder(out string folderPath))
+        {
+            return;
+        }
+
         string? tempImagePath = null;
         var waitWindow = new StartupWaitWindow("正在保存回放试验报告，请稍后。");
         try
@@ -1826,8 +1843,6 @@ public partial class MainWindow : Window
             waitWindow.Show();
             await Task.Yield();
 
-            string folderPath = RAM.SettingModel.ExcelFolderPath;
-            Directory.CreateDirectory(folderPath);
             string baseFileName = BuildPlaybackBaseFileName(data);
             string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
             tempImagePath = CapturePlaybackPlotImageToTempFile();
@@ -1854,7 +1869,14 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.Error(ex, "保存回放试验报告失败。");
-            ShowError("回放试验报告保存失败");
+            if (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                ShowConfiguredSavePathWarning(folderPath);
+            }
+            else
+            {
+                ShowError("回放试验报告保存失败");
+            }
         }
         finally
         {
@@ -1934,7 +1956,11 @@ public partial class MainWindow : Window
         }
 
         bool shouldShowTrialDataSaveNotice = RAM.IsTrial && RAM.TrialDataSaveCount is 9 or 24 or 39 or 49 or 74 or 89 or 99;
-        string folderPath = RAM.SettingModel.ExcelFolderPath;
+        if (!TryPrepareConfiguredExcelFolder(out string folderPath))
+        {
+            return;
+        }
+
         using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         string? tempImagePath = null;
         bool saved = false;
@@ -1975,7 +2001,6 @@ public partial class MainWindow : Window
             string annotationName = _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty;
             string annotationContent = _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty;
             string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
-            Directory.CreateDirectory(folderPath);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
             string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
@@ -2035,7 +2060,14 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.Error(ex);
-            ShowError("数据和试验报告保存失败");
+            if (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                ShowConfiguredSavePathWarning(folderPath);
+            }
+            else
+            {
+                ShowError("数据和试验报告保存失败");
+            }
         }
         finally
         {
@@ -2184,11 +2216,16 @@ public partial class MainWindow : Window
 
     private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryPrepareConfiguredExcelFolder(out string configuredFolderPath))
+        {
+            return;
+        }
+
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
         {
             Filter = "Word (*.docx)|*.docx",
-            InitialDirectory = RAM.SettingModel.ExcelFolderPath,
+            InitialDirectory = configuredFolderPath,
             FileName = BuildBaseFileName(
                 SNModel.GetSn(),
                 recipeName,
@@ -2529,6 +2566,34 @@ public partial class MainWindow : Window
             _viewModel.SaveSettings();
             _visionSoftware.Reconnect();
         }
+    }
+
+    private bool TryPrepareConfiguredExcelFolder(out string folderPath)
+    {
+        string configuredPath = RAM.SettingModel.ExcelFolderPath?.Trim() ?? string.Empty;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                throw new ArgumentException("保存路径为空。", nameof(RAM.SettingModel.ExcelFolderPath));
+            }
+
+            folderPath = Path.GetFullPath(configuredPath);
+            Directory.CreateDirectory(folderPath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            folderPath = string.Empty;
+            Logger.Warn(ex, "无法创建或访问Excel保存路径。路径：{0}", configuredPath);
+            ShowConfiguredSavePathWarning(configuredPath);
+            return false;
+        }
+    }
+
+    private void ShowConfiguredSavePathWarning(string folderPath)
+    {
+        ShowWarning($"无法创建或写入Excel保存路径：{folderPath}{Environment.NewLine}请检查磁盘和路径权限，或到系统设置中更改保存路径后重试。");
     }
 
     private void OpenVariablesWindow_Click(object sender, RoutedEventArgs e)
