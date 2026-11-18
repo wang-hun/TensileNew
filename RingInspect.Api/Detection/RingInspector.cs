@@ -679,6 +679,9 @@ public sealed class RingInspector
                     }
                 }
                 if (area < minArea || maxOut < minReach) continue;
+                // 离焦灰雾/边缘暗影会被 debrisTh 切成一堆贴边小块，边界是柔和渐变；
+                // 真毛刺/碎屑边界锐利。只在「通过一条路径就可能是缺陷」之后才判，避免影响候选统计。
+                bool sharp = HasSharpBoundary(ptsX, ptsY, debLum, w, h);
                 double mx = sx / area, my = sy / area;
                 double cxx = 0, cyy = 0, cxy = 0;
                 for (int pi = 0; pi < area; pi++)
@@ -700,6 +703,7 @@ public sealed class RingInspector
                 bool isSlimSpike = freePts >= minFree && pcaLen >= 11 * s && elong >= p.MinElong;
                 bool isBigDetached = freePts >= JsRound(35 * s * s) && maxOut >= 20 * s;
                 if (!isSlimSpike && !isBigDetached) continue;
+                if (!sharp) continue;
                 double angle = Math.Atan2(my - cy0, mx - cx0) * 180 / Math.PI;
                 if (angle < 0) angle += 360;
                 if (!InAngleRange(angle, p.AngFrom, p.AngTo)) continue;
@@ -1238,6 +1242,47 @@ public sealed class RingInspector
         int r = a % m;
         return r < 0 ? r + m : r;
     }
+
+    /// <summary>
+    /// 缺陷块的边界锐度（blob 内梯度 p90）。离焦灰雾、边缘暗影的边界是柔和渐变，
+    /// 真毛刺/碎屑边界锐利；判据用来把「边缘过渡带被切成的一小块」剔除掉。
+    /// 像素太少时不判（返回 true）。
+    /// </summary>
+    private static bool HasSharpBoundary(List<int> xs, List<int> ys, byte[] lum, int w, int h)
+    {
+        Span<int> hist = stackalloc int[SharpHistBins];
+        hist.Clear();
+        int n = 0;
+        for (int i = 0; i < xs.Count; i++)
+        {
+            int x = xs[i], y = ys[i];
+            if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+            int p = y * w + x;
+            int gx = lum[p + 1] - lum[p - 1];
+            int gy = lum[p + w] - lum[p - w];
+            int g = (int)Math.Sqrt((gx * gx + gy * gy) * 0.25);
+            hist[g > SharpHistBins - 1 ? SharpHistBins - 1 : g]++;
+            n++;
+        }
+        if (n < 8) return true;
+        int need = (int)(n * 0.9), acc = 0;
+        for (int g = 0; g < SharpHistBins; g++)
+        {
+            acc += hist[g];
+            if (acc >= need) return g >= MinBlobGradP90;
+        }
+        return true;
+    }
+
+    /// <summary>梯度直方图桶数（梯度按 0~255 灰度/px 统计，超出并入最后一桶）。</summary>
+    private const int SharpHistBins = 256;
+
+    /// <summary>
+    /// blob 内梯度 p90 的下限；低于它视为离焦/灰雾形成的柔和边界，不算缺陷。
+    /// 现场可用环境变量 RINGINSPECT_GRAD_P90 覆盖（0 = 关闭该过滤，便于 A/B）。
+    /// </summary>
+    private static readonly int MinBlobGradP90 =
+        int.TryParse(Environment.GetEnvironmentVariable("RINGINSPECT_GRAD_P90"), out var _g) ? _g : 18;
 
     /// <summary>JS Math.round：.5 一律向上（向 +∞）取整。</summary>
     private static int JsRound(double v) => (int)Math.Floor(v + 0.5);
