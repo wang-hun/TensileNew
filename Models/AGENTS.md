@@ -13,6 +13,7 @@
 
 ## PLC 关键约束
 
+- PLC 变量地址、具体含义、读写范围及协议见 `../COMMUNICATION_PROTOCOL.md`；修改相关实现时同步维护该文档。
 - 当前通信实现为 `Tools/DeltaPLC2.cs`；`Tools/DeltaPLC.cs` 是旧实现。地址换算由 `Tools/ModbusAddressHelper.cs` 管理。
 - Unit ID 默认 1、端口默认 502；修改连接、重连或采集须检查后台线程、连接锁和 UI Dispatcher。
 - 连接成功后只读一次 `D40` 版本并缓存冲程压边目标线圈；按键只使用缓存值。完整契约见根 `AGENTS.md` 的“PLC 与实时数据”。
