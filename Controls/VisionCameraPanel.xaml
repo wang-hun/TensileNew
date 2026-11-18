@@ -63,12 +63,13 @@
         <Grid Grid.Row="1" Grid.ColumnSpan="2">
           <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
           <Grid Grid.Column="0" Margin="0,0,18,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="82" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="82" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <TextBlock Text="曝光" Style="{StaticResource CameraFieldLabel}" />
-            <TextBox x:Name="ExposureTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,20,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
+            <TextBox x:Name="ExposureTextBox" Grid.Column="1" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,12,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
             <TextBlock Grid.Column="2" Text="增益" Style="{StaticResource CameraFieldLabel}" />
-            <TextBox x:Name="GainTextBox" Grid.Column="3" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,12,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
-            <Button x:Name="ApplyParametersButton" Grid.Column="4" Content="应用参数" Style="{StaticResource CameraPrimaryButton}" Margin="0" HorizontalAlignment="Left" IsEnabled="False" Click="ApplyParameters_Click" />
+            <TextBox x:Name="GainTextBox" Grid.Column="3" Height="34" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,8,0" IsEnabled="False" TextChanged="ParameterTextBox_TextChanged" />
+            <Button x:Name="ApplyParametersButton" Grid.Column="4" Content="应用参数" Style="{StaticResource CameraPrimaryButton}" Margin="0,0,8,0" HorizontalAlignment="Left" IsEnabled="False" Click="ApplyParameters_Click" />
+            <CheckBox x:Name="AutoSetParametersCheckBox" Grid.Column="5" Content="开机后自动设置" VerticalAlignment="Center" Foreground="{DynamicResource AppMetricNameForegroundBrush}" Checked="AutoSetParametersCheckBox_Changed" Unchecked="AutoSetParametersCheckBox_Changed" />
           </Grid>
           <Grid Grid.Column="1" Margin="18,0,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
