@@ -32,6 +32,7 @@
 | 曲线 / 实时表格 / 回放 | `MainWindow.xaml.cs` → `InitializePlot()`、`LoadItems_ListChanged()`、`RenderPlayback()` | `LoadPlotController`、`TrialDataStore`、`PlotWindow` | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 摄像头 | `MainWindow.xaml.cs` → `InitializeCameraPreview()`、`ApplySelectedCameraAsync()` | `CameraCaptureService`、选择 / 预览窗口 | `MainWindow/AGENTS.md`、`Services/AGENTS.md`、`Dialogs/AGENTS.md` |
 | 新视觉处理相机 | `NewVisionProcessingService.IsEnabled` → `VisionCameraPanel` | `IVisionCameraService` → `MvsCameraSdkService` / `DahengCameraSdkService` | 选择由 `VisionCameraSdkResolver` 处理；与 WinRT 预览、PLC 重连分离，见 `Services/AGENTS.md` |
+| 缺陷标注结果窗体 | `Dialogs/VisionDefectWindow.xaml`、`VisionDefectWindow.ShowResult()` | `VisionDefectAnnotation` 中立数据契约 | 标注坐标以原图像素为准；检测调用方传入图片路径与边界框，通信协议未提供边界框时不得推断，见 `Dialogs/AGENTS.md`、`MainWindow/AGENTS.md` |
 | 试验控制 / 二段速 / 复位 | `MainWindow.xaml.cs` → `StartTensile_Click()`、`Reset_Click()`、`SwitchToSecondStageAsync()` | `MainViewModel`、`DataAqc`、视觉服务 | `MainWindow/AGENTS.md`、`Models/AGENTS.md` |
 | 实时数据、算法整合、报告与回放导出 | `MainWindow.xaml.cs` → `SaveDataAndReportAsync()`、`SavePlaybackData_Click()` | `DisplacementResamplingService`、`TrialDataStore`、`TestReportService` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 配置 / 配方 | `MainViewModel.cs`、`Models/RAM.cs`、`SettingModel.cs`、`RecipeModel.cs` | Settings / recipe dialogs | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
@@ -419,6 +420,7 @@ dotnet build .\TensileNeW.csproj
 - 主窗口“变量”页标题栏（“新窗口打开”左侧）及独立变量窗口的“新视觉设置”按钮均打开持久化设置弹窗，配置识别软件开关、二段速自动切换、IP/端口、固定 BMP 路径、拍照间隔和回复超时。默认地址 `127.0.0.1:800`，间隔 500ms、超时 400ms。相对图片路径以程序目录为基准。
 - 二段速开始后，自动切换打开时确保已连接相机的实时采集启动，不自动关闭实时采集；同时启用视觉软件时启动连续保存，并在检测结束时停止连续保存。正常结束、停止动作、识别 `stop` 或复位结束检测。
 - 识别软件 TCP 使用换行分隔的 `start`、`end`、`continue`、`stop`。发送状态必须避免重复 start/end；连接和识别异常只记日志及气泡提示，不阻断设备试验。连续保存的帧额外覆盖固定 BMP，并记录识别超时。
+- 缺陷标注窗体只负责显示调用方提供的 BMP 与像素坐标标注；当前 TCP `stop` 消息不含检测框，不能据此伪造标注。调用方通过 `VisionDefectWindow.ShowResult(imagePath, annotations)` 提供结果；该契约不依赖具体检测 SDK。
 二段速状态机实现细则：
 
 - 二段速确认必须使用产品现有 WPF 弹窗风格，不得调用 `System.Windows.MessageBox`，按钮文案固定使用中文“是/否”；编辑窗口的校验错误也必须在产品窗口内显示，不得弹系统英文提示。
