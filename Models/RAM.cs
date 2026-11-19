@@ -108,7 +108,8 @@ namespace TensileNeW.Models
             var recipe = BuiltInRecipes.FirstOrDefault()?.CloneForUser() ?? RecipeModel.CreateDefault("test1");
             var setting = new SettingModel
             {
-                CurRecipeModel = recipe
+                CurRecipeModel = recipe,
+                VisionCameraAutoSetParameters = true
             };
             return setting;
         }
