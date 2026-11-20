@@ -12,6 +12,7 @@
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
 | 新视觉图片保存 | `VisionImageSaveQueue.cs` / `VisionImageSaveQueue` | 专属 worker 串行 BMP 编码与落盘 | 保存使用独立于 UI 的最新采集帧快照和有界异步队列；连续保存通过异步背压等待队列空位，不丢弃已触发图像；检测时附加覆盖固定 BMP；不在 UI 线程编码 / 写盘 |
 | 识别软件通信 | `VisionSoftwareService.cs`、`VisionCrackReaction.cs` | TCP 状态机、start/check/radius/end 请求、缺陷停机响应 | 按 `vision/联机协议.md` 收发 UTF-8 行协议；`check` 必须附带配置的固定 BMP 绝对路径，逐条等待 `skip`/`stop`/`error`；半径接口独立发起 `radius`；stop 坐标解析后先确认 PLC 停止成功，再显示缺陷窗体 |
+| 外置识别程序宿主 | `RingInspectHostService.cs` / `RingInspectHostService` | 启动、等待主窗口句柄、展示 / 退出 | 仅新视觉启用时从运行目录 `RingInspect/RingInspect.Wpf.exe` 启动；缺失仅记录日志并由窗口提示；宿主 HWND 承载与标题栏由 `RingInspectHostWindow` 管理 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
 | 离线算法验证 | `DebugAlgorithmExcelService.cs` | 读取首表、复用重采样导出 | 仅 PIN 隐藏入口，不读写实时队列 |
 | 说明书缓存 | `ManualDocumentService.cs` | 导航、格式判断、XPS 缓存 / 转换 | Word/PPT 权威缓存 `%LocalAppData%\ECS\manual-cache`；保持单文件发布路径兼容 |

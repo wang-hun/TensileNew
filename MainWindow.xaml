@@ -356,6 +356,7 @@
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
               <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="90" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -382,19 +383,25 @@
                 <TextBlock Text="试验指导" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="DacuButton" Grid.Column="4" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="Dacu_Click" ToolTip="打开 DACU" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="RingInspectButton" Grid.Column="4" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="RingInspect_Click" ToolTip="识别" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <iconPacks:PackIconLucide Kind="Donut" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="识别" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="DacuButton" Grid.Column="5" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="Dacu_Click" ToolTip="打开 DACU" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconLucide Kind="ChartSpline" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="数据分析" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="ColorSchemesButton" Grid.Column="5" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="ColorSchemesButton" Grid.Column="6" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="配色" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="VariablesButton" Grid.Column="6" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="VariablesButton" Grid.Column="7" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="变量" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />

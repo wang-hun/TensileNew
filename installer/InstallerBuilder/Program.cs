@@ -65,6 +65,7 @@ internal static class Program
                 $"{Quote(mainProjectPath)} Release {Quote(payloadRoot)} {GetBuilderPackageArguments(packageMode)} {(newVisionProcessingIncluded ? "Y" : "N")} {cameraChoice}");
 
             EnsurePayloadFileExists(payloadRoot, DacuExecutableName);
+            if (newVisionProcessingIncluded) EnsurePayloadFileExists(payloadRoot, "RingInspect.Wpf.exe");
             ZipFile.CreateFromDirectory(payloadRoot, payloadZip, CompressionLevel.Optimal, includeBaseDirectory: false);
 
             RunProcess("dotnet", $"restore {Quote(installerProjectPath)} -r win-x64");

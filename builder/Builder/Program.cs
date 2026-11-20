@@ -13,6 +13,7 @@ internal static class Program
     private const string ManualsSourceDirectory = @"E:\ECS说明书";
     private const string ManualsOutputDirectoryName = "manuals";
     private const string DacuExecutablePath = @"E:\CurveAnalysis\bin\Release\publish\DACU.exe";
+    private const string RingInspectPublishDirectory = @"E:\ring-inspect-wpf\RingInspect.Wpf\bin\Release\net8.0-windows\publish\win-x64";
     private const string DefaultRuntimeIdentifier = "win-x64";
 
     private static int Main(string[] args)
@@ -117,6 +118,8 @@ internal static class Program
         EnsureCameraSdkLayout(packageDirectory, cameraBrand);
         CopyManualsDirectory(packageDirectory);
         CopyDacuExecutable(packageDirectory);
+        CopyRingInspectFiles(packageDirectory, newVisionProcessingIncluded);
+        CreateRingInspectShortcut(packageDirectory, newVisionProcessingIncluded);
         DeleteUnneededPublishArtifacts(packageDirectory);
         WriteStartupScript(packageDirectory, assemblyName);
         EnsureStartupScriptExists(packageDirectory, assemblyName);
@@ -337,6 +340,44 @@ internal static class Program
         CopyDirectory(sourceDirectory, targetDirectory);
     }
 
+    private static void CopyRingInspectFiles(string packageDirectory, bool included)
+    {
+        if (!included) return;
+        if (!Directory.Exists(RingInspectPublishDirectory))
+            throw new DirectoryNotFoundException("RingInspect publish directory was not found: " + RingInspectPublishDirectory);
+        string executablePath = Path.Combine(RingInspectPublishDirectory, "RingInspect.Wpf.exe");
+        if (!File.Exists(executablePath)) throw new FileNotFoundException("RingInspect executable was not found.", executablePath);
+        string targetDirectory = Path.Combine(packageDirectory, "RingInspect");
+        DeleteDirectoryIfExists(targetDirectory);
+        CopyDirectory(RingInspectPublishDirectory, targetDirectory);
+    }
+
+    private static void CreateRingInspectShortcut(string packageDirectory, bool included)
+    {
+        if (!included) return;
+        string targetPath = Path.Combine(packageDirectory, "RingInspect", "RingInspect.Wpf.exe");
+        string shortcutPath = Path.Combine(packageDirectory, "RingInspect.lnk");
+        Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+        if (shellType is null) throw new InvalidOperationException("Windows Script Host is unavailable for shortcut creation.");
+        object? shell = null;
+        object? shortcut = null;
+        try
+        {
+            dynamic? dynamicShell = shell = Activator.CreateInstance(shellType);
+            shortcut = dynamicShell?.CreateShortcut(shortcutPath);
+            if (shortcut is null) throw new InvalidOperationException("Unable to create the RingInspect shortcut.");
+            dynamic dynamicShortcut = shortcut;
+            dynamicShortcut.TargetPath = targetPath;
+            dynamicShortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
+            dynamicShortcut.IconLocation = targetPath;
+            dynamicShortcut.Save();
+        }
+        finally
+        {
+            if (shortcut is not null && Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
+            if (shell is not null && Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
+        }
+    }
     private static void CopyDacuExecutable(string packageDirectory)
     {
         string sourcePath = Path.GetFullPath(DacuExecutablePath);

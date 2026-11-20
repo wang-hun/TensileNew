@@ -117,6 +117,7 @@ public partial class MainWindow : Window
     private readonly NewVisionProcessingService _newVisionProcessingService;
     private readonly bool _visionCameraAvailable;
     private readonly VisionSoftwareService _visionSoftware;
+    private readonly RingInspectHostService _ringInspectHostService = new();
     private bool _visionAutomaticSaving;
     private int _visionDetectionGeneration;
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
@@ -387,6 +388,11 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(() => ShowCameraConnectionError(_cameraStartupResult.FailureMessage));
         }
 
+        if (_newVisionProcessingService.IsEnabled)
+        {
+            bool available = await _ringInspectHostService.StartAsync();
+            if (!available) MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
+        }
         _ = Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
     }
 
@@ -509,6 +515,7 @@ public partial class MainWindow : Window
         _shutdownCleanupStarted = true;
         _isClosing = true;
         _ = _visionSoftware.DisposeAsync();
+        _ringInspectHostService.Dispose();
         _ = ReleaseVisionCameraInBackgroundAsync();
         _variableWindow?.Close();
         _loadDataWindow?.Close();
@@ -1313,6 +1320,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        RingInspectButton.Visibility = _newVisionProcessingService.IsEnabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         TwoStageSpeedButton.Visibility = _newVisionProcessingService.IsEnabled
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -1328,6 +1338,21 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void RingInspect_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_newVisionProcessingService.IsEnabled) return;
+        if (!_ringInspectHostService.IsAvailable)
+        {
+            bool available = await _ringInspectHostService.StartAsync();
+            if (!available)
+            {
+                MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
+                return;
+            }
+        }
+        if (!_ringInspectHostService.Show(this))
+            MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
+    }
     private void ChartMode_Click(object sender, RoutedEventArgs e)
     {
         ChartModeButton.IsChecked = true;

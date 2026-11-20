@@ -8,6 +8,7 @@
 |---|---|---|---|
 | 窗口装配、启动、关闭 | `../MainWindow.xaml.cs` | `MainWindow()`、`Window_Loaded()`、`Window_Closing()`、`RunShutdownCleanup()` | 窗口协调入口；启动前置检查在 `../App.xaml.cs` 的 `Application_Startup()` |
 | 窗口外观 | `../MainWindow.xaml.cs` | `OnSourceInitialized()`、`ConfigureWindowChrome()` | DPI / Win32 chrome；保持自包含发布路径兼容 |
+| 识别程序宿主 | `../RingInspectHostWindow.cs`、`../Services/RingInspectHostService.cs` | 新视觉启用时启动隐藏、顶栏识别按钮、最小化隐藏 | 子窗体内嵌外置 WPF HWND；宿主无任务栏图标、不提供关闭按钮；标题 / 图标取自被托管窗口 |
 | PLC 状态与启动配方 | `../MainWindow.xaml.cs` | `Plc_PropertyChanged()`、`WaitForPlcConnectionAsync()`、`IsPlcConnected()`、`WriteStartupRecipeAsync()` | 通过 `MainViewModel` 和 `DataAqc`，不要另建 PLC 客户端 |
 | 说明书 / 帮助 | `MainWindow.Help.cs` | `LoadHelpDocument()`、`NavigateHelpItemAsync()`、`OpenManualDocumentAsync()`、`HelpSearch*()` | `ManualDocumentService`、`HelpDocumentViewer`；缓存规则见 `../Services/AGENTS.md` |
 | 网络探测 / 重连 | `MainWindow.Network.cs` | `RunNetworkProbeAndReconnectAsync()`、`TryConnectWithRetriesAsync()`、`ProbeNetwork*()` | PLC TCP 连接必须由主进程持有；重试、超时和自动重连暂停见 `../Services/AGENTS.md` |

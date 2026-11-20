@@ -70,6 +70,12 @@ internal static class InstallerService
             }
 
             exePath = Path.Combine(installPath, AppExeName);
+            string ringInspectPath = Path.Combine(installPath, "RingInspect", "RingInspect.Wpf.exe");
+            if (File.Exists(ringInspectPath))
+            {
+                reportProgress("正在创建识别程序快捷方式");
+                CreateShortcut(ringInspectPath, Path.Combine(installPath, "RingInspect.lnk"));
+            }
             if (options.CreateDesktopShortcut)
             {
                 reportProgress("正在创建桌面快捷方式");
@@ -269,24 +275,20 @@ internal static class InstallerService
         string shortcutPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
             shortcutName + ".lnk");
+        CreateShortcut(exePath, shortcutPath);
+    }
 
+    private static void CreateShortcut(string exePath, string shortcutPath)
+    {
         Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
-        if (shellType is null)
-        {
-            return;
-        }
-
+        if (shellType is null) return;
         dynamic? shell = null;
         dynamic? shortcut = null;
         try
         {
             shell = Activator.CreateInstance(shellType);
             shortcut = shell?.CreateShortcut(shortcutPath);
-            if (shortcut is null)
-            {
-                return;
-            }
-
+            if (shortcut is null) return;
             shortcut.TargetPath = exePath;
             shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
             shortcut.IconLocation = exePath;
@@ -298,7 +300,6 @@ internal static class InstallerService
             ReleaseComObject(shell);
         }
     }
-
     private static void ReleaseComObject(object? value)
     {
         if (value is not null && Marshal.IsComObject(value))
