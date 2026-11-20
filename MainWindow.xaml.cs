@@ -183,13 +183,14 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        VisionCrackReaction crackReaction = new(async () =>
+        VisionCrackReaction crackReaction = new(async defects =>
         {
             bool stopped = await _viewModel.TryPulseAsync("停止");
             await Dispatcher.InvokeAsync(() =>
             {
                 EndVisionDetection();
-                if (!stopped) ShowError("识别到裂痕，但停止动作指令发送失败，请立即检查设备。");
+                if (!stopped) ShowError("识别到缺陷，但停止动作指令发送失败，请立即检查设备。");
+                else ShowVisionDefectResult(defects);
             });
         });
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
@@ -2562,6 +2563,20 @@ public partial class MainWindow : Window
             _visionAutomaticSaving = false;
         }
         _ = _visionSoftware.EndAsync();
+    }
+
+    public Task<double?> GetVisionRadiusAsync() => _visionSoftware.GetRadiusAsync();
+
+    private void ShowVisionDefectResult(IReadOnlyList<VisionDefectBox> defects)
+    {
+        string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
+        string imagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+        VisionDefectAnnotation[] annotations = defects.Select((defect, index) =>
+            new VisionDefectAnnotation((index + 1).ToString(CultureInfo.InvariantCulture), "defect", "缺陷",
+                [defect.Left, defect.Top, defect.Right, defect.Bottom])).ToArray();
+        VisionDefectWindow window = new() { Owner = this };
+        window.ShowResult(imagePath, annotations);
+        window.Show();
     }
 
     private void OpenVisionSettings_Click(object sender, RoutedEventArgs e) => ShowVisionDebugSettings();
