@@ -14,7 +14,6 @@ internal sealed class RingInspectHostWindow : Window
     private readonly IntPtr _targetHandle;
     private readonly RingInspectChildHost _childHost;
     private bool _allowClose;
-    private bool _maximized;
 
     public RingInspectHostWindow(Window owner, Process process, IntPtr targetHandle)
     {
@@ -89,6 +88,19 @@ internal sealed class RingInspectHostWindow : Window
         Activate();
     }
 
+    public void PrepareHidden()
+    {
+        ShowActivated = false;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = -32000;
+        Top = -32000;
+        Show();
+        HideHost();
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        WindowState = WindowState.Maximized;
+        ShowActivated = true;
+    }
+
     public void ShutdownHost()
     {
         _allowClose = true;
@@ -105,8 +117,7 @@ internal sealed class RingInspectHostWindow : Window
 
     private void ToggleMaximize()
     {
-        _maximized = !_maximized;
-        WindowState = _maximized ? WindowState.Maximized : WindowState.Normal;
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     }
 
     private static Button CreateChromeButton(string text) => new()
@@ -182,11 +193,17 @@ internal sealed class RingInspectChildHost : HwndHost
 
 internal static class RingInspectNative
 {
+    private delegate bool EnumWindowsCallback(IntPtr handle, IntPtr parameter);
     private const uint WmGetIcon = 0x007F;
     private const int IconSmall = 0;
     private const int IconBig = 1;
     private const int GclpHIcon = -14;
     private const int GclpHIconSm = -34;
+    private const uint GwOwner = 4;
+
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr handle, uint command);
 
     [DllImport("user32.dll", SetLastError = true)] internal static extern IntPtr SetParent(IntPtr child, IntPtr parent);
     [DllImport("user32.dll")] internal static extern bool ShowWindow(IntPtr handle, int command);
@@ -203,6 +220,19 @@ internal static class RingInspectNative
 
     internal static IntPtr GetWindowLongPtr(IntPtr handle, int index) => IntPtr.Size == 8 ? GetWindowLongPtr64(handle, index) : GetWindowLong32(handle, index);
     internal static IntPtr SetWindowLongPtr(IntPtr handle, int index, IntPtr value) => IntPtr.Size == 8 ? SetWindowLongPtr64(handle, index, value) : SetWindowLong32(handle, index, value);
+    internal static IntPtr FindMainWindow(int processId)
+    {
+        IntPtr result = IntPtr.Zero;
+        EnumWindows((handle, _) =>
+        {
+            GetWindowThreadProcessId(handle, out uint ownerProcessId);
+            if (ownerProcessId != (uint)processId || GetWindow(handle, GwOwner) != IntPtr.Zero ||
+                string.IsNullOrWhiteSpace(ReadWindowTitle(handle))) return true;
+            result = handle;
+            return false;
+        }, IntPtr.Zero);
+        return result;
+    }
     internal static string ReadWindowTitle(IntPtr handle)
     {
         StringBuilder text = new(512);

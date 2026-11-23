@@ -117,7 +117,7 @@ public partial class MainWindow : Window
     private readonly NewVisionProcessingService _newVisionProcessingService;
     private readonly bool _visionCameraAvailable;
     private readonly VisionSoftwareService _visionSoftware;
-    private readonly RingInspectHostService _ringInspectHostService = new();
+    private readonly RingInspectHostService _ringInspectHostService;
     private bool _visionAutomaticSaving;
     private int _visionDetectionGeneration;
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
@@ -173,8 +173,9 @@ public partial class MainWindow : Window
         new("全部页", true)
     ];
 
-    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult, string cameraBrand, IVisionCameraService? cameraService)
+    public MainWindow(bool connectedAtStartup, CameraStartupResult? cameraStartupResult, string cameraBrand, IVisionCameraService? cameraService, RingInspectHostService ringInspectHostService)
     {
+        _ringInspectHostService = ringInspectHostService;
         _connectedAtStartup = connectedAtStartup;
         _cameraStartupResult = cameraStartupResult ?? new CameraStartupResult([], null, null, null);
         _cameraCaptureService = _cameraStartupResult.CaptureService;
@@ -184,6 +185,7 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
+        _ringInspectHostService.Prepare(this);
         VisionCrackReaction crackReaction = new(async defects =>
         {
             double? stopDisplacement = null;
@@ -216,7 +218,9 @@ public partial class MainWindow : Window
             await Dispatcher.InvokeAsync(() => ShowVisionDefectResult(defects, stopDisplacement));
         });
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
-            message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }));
+            message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }),
+            () => _ringInspectHostService.IsAvailable);
+        if (_ringInspectHostService.IsAvailable) _visionSoftware.StartConnection();
         VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
         VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
         VisionCameraPanel.DetectionImageFailed = _visionSoftware.ImagePublishFailed;
@@ -409,11 +413,6 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(() => ShowCameraConnectionError(_cameraStartupResult.FailureMessage));
         }
 
-        if (_newVisionProcessingService.IsEnabled)
-        {
-            bool available = await _ringInspectHostService.StartAsync();
-            if (!available) MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
-        }
         _ = Dispatcher.BeginInvoke(InitializeCameraAfterMainWindowShownAsync);
     }
 
@@ -1370,6 +1369,7 @@ public partial class MainWindow : Window
                 MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
                 return;
             }
+            _visionSoftware.StartConnection();
         }
         if (!_ringInspectHostService.Show(this))
             MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");

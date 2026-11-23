@@ -18,6 +18,7 @@ public sealed class RingInspectHostService : IDisposable
     public async Task<bool> StartAsync()
     {
         if (IsAvailable) return true;
+        if (_process is not null) Dispose();
         if (!File.Exists(_executablePath))
         {
             Logger.Error("RingInspect recognition executable is missing: {0}", _executablePath);
@@ -30,7 +31,9 @@ public sealed class RingInspectHostService : IDisposable
             {
                 FileName = _executablePath,
                 WorkingDirectory = Path.GetDirectoryName(_executablePath)!,
-                UseShellExecute = false
+                UseShellExecute = false,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                Arguments = $"--tcp={Models.RAM.SettingModel.VisionSoftwarePort}"
             });
             if (_process is null) throw new InvalidOperationException("The recognition process could not be started.");
 
@@ -38,7 +41,7 @@ public sealed class RingInspectHostService : IDisposable
             while (DateTime.UtcNow < deadline && !_process.HasExited)
             {
                 _process.Refresh();
-                _windowHandle = _process.MainWindowHandle;
+                _windowHandle = RingInspectNative.FindMainWindow(_process.Id);
                 if (_windowHandle != IntPtr.Zero)
                 {
                     RingInspectNative.HideWindow(_windowHandle);
@@ -58,15 +61,20 @@ public sealed class RingInspectHostService : IDisposable
         }
     }
 
+    public void Prepare(MainWindow owner)
+    {
+        if (!IsAvailable || !RingInspectNative.IsWindow(_windowHandle)) return;
+        _hostWindow = new RingInspectHostWindow(owner, _process!, _windowHandle);
+        _hostWindow.PrepareHidden();
+        _process!.EnableRaisingEvents = true;
+        _process.Exited += Process_Exited;
+    }
+
     public bool Show(MainWindow owner)
     {
-        if (!IsAvailable) return false;
-        if (_hostWindow is null)
-        {
-            _hostWindow = new RingInspectHostWindow(owner, _process!, _windowHandle);
-            _process!.EnableRaisingEvents = true;
-            _process.Exited += Process_Exited;
-        }
+        if (!IsAvailable || !RingInspectNative.IsWindow(_windowHandle)) return false;
+        if (_hostWindow is null) Prepare(owner);
+        if (_hostWindow is null) return false;
         _hostWindow.ShowOrActivate();
         return true;
     }
@@ -75,7 +83,11 @@ public sealed class RingInspectHostService : IDisposable
     {
         Logger.Warn("RingInspect recognition process exited.");
         _windowHandle = IntPtr.Zero;
-        _hostWindow?.Dispatcher.BeginInvoke(new Action(_hostWindow.Hide));
+        _hostWindow?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _hostWindow?.ShutdownHost();
+            _hostWindow = null;
+        }));
     }
 
     public void Dispose()

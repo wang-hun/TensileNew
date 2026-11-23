@@ -47,6 +47,7 @@ public partial class App : Application
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         StartupWaitWindow? waitWindow = null;
+        RingInspectHostService? ringInspectHostService = null;
 
         try
         {
@@ -114,7 +115,14 @@ public partial class App : Application
                     cameraSdk = cameraSdk with { Factory = null, Error = $"{cameraSdk.BrandName} SDK 缺失，请联系管理员。" };
                 }
             }
-            MainWindow mainWindow = new(connected, cameraStartupResult, cameraSdk.BrandName, visionCameraService)
+            ringInspectHostService = new RingInspectHostService();
+            bool ringInspectAvailable = true;
+            if (new NewVisionProcessingService().IsEnabled)
+            {
+                await waitWindow.SetWaitTextAsync("正在启动识别程序，请稍后...");
+                ringInspectAvailable = await ringInspectHostService.StartAsync();
+            }
+            MainWindow mainWindow = new(connected, cameraStartupResult, cameraSdk.BrandName, visionCameraService, ringInspectHostService)
             {
                 HasMissingManualOffice = manualStartupResult.HasMissingOffice
             };
@@ -124,6 +132,8 @@ public partial class App : Application
             waitWindow = null;
 
             mainWindow.Show();
+            if (!ringInspectAvailable)
+                _ = Dispatcher.BeginInvoke(() => HandyMessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用"));
             if (calibrationError is not null && NewVisionProcessingService.IsIncludedByPackage)
                 _ = Dispatcher.BeginInvoke(() => HandyMessageBox.Warning(calibrationError, "物理尺寸标定不可用"));
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -138,6 +148,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            ringInspectHostService?.Dispose();
             Logger.Error(ex, "程序启动失败。");
             waitWindow?.Close();
             HandyMessageBox.Error($"程序启动失败：{ex.Message}", "TensileNeW");

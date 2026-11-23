@@ -28,15 +28,18 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     private TaskCompletionSource<string>? _pendingResponse;
     private int _crackTriggered;
     private int _failureNotified;
-    private readonly Task _connectionTask;
+    private readonly Func<bool> _hostAvailable;
+    private Task? _connectionTask;
 
-    public VisionSoftwareService(SettingModel settings, Func<IReadOnlyList<VisionDefectBox>, Task> onCrack, Action<string> warning)
+    public VisionSoftwareService(SettingModel settings, Func<IReadOnlyList<VisionDefectBox>, Task> onCrack, Action<string> warning, Func<bool> hostAvailable)
     {
         _settings = settings;
         _onCrack = onCrack;
         _warning = warning;
-        _connectionTask = Task.Run(ConnectionLoopAsync);
+        _hostAvailable = hostAvailable;
     }
+
+    public void StartConnection() => _connectionTask ??= Task.Run(ConnectionLoopAsync);
 
     public async Task StartAsync()
     {
@@ -188,9 +191,10 @@ public sealed class VisionSoftwareService : IAsyncDisposable
 
     private async Task ConnectionLoopAsync()
     {
+        DateTime startupDeadline = DateTime.UtcNow.AddSeconds(10);
         while (!_shutdown.IsCancellationRequested)
         {
-            if (!_settings.VisionSoftwareEnabled || !NewVisionProcessingService.IsIncludedByPackage)
+            if (!NewVisionProcessingService.IsIncludedByPackage || !_hostAvailable())
             {
                 await DelayAsync();
                 continue;
@@ -234,9 +238,14 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
             catch (Exception exception)
             {
-                string message = $"视觉软件连接异常：{exception.Message}";
-                if (Interlocked.Exchange(ref _failureNotified, 1) == 0) Report(message);
-                else Logger.Warn(message);
+                if (exception is SocketException && DateTime.UtcNow < startupDeadline)
+                    Logger.Info("识别程序尚未开始监听：{0}", exception.Message);
+                else
+                {
+                    string message = $"视觉软件连接异常：{exception.Message}";
+                    if (Interlocked.Exchange(ref _failureNotified, 1) == 0) Report(message);
+                    else Logger.Warn(message);
+                }
             }
             finally
             {
@@ -254,7 +263,12 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                 finally { _gate.Release(); }
                 client.Dispose();
             }
-            await DelayAsync();
+            if (DateTime.UtcNow < startupDeadline)
+            {
+                try { await Task.Delay(250, _shutdown.Token); }
+                catch (OperationCanceledException) { }
+            }
+            else await DelayAsync();
         }
     }
 
@@ -314,7 +328,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         await EndAsync();
         _shutdown.Cancel();
         _client?.Dispose();
-        await _connectionTask;
+        if (_connectionTask is not null) await _connectionTask;
         _shutdown.Dispose();
         _requestGate.Dispose();
         _gate.Dispose();
