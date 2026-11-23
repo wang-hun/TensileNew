@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Xml.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
@@ -16,6 +17,7 @@ internal static class Program
     private const string RingInspectPublishDirectory = @"E:\ring-inspect-wpf\RingInspect.Wpf\bin\Release\net8.0-windows\publish\win-x64";
     private const string DefaultRuntimeIdentifier = "win-x64";
 
+    [STAThread]
     private static int Main(string[] args)
     {
         ConfigureConsoleEncoding();
@@ -31,7 +33,8 @@ internal static class Program
                 PackageMode packageMode = AskPackageMode();
                 bool newVisionProcessingIncluded = AskNewVisionProcessingEnabled();
                 string cameraBrand = AskCameraBrand();
-                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, newVisionProcessingIncluded, cameraBrand);
+                string? calibrationPath = newVisionProcessingIncluded ? AskCalibrationFile() : null;
+                PackageExternalProject(defaultProjectPath, defaultConfiguration, defaultOutputRoot, packageMode, newVisionProcessingIncluded, cameraBrand, calibrationPath);
                 return 0;
             }
 
@@ -39,7 +42,7 @@ internal static class Program
             {
                 if (args.Length < 4)
                 {
-                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2] [Y|N] [1|2]");
+                    Console.Error.WriteLine("Usage: Builder pack <project-path> <configuration> <output-root> [Y|N] [1|2] [Y|N] [1|2] [calibration-json]");
                     return 1;
                 }
 
@@ -50,12 +53,20 @@ internal static class Program
                     ? ParseNewVisionProcessingEnabled(args[6])
                     : AskNewVisionProcessingEnabled();
                 string cameraBrand = args.Length >= 8 ? ParseCameraBrand(args[7]) : AskCameraBrand();
-                PackageExternalProject(args[1], args[2], args[3], packageMode, newVisionProcessingIncluded, cameraBrand);
+                string? calibrationPath = newVisionProcessingIncluded
+                    ? args.Length >= 9 ? ValidateCalibrationFile(args[8]) : AskCalibrationFile()
+                    : null;
+                PackageExternalProject(args[1], args[2], args[3], packageMode, newVisionProcessingIncluded, cameraBrand, calibrationPath);
                 return 0;
             }
 
             Console.WriteLine("Builder output is generated during MSBuild.");
             return 0;
+        }
+        catch (OperationCanceledException exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
         }
         catch (Exception ex)
         {
@@ -64,7 +75,7 @@ internal static class Program
         }
     }
 
-    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool newVisionProcessingIncluded, string cameraBrand)
+    private static void PackageExternalProject(string projectPath, string configuration, string outputRoot, PackageMode packageMode, bool newVisionProcessingIncluded, string cameraBrand, string? calibrationPath)
     {
         projectPath = Path.GetFullPath(projectPath);
         outputRoot = Path.GetFullPath(outputRoot);
@@ -72,6 +83,19 @@ internal static class Program
         if (!File.Exists(projectPath))
         {
             throw new FileNotFoundException("External project was not found.", projectPath);
+        }
+
+        if (newVisionProcessingIncluded)
+        {
+            if (string.IsNullOrWhiteSpace(calibrationPath))
+                throw new InvalidDataException("新视觉处理包必须包含有效的物理尺寸标定文件。");
+            calibrationPath = ValidateCalibrationFile(calibrationPath);
+            string relativeCalibrationPath = Path.GetRelativePath(outputRoot, calibrationPath);
+            if (relativeCalibrationPath == "." ||
+                (!Path.IsPathRooted(relativeCalibrationPath) &&
+                 relativeCalibrationPath != ".." &&
+                 !relativeCalibrationPath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)))
+                throw new InvalidDataException("标定文件不能放在将被清理的发布输出目录内，请另选文件。");
         }
 
         ProjectMetadata projectMetadata = GetProjectMetadata(projectPath);
@@ -116,6 +140,7 @@ internal static class Program
         DeleteUnneededPublishArtifacts(packageDirectory);
         EnsureSingleFileLayout(packageDirectory, assemblyName);
         EnsureCameraSdkLayout(packageDirectory, cameraBrand);
+        if (newVisionProcessingIncluded) CopyCalibrationFile(packageDirectory, calibrationPath!);
         CopyManualsDirectory(packageDirectory);
         CopyDacuExecutable(packageDirectory);
         CopyRingInspectFiles(packageDirectory, newVisionProcessingIncluded);
@@ -322,6 +347,29 @@ internal static class Program
         if (Directory.Exists(other)) throw new InvalidOperationException("发布包混入了另一品牌的相机 SDK：" + other);
         string unexpected = Path.Combine(packageDirectory, "CameraSdk", cameraBrand, "Native");
         if (Directory.Exists(unexpected)) throw new InvalidOperationException("发布包不应包含额外原生相机 SDK：" + unexpected);
+    }
+
+    private static string AskCalibrationFile()
+    {
+        Console.WriteLine("请在弹出的文件选择窗口中选择物理尺寸标定 JSON 文件；取消将中止打包。");
+        string? path = RingPhysicalCalibration.SelectCalibrationFile();
+        if (path is null)
+            throw new OperationCanceledException("已取消选择标定文件，打包已中止，未清理发布目录。");
+        return ValidateCalibrationFile(path);
+    }
+
+    private static string ValidateCalibrationFile(string path)
+    {
+        string fullPath = Path.GetFullPath(path.Trim().Trim('"'));
+        _ = RingPhysicalCalibration.Load(fullPath);
+        return fullPath;
+    }
+
+    private static void CopyCalibrationFile(string packageDirectory, string calibrationPath)
+    {
+        string targetPath = Path.Combine(packageDirectory, RingPhysicalCalibration.FileName);
+        File.Copy(calibrationPath, targetPath, overwrite: true);
+        _ = RingPhysicalCalibration.Load(targetPath);
     }
 
     private static void CopyManualsDirectory(string packageDirectory)

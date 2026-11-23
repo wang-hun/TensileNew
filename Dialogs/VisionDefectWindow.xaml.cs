@@ -1,5 +1,5 @@
+using System.Globalization;
 using System.IO;
-using IOPath = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,6 +7,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using TensileNeW.Controls;
+using TensileNeW.Services;
+using IOPath = System.IO.Path;
 
 namespace TensileNeW;
 
@@ -22,8 +24,9 @@ public partial class VisionDefectWindow : Window
         _imageViewport = new ZoomableImageViewport(ImageViewport, ImageCanvas);
     }
 
-    public void ShowResult(string imagePath, IReadOnlyList<VisionDefectAnnotation>? defects = null)
+    public void ShowResult(string imagePath, IReadOnlyList<VisionDefectAnnotation>? defects = null, RingPhysicalDimensions? physicalDimensions = null, string? physicalDimensionsError = null)
     {
+        SetPhysicalDimensions(physicalDimensions, physicalDimensionsError);
         ImageCanvas.Children.Clear();
         if (!File.Exists(imagePath))
         {
@@ -33,12 +36,21 @@ public partial class VisionDefectWindow : Window
         }
 
         BitmapImage image = new();
-        image.BeginInit();
-        image.UriSource = new Uri(IOPath.GetFullPath(imagePath));
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
-        image.EndInit();
-        image.Freeze();
+        try
+        {
+            image.BeginInit();
+            image.UriSource = new Uri(IOPath.GetFullPath(imagePath));
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+            image.EndInit();
+            image.Freeze();
+        }
+        catch (Exception exception)
+        {
+            EmptyTextBlock.Visibility = Visibility.Visible;
+            TitleTextBlock.Text = $"视觉缺陷结果（图片读取失败：{exception.Message}）";
+            return;
+        }
 
         ImageCanvas.Width = image.PixelWidth;
         ImageCanvas.Height = image.PixelHeight;
@@ -58,6 +70,21 @@ public partial class VisionDefectWindow : Window
             ? $"视觉缺陷结果：{defects.Count} 个缺陷（{IOPath.GetFileName(imagePath)}）"
             : $"视觉缺陷结果（{IOPath.GetFileName(imagePath)}）";
         Dispatcher.BeginInvoke(_imageViewport.Reset);
+    }
+
+    public void SetPhysicalDimensions(RingPhysicalDimensions? dimensions, string? error = null)
+    {
+        if (dimensions is null)
+        {
+            PhysicalDiameterTextBlock.Text = "物理直径：-- mm";
+            PhysicalHeightTextBlock.Text = "物理高度：-- mm";
+            PhysicalDimensionStatusTextBlock.Text = string.IsNullOrWhiteSpace(error) ? "物理尺寸不可用" : error;
+            return;
+        }
+
+        PhysicalDiameterTextBlock.Text = $"物理直径：{dimensions.DiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
+        PhysicalHeightTextBlock.Text = $"物理高度：{dimensions.HeightMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
+        PhysicalDimensionStatusTextBlock.Text = string.Empty;
     }
 
     private void DrawDefect(VisionDefectAnnotation defect)

@@ -1,0 +1,17 @@
+{
+  "schema": "dice-calibration",
+  "schemaVersion": 2,
+  "m": 49.14869870604966,
+  "mUnit": "pixel/mm",
+  "M10": 10,
+  "M10Unit": "mm",
+  "alpha": 60,
+  "alphaUnit": "deg",
+  "F": 16,
+  "FUnit": "mm",
+  "s": 2.74,
+  "sUnit": "um/pixel",
+  "H": 118.81120379847195,
+  "HUnit": "mm",
+  "HFormula": "((F * 1000) / s) / m"
+}

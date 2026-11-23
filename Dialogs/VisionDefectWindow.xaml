@@ -19,14 +19,21 @@
   </shell:WindowChrome.WindowChrome>
   <Border Background="{DynamicResource AppSurfaceBackgroundBrush}" BorderBrush="{DynamicResource AppLayoutBorderBrush}" BorderThickness="1">
     <Grid>
-      <Grid.RowDefinitions><RowDefinition Height="32" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="32" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
       <Grid Grid.Row="0" Background="{DynamicResource AppHeaderBackgroundBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
         <TextBlock x:Name="TitleTextBlock" Grid.Column="0" Text="视觉缺陷结果" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,0" FontWeight="SemiBold" />
         <Button Grid.Column="1" Width="32" Height="32" Padding="0" Background="Transparent" BorderBrush="Transparent" Click="ResetView_Click" ToolTip="重置视图" shell:WindowChrome.IsHitTestVisibleInChrome="True"><iconPacks:PackIconMaterial Kind="ImageFilterCenterFocusStrong" Width="15" Height="15" Foreground="{DynamicResource AppNavForegroundBrush}" /></Button>
         <Button Grid.Column="2" Width="32" Height="32" Padding="0" Background="Transparent" BorderBrush="Transparent" Click="Close_Click" ToolTip="关闭" shell:WindowChrome.IsHitTestVisibleInChrome="True"><iconPacks:PackIconMaterial Kind="Close" Width="15" Height="15" Foreground="{DynamicResource AppNavForegroundBrush}" /></Button>
       </Grid>
-      <Grid x:Name="ImageViewport" Grid.Row="1" Background="Black" ClipToBounds="True">
+      <Grid Grid.Row="1" MinHeight="42" Background="{DynamicResource AppHeaderBackgroundBrush}" Margin="0,0,0,1">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <TextBlock x:Name="PhysicalDiameterTextBlock" Grid.Column="0" Text="物理直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalHeightTextBlock" Grid.Column="1" Text="物理高度：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalDimensionStatusTextBlock" Grid.Row="1" Grid.ColumnSpan="2" Text="" Foreground="#FFFFC107" Margin="12,0,12,4" FontSize="12" TextWrapping="Wrap" />
+      </Grid>
+      <Grid x:Name="ImageViewport" Grid.Row="2" Background="Black" ClipToBounds="True">
         <Canvas x:Name="ImageCanvas" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" />
         <TextBlock x:Name="EmptyTextBlock" Text="缺陷图片不可用" Foreground="#D0FFFFFF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
       </Grid>

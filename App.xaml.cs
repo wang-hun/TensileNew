@@ -63,6 +63,8 @@ public partial class App : Application
              * ====================================================================
              */
             RAM.Init();
+            RingPhysicalCalibration.Initialize();
+            string? calibrationError = RingPhysicalCalibration.LoadError;
             ThemeManager.Apply(RAM.SettingModel.ColorSchemeName);
             Resources["SevenSegmentFontFamily"] = SevenSegmentFontHelper.DefaultFontFamily;
             DataAqc.InitVariables();
@@ -122,6 +124,8 @@ public partial class App : Application
             waitWindow = null;
 
             mainWindow.Show();
+            if (calibrationError is not null && NewVisionProcessingService.IsIncludedByPackage)
+                _ = Dispatcher.BeginInvoke(() => HandyMessageBox.Warning(calibrationError, "物理尺寸标定不可用"));
             ShutdownMode = ShutdownMode.OnMainWindowClose;
             string? cameraSdkError = cameraSdk.Error;
             if (cameraSdkError is not null)

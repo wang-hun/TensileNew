@@ -186,13 +186,34 @@ public partial class MainWindow : Window
         InitializeComponent();
         VisionCrackReaction crackReaction = new(async defects =>
         {
-            bool stopped = await _viewModel.TryPulseAsync("停止");
-            await Dispatcher.InvokeAsync(() =>
+            double? stopDisplacement = null;
+            try
             {
-                EndVisionDetection();
-                if (!stopped) ShowError("识别到缺陷，但停止动作指令发送失败，请立即检查设备。");
-                else ShowVisionDefectResult(defects);
-            });
+                stopDisplacement = await Dispatcher.InvokeAsync(() =>
+                    double.TryParse(RealDistanceVariable.CurrentValue, NumberStyles.Float, CultureInfo.CurrentCulture, out double parsed)
+                        ? parsed
+                        : (double?)null);
+            }
+            catch (Exception exception)
+            {
+                Logger.Warn(exception, "无法读取视觉停机时的 ECS 位移。");
+            }
+            bool stopped = await _viewModel.TryPulseAsync("停止");
+            try
+            {
+                await Dispatcher.InvokeAsync(() => EndVisionDetection());
+            }
+            catch (Exception exception)
+            {
+                Logger.Warn(exception, "视觉停机后的检测清理失败。");
+            }
+            if (!stopped)
+            {
+                await Dispatcher.InvokeAsync(() => ShowError("识别到缺陷，但停止动作指令发送失败，请立即检查设备。"));
+                return;
+            }
+
+            await Dispatcher.InvokeAsync(() => ShowVisionDefectResult(defects, stopDisplacement));
         });
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
             message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }));
@@ -2592,16 +2613,63 @@ public partial class MainWindow : Window
 
     public Task<double?> GetVisionRadiusAsync() => _visionSoftware.GetRadiusAsync();
 
-    private void ShowVisionDefectResult(IReadOnlyList<VisionDefectBox> defects)
+    private void ShowVisionDefectResult(IReadOnlyList<VisionDefectBox> defects, double? stopDisplacement)
     {
-        string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
-        string imagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+        string imagePath;
+        try
+        {
+            string directory = Path.GetFullPath(_viewModel.Setting.VisionSoftwareImageDirectory, AppContext.BaseDirectory);
+            imagePath = Path.Combine(directory, _viewModel.Setting.VisionSoftwareImageFileName);
+        }
+        catch (Exception exception)
+        {
+            Logger.Warn(exception, "视觉缺陷图片路径无效。");
+            imagePath = string.Empty;
+        }
+
         VisionDefectAnnotation[] annotations = defects.Select((defect, index) =>
             new VisionDefectAnnotation((index + 1).ToString(CultureInfo.InvariantCulture), "defect", "缺陷",
                 [defect.Left, defect.Top, defect.Right, defect.Bottom])).ToArray();
         VisionDefectWindow window = new() { Owner = this };
-        window.ShowResult(imagePath, annotations);
+        window.ShowResult(imagePath, annotations, physicalDimensionsError: "正在查询圆环像素直径...");
         window.Show();
+        _ = UpdateVisionPhysicalDimensionsAsync(window, stopDisplacement);
+    }
+
+    private async Task UpdateVisionPhysicalDimensionsAsync(VisionDefectWindow window, double? stopDisplacement)
+    {
+        RingPhysicalCalibration? calibration = RingPhysicalCalibration.Current;
+        if (calibration is null)
+        {
+            window.SetPhysicalDimensions(null, RingPhysicalCalibration.LoadError ?? "未加载标定文件。");
+            return;
+        }
+
+        if (stopDisplacement is null || !double.IsFinite(stopDisplacement.Value))
+        {
+            window.SetPhysicalDimensions(null, "停机时的 ECS 位移值无效。");
+            return;
+        }
+
+        try
+        {
+            double? radius = await _visionSoftware.GetRadiusAsync();
+            if (window.Dispatcher.HasShutdownStarted || !window.IsVisible) return;
+            if (radius is null)
+            {
+                window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环像素半径。");
+                return;
+            }
+
+            RingPhysicalDimensions dimensions = calibration.Calculate(stopDisplacement.Value, radius.Value * 2d);
+            window.SetPhysicalDimensions(dimensions);
+        }
+        catch (Exception exception)
+        {
+            Logger.Warn(exception, "视觉停机物理尺寸计算失败。");
+            if (!window.Dispatcher.HasShutdownStarted && window.IsVisible)
+                window.SetPhysicalDimensions(null, $"物理尺寸计算失败：{exception.Message}");
+        }
     }
 
     private void OpenVisionSettings_Click(object sender, RoutedEventArgs e) => ShowVisionDebugSettings();

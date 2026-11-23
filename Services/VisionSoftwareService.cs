@@ -128,11 +128,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     public async Task<double?> GetRadiusAsync()
     {
         string imagePath = GetConfiguredImagePath();
-        string? response = await SendRequestAsync($"radius \"{imagePath}\"");
+        string? response = await SendRequestAsync($"radius \"{imagePath}\"", replyTimeout: TimeSpan.FromSeconds(2));
         if (response is null) return null;
         string[] fields = response.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return fields.Length == 2 && fields[0] == "radius" &&
-            double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double radius) && double.IsFinite(radius)
+            double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double radius) && double.IsFinite(radius) && radius > 0d
             ? radius
             : null;
     }
@@ -153,7 +153,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         Path.Combine(_settings.VisionSoftwareImageDirectory, _settings.VisionSoftwareImageFileName),
         AppContext.BaseDirectory);
 
-    private async Task<string?> SendRequestAsync(string command, bool requireActive = false)
+    private async Task<string?> SendRequestAsync(string command, bool requireActive = false, TimeSpan? replyTimeout = null)
     {
         await _requestGate.WaitAsync(_shutdown.Token);
         TaskCompletionSource<string>? response = null;
@@ -171,11 +171,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             Volatile.Write(ref _pendingResponse, response);
             await writer.WriteLineAsync(command.AsMemory(), _shutdown.Token).WaitAsync(TimeSpan.FromSeconds(2));
             Logger.Info("视觉软件：发送 {0}", command);
-            return await response.Task.WaitAsync(TimeSpan.FromMilliseconds(Math.Max(1, _settings.VisionSoftwareReplyTimeoutMs)), _shutdown.Token);
+            return await response.Task.WaitAsync(replyTimeout ?? TimeSpan.FromMilliseconds(Math.Max(1, _settings.VisionSoftwareReplyTimeoutMs)), _shutdown.Token);
         }
         catch (TimeoutException)
         {
-            Report($"视觉软件未在 {_settings.VisionSoftwareReplyTimeoutMs}ms 内回复 {command}。");
+            Report($"视觉软件未在 {(replyTimeout ?? TimeSpan.FromMilliseconds(Math.Max(1, _settings.VisionSoftwareReplyTimeoutMs))).TotalMilliseconds:F0}ms 内回复 {command}。");
             _client?.Dispose();
             return null;
         }
@@ -222,12 +222,12 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                     Logger.Info("视觉软件收到：{0}", message);
                     if (message == "start") Interlocked.Increment(ref _startReplies);
                     if (message == "end") Interlocked.Increment(ref _endReplies);
-                    if (message == "skip" || message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal) || message.StartsWith("error ", StringComparison.Ordinal))
+                    if (message == "skip" || message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal) || message.StartsWith("error ", StringComparison.Ordinal) || message.StartsWith("radius ", StringComparison.Ordinal))
                         Volatile.Read(ref _pendingResponse)?.TrySetResult(message);
                     if ((message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal)) && _active && Interlocked.Exchange(ref _crackTriggered, 1) == 0)
                     {
                         _active = false;
-                        await HandleStopReplyAsync(message);
+                        _ = Task.Run(() => HandleStopReplyAsync(message));
                     }
                 }
             }
@@ -269,7 +269,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         }
 
         try { await _onCrack(defects); }
-        catch (Exception exception) { Report($"视觉缺陷停机处理失败：{exception.Message}"); }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "视觉缺陷停机处理失败。");
+            Report($"视觉缺陷停机处理失败：{exception.Message}");
+        }
     }
 
     private static IReadOnlyList<VisionDefectBox> ParseStopReply(string message)

@@ -1,7 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <UseWPF>true</UseWPF>
+    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.14393.0</SupportedOSPlatformVersion>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,6 +12,7 @@
 
   <ItemGroup>
     <Compile Include="..\..\Services\TrialPackageConfiguration.cs" Link="TrialPackageConfiguration.cs" />
+    <Compile Include="..\..\Services\RingPhysicalCalibration.cs" Link="RingPhysicalCalibration.cs" />
     <Compile Remove="manuals\**" />
     <EmbeddedResource Remove="manuals\**" />
     <None Remove="manuals\**" />
