@@ -15,7 +15,7 @@
     <Version>2.3.7.2611</Version>
     <AssemblyVersion>2.3.7.2611</AssemblyVersion>
     <FileVersion>2.3.7.2611</FileVersion>
-    <InformationalVersion>V2.3.7.2611 B</InformationalVersion>
+    <InformationalVersion>V2.3.7.2611 B-Mubea特供</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

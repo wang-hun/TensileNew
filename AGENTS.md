@@ -260,6 +260,7 @@ partial 仍共享 `MainWindow` 字段，不等于完成服务级解耦。后续�
 - 应用版本统一维护在 `TensileNeW.csproj` 的 `Version`、`AssemblyVersion`、`FileVersion` 和 `InformationalVersion`。
 - 版本号格式为 `主版本.次版本.修订版本.年月`，例如 `1.1.1.2606` 表示 1.1.1 版本、2026 年 6 月；即使只提升主版本、次版本或修订版本，也必须保留 `.年月` 后缀。`Version`、`AssemblyVersion` 和 `FileVersion` 必须保持该四段纯数字格式。`InformationalVersion` 使用带 `V` 前缀的显示格式，并在版本号后以空格追加发布标识，例如 `V2.2.0.2608 R`。
 - 发布标识统一使用 `R` 或 `B`：`R` 为商用发布版，表示大更新；`B` 为测试版，表示用于 debug 和试机调试的小更新。更新版本时必须同步维护 `InformationalVersion` 中的发布标识；`builder/` 读取该字段生成发布目录名，因此不得在打包产物中手工追加或替换标识。
+- `Mubea特供` 分支的 `2.3.7.2611` 版本在 `InformationalVersion` 发布标识后追加 `-Mubea特供`，显示为 `V2.3.7.2611 B-Mubea特供`。这是该分支该版本专属标识，不扩展为其他分支或版本的默认规则。
 - 主窗口标题运行时读取程序集 `InformationalVersion`，不要在 XAML 中硬编码版本号。
 - `builder/` 专门负责打包发布，打包目录名由 builder 读取主项目的 `InformationalVersion` 生成；更新版本时优先修改主项目版本元数据，不要在 builder 输出目录或生成产物里手工改版本。
 
