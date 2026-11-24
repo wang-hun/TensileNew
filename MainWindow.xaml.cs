@@ -223,7 +223,6 @@ public partial class MainWindow : Window
             message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }),
             () => _ringInspectHostService.IsAvailable);
         _visionSoftware.DetectionResultReceived += isNg => Dispatcher.BeginInvoke(() => VisionCameraPanel.ShowDetectionResult(isNg));
-        VisionCameraPanel.ReviewDefectResultRequested += (_, _) => ReviewVisionDefectResult();
         _visionSoftware.DetectionStarted += () => Dispatcher.BeginInvoke(VisionCameraPanel.ShowDetectionInProgress);
         if (_ringInspectHostService.IsAvailable) _visionSoftware.StartConnection();
         VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
@@ -2671,8 +2670,10 @@ public partial class MainWindow : Window
             Dispatcher.BeginInvoke(() => UpdateVisionDefectReviewButton());
             return;
         }
-        VisionCameraPanel.SetReviewDefectResultEnabled(CanReviewVisionDefectResult());
+        ReviewDefectResultButton.IsEnabled = CanReviewVisionDefectResult();
     }
+
+    private void ReviewDefectResult_Click(object sender, RoutedEventArgs e) => ReviewVisionDefectResult();
 
     private void ReviewVisionDefectResult()
     {

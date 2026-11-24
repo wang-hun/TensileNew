@@ -1032,12 +1032,13 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="1">
-                <Button Style="{StaticResource ActionButtonStyle}" Click="Reset_Click">
-                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                    <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                  </StackPanel>
-                </Button>
+                  <Button Style="{StaticResource ActionButtonStyle}" Click="Reset_Click">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <iconPacks:PackIconBootstrapIcons Kind="BootstrapReboot" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                      <TextBlock Text="数据重置" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </StackPanel>
+                  </Button>
+                  <Button x:Name="ReviewDefectResultButton" Style="{StaticResource ActionButtonStyle}" Height="40" Margin="0,4,0,0" FontSize="14" IsEnabled="False" Click="ReviewDefectResult_Click" Content="重看试验结果" />
               </StackPanel>
             </Grid>
             <Grid Grid.Row="2" Grid.Column="3" Margin="6,3,6,5" VerticalAlignment="Top">

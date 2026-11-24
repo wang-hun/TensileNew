@@ -125,9 +125,6 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
     public void ShowDetectionInProgress() => SetDetectionBubbleState(DetectionBubbleState.Detecting);
     public void ShowDetectionResult(bool isNg) => SetDetectionBubbleState(isNg ? DetectionBubbleState.Ng : DetectionBubbleState.Ok);
     public void ClearDetectionResult() => SetDetectionBubbleState(DetectionBubbleState.Idle);
-    public event EventHandler? ReviewDefectResultRequested;
-    public void SetReviewDefectResultEnabled(bool enabled) => ReviewDefectResultButton.IsEnabled = enabled;
-    private void ReviewDefectResult_Click(object sender, RoutedEventArgs e) => ReviewDefectResultRequested?.Invoke(this, EventArgs.Empty);
     private void SetDetectionBubbleState(DetectionBubbleState state)
     {
         if (state == DetectionBubbleState.Idle)
