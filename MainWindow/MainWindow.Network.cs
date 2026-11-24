@@ -1,5 +1,6 @@
 using HandyControl.Data;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using Haukcode.HighResolutionTimer;
 using NLog;
 using System.ComponentModel;
@@ -35,6 +36,22 @@ public partial class MainWindow : Window
 
     private void Help_Click(object sender, RoutedEventArgs e) => _viewModel.CurrentPage = "Help";
 
+    private void ReportOptions_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (ReportOptionsPage.DataContext is not ReportOptionEditorViewModel)
+            {
+                ReportOptionsPage.DataContext = new ReportOptionEditorViewModel(new ReportOptionStore());
+            }
+            _viewModel.CurrentPage = "ReportOptions";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            ShowError($"无法读取报告选项配置：{ex.Message}");
+        }
+    }
+
     private async void Playback_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.CurrentPage = "Playback";
@@ -51,8 +68,8 @@ public partial class MainWindow : Window
         DacuButton.Visibility = _dacuAvailable
             ? Visibility.Visible
             : Visibility.Collapsed;
-        System.Windows.Controls.Grid.SetColumn(ColorSchemesButton, _dacuAvailable ? 5 : 4);
-        System.Windows.Controls.Grid.SetColumn(VariablesButton, _dacuAvailable ? 6 : 5);
+        System.Windows.Controls.Grid.SetColumn(ColorSchemesButton, _dacuAvailable ? 6 : 5);
+        System.Windows.Controls.Grid.SetColumn(VariablesButton, _dacuAvailable ? 7 : 6);
     }
 
     private static string GetDacuExecutablePath() =>

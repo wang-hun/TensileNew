@@ -17,6 +17,7 @@
 | 试验控制 / 复位 | `../MainWindow.xaml.cs` | `StartTensile_Click()`、`Stop_Click()`、`Reset_Click()`、`PerformDataResetAsync()`、`OnTrialDataCleared()` | PLC 命令交给 `MainViewModel`；二段速状态转换保持在窗口协调层 |
 | 二段速 | `../MainWindow.xaml.cs` | `TwoStageSpeed_Click()`、`SwitchToSecondStageAsync()`、`SwitchToFirstStageAsync()`、`ShowTwoStagePrompt()`、`RestoreTwoStageAutoResetSetting()` | 检查自动复位、序列号和采集结束自动保存交互 |
 | 配方与设置 | `../MainWindow.xaml.cs` | `WriteRecipe_Click()`、`AddRecipe_Click()`、`DeleteRecipe_Click()`、`SaveSettings_Click()` | 写入和持久化归 `MainViewModel` / `RAM` |
+| 报告备选项编辑 | `../MainWindow.xaml`、`MainWindow.Network.cs`、`ReportOptionEditorViewModel.cs` | `ReportOptions_Click()`、列表编辑命令 | UI 编辑候选及顺序，并从 `Controls/ReportOptionsEditor` 打开配置目录、导入／导出 JSON；导入只更新列表，保存才更新程序配置；报告编辑页使用自适应列表宽高、溢出滚动和操作按钮换行，保留“新增选项”等完整标签；持久化归 `ReportOptionStore`，不生成报告 |
 | 实时数据保存和报告 | `../MainWindow.xaml.cs` | `SaveDataAndReportAsync()`、`OnDataCollectionEnded()`、`RunAutomaticSaveAsync()`、`SaveTestReportToFile()` | 快照、后台等待窗、试用次数、算法整合和报告约束见根索引及 `../Services/AGENTS.md` |
 | 回放 | `../MainWindow.xaml.cs` | `RefreshPlaybackTrialsAsync()`、`RenderPlayback()`、`SavePlaybackData_Click()`、`SavePlaybackReport_Click()` | 读取 `TrialDataStore`；回放与实时采集不得混用状态 |
 | 隐藏入口 / 调试导入 | `../MainWindow.xaml.cs` | `LogoImage_MouseLeftButtonDown()`、`RunDebugAlgorithmDataImportAsync()` | PIN 事件边界见 `../Dialogs/AGENTS.md`；算法规则见根索引 |

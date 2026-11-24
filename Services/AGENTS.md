@@ -10,6 +10,7 @@
 | 新视觉 / 二段速设备 | `NewVisionProcessingService.cs`、`VisionDeviceClient.cs`、`VisionDetectionController.cs` | 连接、检测、释放 | 与 PLC 采集分离；窗口负责提示和 UI 状态 |
 | 实时 / 回放数据 | `TrialDataStore.cs` / `TrialDataStore` | 入队、试验分组、回放、临时库清理 | `DataAqc.Enqueue()` 是实时持久化接入点；调试辅助不得另写数据库 |
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
+| 报告选项配置 | `ReportOptionStore.cs` | `Load()`、`Save()`、`Import()`、`Export()` | 首次生成程序目录中的 `ReportOptions.json`；导入校验完整字段和候选项，失败不覆盖当前文件；导出当前列表到指定路径；不得重置用户已清空的字段，也不改报告生成 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
 | 离线算法验证 | `DebugAlgorithmExcelService.cs` | 读取首表、复用重采样导出 | 仅 PIN 隐藏入口，不读写实时队列 |
 | 说明书缓存 | `ManualDocumentService.cs` | 导航、格式判断、XPS 缓存 / 转换 | Word/PPT 权威缓存 `%LocalAppData%\ECS\manual-cache`；保持单文件发布路径兼容 |

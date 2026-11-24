@@ -34,6 +34,7 @@
 | 试验控制 / 二段速 / 复位 | `MainWindow.xaml.cs` → `StartTensile_Click()`、`Reset_Click()`、`SwitchToSecondStageAsync()` | `MainViewModel`、`DataAqc`、视觉服务 | `MainWindow/AGENTS.md`、`Models/AGENTS.md` |
 | 实时数据、算法整合、报告与回放导出 | `MainWindow.xaml.cs` → `SaveDataAndReportAsync()`、`SavePlaybackData_Click()` | `DisplacementResamplingService`、`TrialDataStore`、`TestReportService` | `MainWindow/AGENTS.md`、`Services/AGENTS.md` |
 | 配置 / 配方 | `MainViewModel.cs`、`Models/RAM.cs`、`SettingModel.cs`、`RecipeModel.cs` | Settings / recipe dialogs | `Models/AGENTS.md`、`Dialogs/AGENTS.md` |
+| 报告下拉备选项编辑 | `MainWindow.xaml` → `MainWindow/MainWindow.Network.cs` | `Controls/ReportOptionsEditor` → `ReportOptionEditorViewModel` → `ReportOptionStore` | `MainWindow/AGENTS.md`、`Models/AGENTS.md`、`Services/AGENTS.md` |
 | PIN 隐藏入口 | `MainWindow.xaml.cs` → `LogoImage_MouseLeftButtonDown()` | `SettingsPinDialog` / `SettingsPinWindow`、离线导入服务 | `Dialogs/AGENTS.md`、`Services/AGENTS.md` |
 | 产品发布 / 绿色包 | `builder/Builder` | 主项目 publish、启动脚本、内容断言 | `builder/AGENTS.md` |
 | 安装器 | `installer/InstallerBuilder` → `installer/Installer` | 临时 payload、独立部署 EXE | `installer/AGENTS.md` |
@@ -235,6 +236,7 @@ partial 仍共享 `MainWindow` 字段，不等于完成服务级解耦。后续�
 ## 配置和运行数据
 
 - `Setting.json`：运行时配置文件，由 `RAM.Init()` 在程序目录读取或创建。
+- 程序目录中的 `ReportOptions.json`：报告下拉备选项独立配置；首次进入“报告编辑”时用 `doc/杯凸测试报告模板 0 202060914.xlsx` 中标注的现有值及明确列出的另一选项初始化，之后读取用户保存的列表及顺序。编辑页允许增删、修改文字、上下移动和显式保存；可打开配置所在文件夹、导入／导出 JSON，导入仅替换当前列表，需显式保存才写入程序配置，导出当前列表不替换程序配置；候选项列表随窗口伸缩并滚动，窄屏时操作按钮换行且标签不得裁切；不得与 `Setting.json`、报告组装或模板文件读写耦合。
 - `SettingModel.RuntimeDataDeletePolicy` 控制退出时是否删除本次运行的临时数据库，选项为“始终是/每次询问/始终否”，默认值为“始终是”；它与 `RuntimeDataSavePolicy`（退出时导出运行数据）相互独立。退出询问必须复用现有运行数据询问窗体和关闭流程，不能改变导出逻辑。
 - `package.config`：独立的 AES 加密试用标记文件，不在界面或 `Setting.json` 中展示和设置。配置包含试用标记、启动次数和数据保存次数；仅试用版会在启动后递增启动次数，并在“保存数据和报告”或回放页“保存数据表格”完成后递增数据保存次数，完整版不读写这些计数。试用版的启动次数恰为 5、20、50、100 时，主窗口显示后弹出一次购买完整版提示，不执行其他操作。系统设置页始终显示当前版本，只有试用版显示这两项计数。非调试启动时，试用包以 `%LocalAppData%\ECS\package.config` 为权威副本：该副本存在则覆盖修复运行目录中缺失或内容不一致的文件；副本不存在时，试用包会将运行目录文件复制到该处，运行目录文件也不存在时先创建新的试用文件。运行目录自带完整版文件时，先检查 AppData 是否同为有效完整版：不是则由运行目录文件覆盖 AppData；是则由 AppData 文件覆盖修复运行目录。附加编译器调试器时不访问文件，Debug 编译为非试用、Release 编译为试用。builder 打包前通过控制台 Y/N 问询生成试用或非试用标记。该状态当前不得用于增加试用限制或其他业务逻辑。
 - `package.config` 的试用标记、计数后允许追加权限文件同步跳过标记；旧文件没有该字段时按原有同步逻辑处理。携带该标记的非试用包只读取运行目录中的标记，完全跳过 `%LocalAppData%\ECS\package.config` 的读取、写入、复制、同步和覆盖；说明书缓存仍与权限文件无关，保持原有缓存逻辑。

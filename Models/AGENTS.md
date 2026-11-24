@@ -5,6 +5,7 @@
 | 流程 | 文件 | 类 / 函数 | 修改边界 |
 |---|---|---|---|
 | 配置读写 | `RAM.cs`、`SettingModel.cs` | `RAM.Init()`、配置保存入口、`SettingModel` | 新字段兼容旧 `Setting.json` 和空值；不将权限 / 试用状态混入用户设置 |
+| 报告备选项 | `ReportOptionCatalog.cs` | `Fields`、`Definitions`、`CreateDefault()` | 仅定义模板字段和初始候选；保留用户删除全部选项及自定义顺序 |
 | PLC 变量及采集 | `DataAqc.cs` | `InitVariables()`、`TryConnect()`、`Refresh()`、`StartConsumers()`、`ApplyBatchOnUiThread()`、`Enqueue()` | 真实 PLC 采样主链；不得在循环里加入非采集逻辑 |
 | PLC 快照和试验点 | `PLCVariable.cs`、`Loadmodel.cs` 及相关模型 | 属性与数据映射 | 维护寄存器地址、类型及五列原始数据语义 |
 | 配方 | `RecipeModel.cs` 及配方模型 | 模型属性 / 序列化 | 写 PLC 的协调逻辑位于 `MainViewModel` |

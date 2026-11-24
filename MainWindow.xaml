@@ -46,6 +46,13 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+    <Style x:Key="ReportOptionsNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding CurrentPage}" Value="ReportOptions">
+          <Setter Property="Foreground" Value="{DynamicResource AppNavSelectedForegroundBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="VariablesNavButtonStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
       <Style.Triggers>
         <DataTrigger Binding="{Binding CurrentPage}" Value="Variables">
@@ -331,13 +338,14 @@
           <Image x:Name="LogoImage" Grid.RowSpan="2" Source="{DynamicResource AppLogoImageSource}" Stretch="Uniform" Height="36.5" Margin="0,0,30,0" VerticalAlignment="Center" MouseLeftButtonDown="LogoImage_MouseLeftButtonDown" shell:WindowChrome.IsHitTestVisibleInChrome="True" />
           <Grid Grid.RowSpan="2" Grid.Column="1">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
-              <ColumnDefinition Width="90" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
+              <ColumnDefinition Width="74" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Button Style="{StaticResource HomeNavButtonStyle}" Click="Home_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -364,19 +372,25 @@
                 <TextBlock Text="试验指导" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="DacuButton" Grid.Column="4" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="Dacu_Click" ToolTip="打开 DACU" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button Grid.Column="4" Style="{StaticResource ReportOptionsNavButtonStyle}" Click="ReportOptions_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <iconPacks:PackIconFileIcons Kind="Word" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <TextBlock Text="报告编辑" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="DacuButton" Grid.Column="5" Style="{StaticResource NavButtonStyle}" Visibility="Collapsed" Click="Dacu_Click" ToolTip="打开 DACU" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconLucide Kind="ChartSpline" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="数据分析" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="ColorSchemesButton" Grid.Column="5" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="ColorSchemesButton" Grid.Column="6" Style="{StaticResource ColorSchemesNavButtonStyle}" Visibility="Hidden" Click="ColorSchemes_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconRemixIcon Kind="ColorFilterFill" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="配色" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
               </StackPanel>
             </Button>
-            <Button x:Name="VariablesButton" Grid.Column="6" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button x:Name="VariablesButton" Grid.Column="7" Style="{StaticResource VariablesNavButtonStyle}" Visibility="Hidden" Click="Variables_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <iconPacks:PackIconBootstrapIcons Kind="CardChecklist" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <TextBlock Text="变量" Margin="0,2,0,0" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
@@ -1698,6 +1712,19 @@
             </ListBox>
           </Grid>
         </Border>
+      </Grid>
+      <Grid Grid.Row="1">
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding CurrentPage}" Value="ReportOptions">
+                <Setter Property="Visibility" Value="Visible" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
+        <controls:ReportOptionsEditor x:Name="ReportOptionsPage" />
       </Grid>
     </Grid>
   </hc:DialogContainer>
