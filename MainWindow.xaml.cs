@@ -119,6 +119,9 @@ public partial class MainWindow : Window
     private readonly VisionSoftwareService _visionSoftware;
     private readonly RingInspectHostService _ringInspectHostService;
     private bool _visionAutomaticSaving;
+    private bool _visionDetectionInProgress;
+    private VisionDefectWindow? _visionDefectWindow;
+    private int _visionDefectResultGeneration;
     private int _visionDetectionGeneration;
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
@@ -202,7 +205,7 @@ public partial class MainWindow : Window
             bool stopped = await _viewModel.TryPulseAsync("停止");
             try
             {
-                await Dispatcher.InvokeAsync(() => EndVisionDetection());
+                await Dispatcher.InvokeAsync(() => EndVisionDetection(preserveResult: true));
             }
             catch (Exception exception)
             {
@@ -220,6 +223,8 @@ public partial class MainWindow : Window
             message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }),
             () => _ringInspectHostService.IsAvailable);
         _visionSoftware.DetectionResultReceived += isNg => Dispatcher.BeginInvoke(() => VisionCameraPanel.ShowDetectionResult(isNg));
+        VisionCameraPanel.ReviewDefectResultRequested += (_, _) => ReviewVisionDefectResult();
+        _visionSoftware.DetectionStarted += () => Dispatcher.BeginInvoke(VisionCameraPanel.ShowDetectionInProgress);
         if (_ringInspectHostService.IsAvailable) _visionSoftware.StartConnection();
         VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
         VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
@@ -259,9 +264,12 @@ public partial class MainWindow : Window
         _newVisionUiInitialized = true;
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
+        DataAqc.DataCollectionStarted += UpdateVisionDefectReviewButton;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.DataCollectionEnded += UpdateVisionDefectReviewButton;
         DataAqc.ChartCleared += OnTrialDataCleared;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
+        UpdateVisionDefectReviewButton();
         Title = GetWindowTitle();
         _loadPlotController = new LoadPlotController(
             LoadPlot,
@@ -536,6 +544,8 @@ public partial class MainWindow : Window
 
         _shutdownCleanupStarted = true;
         _isClosing = true;
+        _visionDefectWindow?.ClosePermanently();
+        _visionDefectWindow = null;
         _ = _visionSoftware.DisposeAsync();
         _ringInspectHostService.Dispose();
         _ = ReleaseVisionCameraInBackgroundAsync();
@@ -548,7 +558,9 @@ public partial class MainWindow : Window
         _viewModel.LoadItems.ListChanged -= LoadItems_ListChanged;
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
+        DataAqc.DataCollectionStarted -= UpdateVisionDefectReviewButton;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        DataAqc.DataCollectionEnded -= UpdateVisionDefectReviewButton;
         DataAqc.ChartCleared -= OnTrialDataCleared;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
@@ -1352,6 +1364,7 @@ public partial class MainWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
         CameraModeButton.IsEnabled = _visionCameraAvailable;
+        UpdateVisionDefectReviewButton();
         if (!_newVisionProcessingService.IsEnabled)
         {
             ChartModeButton.IsChecked = true;
@@ -2569,6 +2582,8 @@ public partial class MainWindow : Window
     private async Task BeginVisionDetectionAsync()
     {
         if (!_newVisionProcessingService.IsEnabled) return;
+        _visionDetectionInProgress = true;
+        UpdateVisionDefectReviewButton();
         VisionCameraPanel.ClearDetectionResult();
         bool softwareEnabled = _viewModel.Setting.VisionSoftwareEnabled;
         int generation = ++_visionDetectionGeneration;
@@ -2602,9 +2617,11 @@ public partial class MainWindow : Window
         if (softwareEnabled && generation == _visionDetectionGeneration) await _visionSoftware.StartAsync();
     }
 
-    private void EndVisionDetection()
+    private void EndVisionDetection(bool preserveResult = false)
     {
         _visionDetectionGeneration++;
+        _visionDetectionInProgress = false;
+        if (!preserveResult) VisionCameraPanel.ClearDetectionResult();
         VisionCameraPanel.DetectionImagePath = null;
         if (_visionAutomaticSaving)
         {
@@ -2612,6 +2629,7 @@ public partial class MainWindow : Window
             _visionAutomaticSaving = false;
         }
         _ = _visionSoftware.EndAsync();
+        UpdateVisionDefectReviewButton();
     }
 
     public Task<double?> GetVisionRadiusAsync() => _visionSoftware.GetRadiusAsync();
@@ -2633,13 +2651,47 @@ public partial class MainWindow : Window
         VisionDefectAnnotation[] annotations = defects.Select((defect, index) =>
             new VisionDefectAnnotation((index + 1).ToString(CultureInfo.InvariantCulture), "defect", "缺陷",
                 [defect.Left, defect.Top, defect.Right, defect.Bottom])).ToArray();
-        VisionDefectWindow window = new() { Owner = this };
+        VisionDefectWindow window = _visionDefectWindow ??= new() { Owner = this };
+        int resultGeneration = ++_visionDefectResultGeneration;
         window.ShowResult(imagePath, annotations, physicalDimensionsError: "正在查询圆环像素直径...");
-        window.Show();
-        _ = UpdateVisionPhysicalDimensionsAsync(window, stopDisplacement);
+        ShowVisionDefectWindow(window);
+        UpdateVisionDefectReviewButton();
+        _ = UpdateVisionPhysicalDimensionsAsync(window, stopDisplacement, resultGeneration);
     }
 
-    private async Task UpdateVisionPhysicalDimensionsAsync(VisionDefectWindow window, double? stopDisplacement)
+    private bool CanReviewVisionDefectResult() =>
+        _visionDefectWindow is not null &&
+        !_visionDetectionInProgress &&
+        !IsDataCollecting();
+
+    private void UpdateVisionDefectReviewButton()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => UpdateVisionDefectReviewButton());
+            return;
+        }
+        VisionCameraPanel.SetReviewDefectResultEnabled(CanReviewVisionDefectResult());
+    }
+
+    private void ReviewVisionDefectResult()
+    {
+        if (!CanReviewVisionDefectResult() || _visionDefectWindow is null)
+        {
+            UpdateVisionDefectReviewButton();
+            return;
+        }
+        ShowVisionDefectWindow(_visionDefectWindow);
+    }
+
+    private static void ShowVisionDefectWindow(VisionDefectWindow window)
+    {
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        if (!window.IsVisible) window.Show();
+        window.Activate();
+    }
+
+    private async Task UpdateVisionPhysicalDimensionsAsync(VisionDefectWindow window, double? stopDisplacement, int resultGeneration)
     {
         RingPhysicalCalibration? calibration = RingPhysicalCalibration.Current;
         if (calibration is null)
@@ -2657,7 +2709,7 @@ public partial class MainWindow : Window
         try
         {
             double? radius = await _visionSoftware.GetRadiusAsync();
-            if (window.Dispatcher.HasShutdownStarted || !window.IsVisible) return;
+            if (window.Dispatcher.HasShutdownStarted || resultGeneration != _visionDefectResultGeneration) return;
             if (radius is null)
             {
                 window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环像素半径。");
@@ -2670,7 +2722,7 @@ public partial class MainWindow : Window
         catch (Exception exception)
         {
             Logger.Warn(exception, "视觉停机物理尺寸计算失败。");
-            if (!window.Dispatcher.HasShutdownStarted && window.IsVisible)
+            if (!window.Dispatcher.HasShutdownStarted && resultGeneration == _visionDefectResultGeneration)
                 window.SetPhysicalDimensions(null, $"物理尺寸计算失败：{exception.Message}");
         }
     }

@@ -40,6 +40,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
     }
 
     public event Action<bool>? DetectionResultReceived;
+    public event Action? DetectionStarted;
     public void StartConnection() => _connectionTask ??= Task.Run(ConnectionLoopAsync);
 
     public async Task StartAsync()
@@ -90,6 +91,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             long sequence = Interlocked.Read(ref _startReplies);
             await writer.WriteLineAsync("start".AsMemory(), _shutdown.Token).WaitAsync(TimeSpan.FromSeconds(2));
             _startSent = true;
+            DetectionStarted?.Invoke();
             Logger.Info("视觉软件：发送 start");
             _ = CheckControlReplyAsync("start", sequence);
         }

@@ -17,13 +17,25 @@ public sealed record VisionDefectAnnotation(string Id, string Type, string TypeN
 public partial class VisionDefectWindow : Window
 {
     private readonly ZoomableImageViewport _imageViewport;
+    private bool _allowClose;
 
     public VisionDefectWindow()
     {
         InitializeComponent();
         _imageViewport = new ZoomableImageViewport(ImageViewport, ImageCanvas);
+        Closing += (_, args) =>
+        {
+            if (_allowClose) return;
+            args.Cancel = true;
+            Hide();
+        };
     }
 
+    public void ClosePermanently()
+    {
+        _allowClose = true;
+        Close();
+    }
     public void ShowResult(string imagePath, IReadOnlyList<VisionDefectAnnotation>? defects = null, RingPhysicalDimensions? physicalDimensions = null, string? physicalDimensionsError = null)
     {
         SetPhysicalDimensions(physicalDimensions, physicalDimensionsError);

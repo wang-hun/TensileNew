@@ -121,15 +121,36 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             Interlocked.Increment(ref _detectionImageGeneration);
         }
     }
-    public void ShowDetectionResult(bool isNg)
+    private enum DetectionBubbleState { Idle, Detecting, Ok, Ng }
+    public void ShowDetectionInProgress() => SetDetectionBubbleState(DetectionBubbleState.Detecting);
+    public void ShowDetectionResult(bool isNg) => SetDetectionBubbleState(isNg ? DetectionBubbleState.Ng : DetectionBubbleState.Ok);
+    public void ClearDetectionResult() => SetDetectionBubbleState(DetectionBubbleState.Idle);
+    public event EventHandler? ReviewDefectResultRequested;
+    public void SetReviewDefectResultEnabled(bool enabled) => ReviewDefectResultButton.IsEnabled = enabled;
+    private void ReviewDefectResult_Click(object sender, RoutedEventArgs e) => ReviewDefectResultRequested?.Invoke(this, EventArgs.Empty);
+    private void SetDetectionBubbleState(DetectionBubbleState state)
     {
-        DetectionResultText.Text = isNg ? "NG" : "OK";
-        DetectionResultBubble.Background = isNg
-            ? new SolidColorBrush(Color.FromRgb(190, 38, 48))
-            : new SolidColorBrush(Color.FromRgb(22, 128, 60));
+        if (state == DetectionBubbleState.Idle)
+        {
+            DetectionResultBubble.Visibility = Visibility.Collapsed;
+            return;
+        }
+        DetectionResultText.Text = state switch
+        {
+            DetectionBubbleState.Detecting => "检测中",
+            DetectionBubbleState.Ok => "OK",
+            DetectionBubbleState.Ng => "NG",
+            _ => string.Empty
+        };
+        DetectionResultBubble.Background = state switch
+        {
+            DetectionBubbleState.Detecting => new SolidColorBrush(Color.FromRgb(15, 95, 168)),
+            DetectionBubbleState.Ok => new SolidColorBrush(Color.FromRgb(22, 128, 60)),
+            DetectionBubbleState.Ng => new SolidColorBrush(Color.FromRgb(190, 38, 48)),
+            _ => Brushes.Transparent
+        };
         DetectionResultBubble.Visibility = Visibility.Visible;
     }
-    public void ClearDetectionResult() => DetectionResultBubble.Visibility = Visibility.Collapsed;
     public Action? DetectionImagePublishing { get; set; }
     public Action? DetectionImageSaved { get; set; }
     public Action<Exception>? DetectionImageFailed { get; set; }
