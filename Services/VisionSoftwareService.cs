@@ -131,15 +131,16 @@ public sealed class VisionSoftwareService : IAsyncDisposable
 
     public void ImagePublished() => _ = CheckImageAsync();
 
-    public async Task<double?> GetRadiusAsync()
+    public async Task<RingPixelRadii?> GetRadiiAsync()
     {
         string imagePath = GetConfiguredImagePath();
         string? response = await SendRequestAsync($"radius \"{imagePath}\"", replyTimeout: TimeSpan.FromSeconds(2));
         if (response is null) return null;
         string[] fields = response.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return fields.Length == 2 && fields[0] == "radius" &&
-            double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double radius) && double.IsFinite(radius) && radius > 0d
-            ? radius
+        return fields.Length == 3 && fields[0] == "radius" &&
+            double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double innerRadius) && double.IsFinite(innerRadius) && innerRadius > 0d &&
+            double.TryParse(fields[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double outerRadius) && double.IsFinite(outerRadius) && outerRadius > 0d
+            ? new RingPixelRadii(innerRadius, outerRadius)
             : null;
     }
 

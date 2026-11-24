@@ -88,13 +88,14 @@ public partial class VisionDefectWindow : Window
     {
         if (dimensions is null)
         {
-            PhysicalDiameterTextBlock.Text = "物理直径：-- mm";
-            PhysicalHeightTextBlock.Text = "物理高度：-- mm";
+            PhysicalOuterDiameterTextBlock.Text = "物理外直径：-- mm";
+            PhysicalInnerDiameterTextBlock.Text = "物理内直径：-- mm";
             PhysicalDimensionStatusTextBlock.Text = string.IsNullOrWhiteSpace(error) ? "物理尺寸不可用" : error;
             return;
         }
 
-        PhysicalDiameterTextBlock.Text = $"物理直径：{dimensions.DiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
+        PhysicalOuterDiameterTextBlock.Text = $"物理外直径：{dimensions.OuterDiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
+        PhysicalInnerDiameterTextBlock.Text = $"物理内直径：{dimensions.InnerDiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
         PhysicalHeightTextBlock.Text = $"物理高度：{dimensions.HeightMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
         PhysicalDimensionStatusTextBlock.Text = string.Empty;
     }

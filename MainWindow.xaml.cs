@@ -2631,7 +2631,7 @@ public partial class MainWindow : Window
         UpdateVisionDefectReviewButton();
     }
 
-    public Task<double?> GetVisionRadiusAsync() => _visionSoftware.GetRadiusAsync();
+    public Task<RingPixelRadii?> GetVisionRadiiAsync() => _visionSoftware.GetRadiiAsync();
 
     private void ShowVisionDefectResult(IReadOnlyList<VisionDefectBox> defects, double? stopDisplacement)
     {
@@ -2652,7 +2652,7 @@ public partial class MainWindow : Window
                 [defect.Left, defect.Top, defect.Right, defect.Bottom])).ToArray();
         VisionDefectWindow window = _visionDefectWindow ??= new() { Owner = this };
         int resultGeneration = ++_visionDefectResultGeneration;
-        window.ShowResult(imagePath, annotations, physicalDimensionsError: "正在查询圆环像素直径...");
+        window.ShowResult(imagePath, annotations, physicalDimensionsError: "正在查询圆环内外像素半径...");
         ShowVisionDefectWindow(window);
         UpdateVisionDefectReviewButton();
         _ = UpdateVisionPhysicalDimensionsAsync(window, stopDisplacement, resultGeneration);
@@ -2709,15 +2709,15 @@ public partial class MainWindow : Window
 
         try
         {
-            double? radius = await _visionSoftware.GetRadiusAsync();
+            RingPixelRadii? radii = await _visionSoftware.GetRadiiAsync();
             if (window.Dispatcher.HasShutdownStarted || resultGeneration != _visionDefectResultGeneration) return;
-            if (radius is null)
+            if (radii is null)
             {
-                window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环像素半径。");
+                window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环内外像素半径。");
                 return;
             }
 
-            RingPhysicalDimensions dimensions = calibration.Calculate(stopDisplacement.Value, radius.Value * 2d);
+            RingPhysicalDimensions dimensions = calibration.Calculate(stopDisplacement.Value, radii.InnerRadius, radii.OuterRadius);
             window.SetPhysicalDimensions(dimensions);
         }
         catch (Exception exception)

@@ -28,10 +28,11 @@
       </Grid>
       <Grid Grid.Row="1" MinHeight="42" Background="{DynamicResource AppHeaderBackgroundBrush}" Margin="0,0,0,1">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-        <TextBlock x:Name="PhysicalDiameterTextBlock" Grid.Column="0" Text="物理直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,4" FontSize="13" FontWeight="SemiBold" />
-        <TextBlock x:Name="PhysicalHeightTextBlock" Grid.Column="1" Text="物理高度：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
-        <TextBlock x:Name="PhysicalDimensionStatusTextBlock" Grid.Row="1" Grid.ColumnSpan="2" Text="" Foreground="#FFFFC107" Margin="12,0,12,4" FontSize="12" TextWrapping="Wrap" />
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <TextBlock x:Name="PhysicalOuterDiameterTextBlock" Grid.Column="0" Text="物理外直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalInnerDiameterTextBlock" Grid.Column="1" Text="物理内直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalHeightTextBlock" Grid.Column="2" Text="物理高度：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalDimensionStatusTextBlock" Grid.Row="1" Grid.ColumnSpan="3" Text="" Foreground="#FFFFC107" Margin="12,0,12,4" FontSize="12" TextWrapping="Wrap" />
       </Grid>
       <Grid x:Name="ImageViewport" Grid.Row="2" Background="Black" ClipToBounds="True">
         <Canvas x:Name="ImageCanvas" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" />

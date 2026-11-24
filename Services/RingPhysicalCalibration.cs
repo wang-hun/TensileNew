@@ -7,7 +7,9 @@ using NLog;
 
 namespace TensileNeW.Services;
 
-public sealed record RingPhysicalDimensions(double DiameterMillimeters, double HeightMillimeters);
+public sealed record RingPixelRadii(double InnerRadius, double OuterRadius);
+
+public sealed record RingPhysicalDimensions(double OuterDiameterMillimeters, double InnerDiameterMillimeters, double HeightMillimeters);
 
 public sealed class RingPhysicalCalibration
 {
@@ -87,12 +89,24 @@ public sealed class RingPhysicalCalibration
         return new RingPhysicalCalibration(m, d10, alpha, h);
     }
 
-    public RingPhysicalDimensions Calculate(double z10, double pixelDiameter)
+    public RingPhysicalDimensions Calculate(double z10, double pixelInnerRadius, double pixelOuterRadius)
     {
         if (!double.IsFinite(z10)) throw new ArgumentOutOfRangeException(nameof(z10), "停机位移不是有效数值。");
-        if (!double.IsFinite(pixelDiameter) || pixelDiameter <= 0d)
-            throw new ArgumentOutOfRangeException(nameof(pixelDiameter), "像素直径必须是正的有限数值。");
+        if (!double.IsFinite(pixelInnerRadius) || pixelInnerRadius <= 0d)
+            throw new ArgumentOutOfRangeException(nameof(pixelInnerRadius), "像素内圆半径必须是正的有限数值。");
+        if (!double.IsFinite(pixelOuterRadius) || pixelOuterRadius <= 0d)
+            throw new ArgumentOutOfRangeException(nameof(pixelOuterRadius), "像素外圆半径必须是正的有限数值。");
 
+        double innerDiameter = CalculateDiameter(z10, pixelInnerRadius * 2d);
+        double outerDiameter = CalculateDiameter(z10, pixelOuterRadius * 2d);
+        double height = z10 + (D10 - innerDiameter) / (2d * CotAlpha);
+        if (!double.IsFinite(height))
+            throw new InvalidDataException("计算得到的物理尺寸无效，请检查停机位移、像素半径及标定参数。");
+        return new RingPhysicalDimensions(outerDiameter, innerDiameter, height);
+    }
+
+    private double CalculateDiameter(double z10, double pixelDiameter)
+    {
         double diameterFactor = 2d * (H - z10) * CotAlpha - D10;
         double denominatorTerm = 2d * M * H * CotAlpha;
         double denominator = denominatorTerm - pixelDiameter;
@@ -105,10 +119,9 @@ public sealed class RingPhysicalCalibration
             throw new InvalidDataException("物理直径公式的参数相互抵消或分母接近零，无法可靠计算。");
 
         double diameter = numerator / denominator;
-        double height = z10 + (D10 - diameter) / (2d * CotAlpha);
-        if (!double.IsFinite(diameter) || diameter <= 0d || !double.IsFinite(height))
-            throw new InvalidDataException("计算得到的物理尺寸无效，请检查停机位移、像素直径及标定参数。");
-        return new RingPhysicalDimensions(diameter, height);
+        if (!double.IsFinite(diameter) || diameter <= 0d)
+            throw new InvalidDataException("计算得到的物理直径无效，请检查停机位移、像素直径及标定参数。");
+        return diameter;
     }
 
     public static string? SelectDebugCalibrationFile()

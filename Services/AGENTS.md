@@ -12,7 +12,7 @@
 | 报告 | `TestReportService.cs` / `TestReportService` | 报告文档生成 | 算法整合导出不得替换报告原始曲线截图 |
 | 新视觉图片保存 | `VisionImageSaveQueue.cs` / `VisionImageSaveQueue` | 专属 worker 串行 BMP 编码与落盘 | 保存使用独立于 UI 的最新采集帧快照和有界异步队列；连续保存通过异步背压等待队列空位，不丢弃已触发图像；检测时附加覆盖固定 BMP；不在 UI 线程编码 / 写盘 |
 | 识别软件通信 | `VisionSoftwareService.cs`、`VisionCrackReaction.cs` | TCP 状态机、start/check/radius/end 请求、缺陷停机响应 | 按 `vision/联机协议.md` 收发 UTF-8 行协议；`check` 必须附带配置的固定 BMP 绝对路径，逐条等待 `skip`/`stop`/`error`；半径接口独立发起 `radius`；stop 坐标解析后先确认 PLC 停止成功，再显示缺陷窗体 |
-| 物理尺寸标定 | `RingPhysicalCalibration.cs` | 启动加载、参数验证、直径和高度计算 | 标定 JSON 从运行目录读取；调试附加时从控制台流程弹出原生文件选择窗口，不要求输入路径；无效文件提示并允许重选，取消本次不加载旧文件；缺失、格式错误或计算失败不阻断停机和缺陷窗口；`radius` 返回半径，公式使用直径需先乘 2 |
+| 物理尺寸标定 | `RingPhysicalCalibration.cs` | 启动加载、参数验证、直径和高度计算 | 标定 JSON 从运行目录读取；调试附加时从控制台流程弹出原生文件选择窗口，不要求输入路径；无效文件提示并允许重选，取消本次不加载旧文件；缺失、格式错误或计算失败不阻断停机和缺陷窗口；`radius` 返回内、外半径，分别乘 2 后用同一公式计算内、外直径，高度仅按内直径计算一次 |
 | 外置识别程序宿主 | `RingInspectHostService.cs` / `RingInspectHostService` | 启动、就绪握手、展示 / 退出 | 仅新视觉启用时创建隐藏的引导 HWND，并只传可选 `--host-hwnd`；识别端在首次显示前改为子窗口，随后按原 Loaded 流程读取自身配置并启动既有服务；就绪消息确认后 ECS 才启动既有连接；不传启动配置或 TCP 端口，不复制协议或检测逻辑；无参数双击行为保持原样；缺失仅日志与现有弹窗；标题 / 图标 / 替代栏归 `RingInspectHostWindow` 管理 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
 | 离线算法验证 | `DebugAlgorithmExcelService.cs` | 读取首表、复用重采样导出 | 仅 PIN 隐藏入口，不读写实时队列 |
