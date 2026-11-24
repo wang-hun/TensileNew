@@ -185,7 +185,6 @@ public partial class MainWindow : Window
         _viewModel.RecipeWritten += name => Dispatcher.Invoke(() => ShowSuccess($"切换配方成功：{name}"));
         DataContext = _viewModel;
         InitializeComponent();
-        _ringInspectHostService.Prepare(this);
         VisionCrackReaction crackReaction = new(async defects =>
         {
             double? stopDisplacement = null;
@@ -220,6 +219,7 @@ public partial class MainWindow : Window
         _visionSoftware = new VisionSoftwareService(_viewModel.Setting, crackReaction.HandleAsync,
             message => Dispatcher.BeginInvoke(() => { if (!_isClosing) ShowWarning(message); }),
             () => _ringInspectHostService.IsAvailable);
+        _visionSoftware.DetectionResultReceived += isNg => Dispatcher.BeginInvoke(() => VisionCameraPanel.ShowDetectionResult(isNg));
         if (_ringInspectHostService.IsAvailable) _visionSoftware.StartConnection();
         VisionCameraPanel.DetectionImagePublishing = _visionSoftware.ImagePublishing;
         VisionCameraPanel.DetectionImageSaved = _visionSoftware.ImagePublished;
@@ -364,6 +364,8 @@ public partial class MainWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         Logger.Info("启动程序");
+        if (_newVisionProcessingService.IsEnabled && _ringInspectHostService.IsAvailable && !_ringInspectHostService.Prepare(this))
+            MessageBox.Error("识别程序不可用，请检查安装文件。", "识别程序不可用");
         InitializePlot();
         ChartHintPanel.Visibility = _viewModel.Setting.HideChartHintOnStartup
             ? Visibility.Collapsed
@@ -2567,6 +2569,7 @@ public partial class MainWindow : Window
     private async Task BeginVisionDetectionAsync()
     {
         if (!_newVisionProcessingService.IsEnabled) return;
+        VisionCameraPanel.ClearDetectionResult();
         bool softwareEnabled = _viewModel.Setting.VisionSoftwareEnabled;
         int generation = ++_visionDetectionGeneration;
         try

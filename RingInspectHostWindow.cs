@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -13,11 +14,15 @@ internal sealed class RingInspectHostWindow : Window
 {
     private readonly IntPtr _targetHandle;
     private readonly RingInspectChildHost _childHost;
+    private readonly Window _owner;
     private bool _allowClose;
+
+    public bool IsEmbedded => _childHost.IsAttached;
 
     public RingInspectHostWindow(Window owner, Process process, IntPtr targetHandle)
     {
         _targetHandle = targetHandle;
+        _owner = owner;
         string title = RingInspectNative.ReadWindowTitle(targetHandle);
         Title = string.IsNullOrWhiteSpace(title) ? "识别" : title;
         Owner = owner;
@@ -80,24 +85,36 @@ internal sealed class RingInspectHostWindow : Window
         };
     }
 
-    public void ShowOrActivate()
+    public bool ShowOrActivate()
     {
+        if (!_childHost.IsAttached) return false;
+        if (!IsVisible)
+        {
+            WindowState = WindowState.Normal;
+            Left = _owner.Left;
+            Top = _owner.Top;
+            WindowState = WindowState.Maximized;
+        }
         if (!IsVisible) Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        RingInspectNative.ShowWindow(_targetHandle, 5);
+        _childHost.ResizeTarget();
+        RingInspectNative.ShowWindowAsync(_targetHandle, 5);
         Activate();
+        return IsVisible && _childHost.IsAttached;
     }
 
     public void PrepareHidden()
     {
         ShowActivated = false;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Left = -32000;
-        Top = -32000;
+        Left = _owner.Left;
+        Top = _owner.Top;
+        Opacity = 0;
+        WindowState = WindowState.Normal;
         Show();
-        HideHost();
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
         WindowState = WindowState.Maximized;
+        HideHost();
+        Opacity = 1;
         ShowActivated = true;
     }
 
@@ -105,7 +122,7 @@ internal sealed class RingInspectHostWindow : Window
     {
         _allowClose = true;
         _childHost.Detach();
-        Close();
+        if (IsLoaded) Close();
     }
 
     private void HideHost()
@@ -149,50 +166,80 @@ internal sealed class RingInspectChildHost : HwndHost
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpFrameChanged = 0x0020;
-    private const int SwShow = 5;
+    private const uint SwpAsyncWindowPos = 0x4000;
+    private const int SwHide = 0;
     private readonly IntPtr _targetHandle;
+    private IntPtr _containerHandle;
     private long _originalStyle;
     private long _originalExtendedStyle;
+
+    public bool IsAttached => _containerHandle != IntPtr.Zero && RingInspectNative.GetParent(_targetHandle) == _containerHandle;
 
     public RingInspectChildHost(IntPtr targetHandle) => _targetHandle = targetHandle;
 
     protected override HandleRef BuildWindowCore(HandleRef hwndParent)
     {
+        _containerHandle = RingInspectNative.CreateWindowEx(0, "STATIC", null, RingInspectNative.WsChild | RingInspectNative.WsVisible | RingInspectNative.WsClipChildren,
+            0, 0, 1, 1, hwndParent.Handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        if (_containerHandle == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
         _originalStyle = RingInspectNative.GetWindowLongPtr(_targetHandle, GwlStyle).ToInt64();
         _originalExtendedStyle = RingInspectNative.GetWindowLongPtr(_targetHandle, GwlExtendedStyle).ToInt64();
         long childStyle = (_originalStyle & ~(WsPopup | WsCaption | WsThickFrame | WsSysMenu | WsMinimizeBox | WsMaximizeBox)) | WsChild;
         RingInspectNative.SetWindowLongPtr(_targetHandle, GwlStyle, new IntPtr(childStyle));
         long childExtendedStyle = (_originalExtendedStyle & ~WsExAppWindow) | WsExToolWindow;
         RingInspectNative.SetWindowLongPtr(_targetHandle, GwlExtendedStyle, new IntPtr(childExtendedStyle));
-        RingInspectNative.SetParent(_targetHandle, hwndParent.Handle);
-        RingInspectNative.SetWindowPos(_targetHandle, IntPtr.Zero, 0, 0, 1, 1, SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
-        RingInspectNative.ShowWindow(_targetHandle, SwShow);
-        return new HandleRef(this, _targetHandle);
+        RingInspectNative.SetParent(_targetHandle, _containerHandle);
+        if (!IsAttached)
+        {
+            int error = Marshal.GetLastWin32Error();
+            RingInspectNative.SetWindowLongPtr(_targetHandle, GwlStyle, new IntPtr(_originalStyle));
+            RingInspectNative.SetWindowLongPtr(_targetHandle, GwlExtendedStyle, new IntPtr(_originalExtendedStyle));
+            RingInspectNative.DestroyWindow(_containerHandle);
+            _containerHandle = IntPtr.Zero;
+            throw new Win32Exception(error, "识别程序窗口嵌入失败。");
+        }
+        RingInspectNative.SetWindowPos(_targetHandle, IntPtr.Zero, 0, 0, 1, 1, SwpNoZOrder | SwpNoActivate | SwpFrameChanged | SwpAsyncWindowPos);
+        RingInspectNative.ShowWindowAsync(_targetHandle, SwHide);
+        return new HandleRef(this, _containerHandle);
     }
 
-    protected override void DestroyWindowCore(HandleRef hwnd) => Detach();
+    protected override void DestroyWindowCore(HandleRef hwnd)
+    {
+        Detach();
+        if (_containerHandle != IntPtr.Zero) RingInspectNative.DestroyWindow(_containerHandle);
+        _containerHandle = IntPtr.Zero;
+    }
 
     protected override void OnWindowPositionChanged(Rect rcBoundingBox)
     {
         base.OnWindowPositionChanged(rcBoundingBox);
+        ResizeTarget();
+    }
+
+    public void ResizeTarget()
+    {
+        if (!IsAttached) return;
         double scale = VisualTreeHelper.GetDpi(this).DpiScaleX;
         RingInspectNative.SetWindowPos(_targetHandle, IntPtr.Zero, 0, 0,
             Math.Max(1, (int)Math.Round(ActualWidth * scale)),
-            Math.Max(1, (int)Math.Round(ActualHeight * scale)), SwpNoZOrder | SwpNoActivate);
+            Math.Max(1, (int)Math.Round(ActualHeight * scale)), SwpNoZOrder | SwpNoActivate | SwpAsyncWindowPos);
     }
 
     public void Detach()
     {
-        if (_targetHandle == IntPtr.Zero || !RingInspectNative.IsWindow(_targetHandle)) return;
+        if (!IsAttached || !RingInspectNative.IsWindow(_targetHandle)) return;
         RingInspectNative.HideWindow(_targetHandle);
-        RingInspectNative.SetParent(_targetHandle, IntPtr.Zero);
         RingInspectNative.SetWindowLongPtr(_targetHandle, GwlStyle, new IntPtr(_originalStyle));
         RingInspectNative.SetWindowLongPtr(_targetHandle, GwlExtendedStyle, new IntPtr(_originalExtendedStyle));
+        RingInspectNative.SetParent(_targetHandle, IntPtr.Zero);
     }
 }
 
 internal static class RingInspectNative
 {
+    internal const uint WsChild = 0x40000000;
+    internal const uint WsVisible = 0x10000000;
+    internal const uint WsClipChildren = 0x02000000;
     private delegate bool EnumWindowsCallback(IntPtr handle, IntPtr parameter);
     private const uint WmGetIcon = 0x007F;
     private const int IconSmall = 0;
@@ -202,11 +249,16 @@ internal static class RingInspectNative
     private const uint GwOwner = 4;
 
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr parameter);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern uint RegisterWindowMessage(string message);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool PostMessage(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
     [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr handle, uint command);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] internal static extern IntPtr CreateWindowEx(uint extendedStyle, string className, string? windowName, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr parameter);
+    [DllImport("user32.dll", SetLastError = true)] internal static extern bool DestroyWindow(IntPtr handle);
+    [DllImport("user32.dll")] internal static extern IntPtr GetParent(IntPtr handle);
 
     [DllImport("user32.dll", SetLastError = true)] internal static extern IntPtr SetParent(IntPtr child, IntPtr parent);
-    [DllImport("user32.dll")] internal static extern bool ShowWindow(IntPtr handle, int command);
+    [DllImport("user32.dll")] internal static extern bool ShowWindowAsync(IntPtr handle, int command);
     [DllImport("user32.dll")] internal static extern bool IsWindow(IntPtr handle);
     [DllImport("user32.dll", SetLastError = true)] internal static extern bool SetWindowPos(IntPtr handle, IntPtr after, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)] private static extern IntPtr GetWindowLongPtr64(IntPtr handle, int index);
@@ -220,6 +272,12 @@ internal static class RingInspectNative
 
     internal static IntPtr GetWindowLongPtr(IntPtr handle, int index) => IntPtr.Size == 8 ? GetWindowLongPtr64(handle, index) : GetWindowLong32(handle, index);
     internal static IntPtr SetWindowLongPtr(IntPtr handle, int index, IntPtr value) => IntPtr.Size == 8 ? SetWindowLongPtr64(handle, index, value) : SetWindowLong32(handle, index, value);
+    internal static bool ActivateHostedWindow(IntPtr handle)
+    {
+        uint message = RegisterWindowMessage("RingInspect.Wpf.Host.Activate.v1");
+        return message != 0 && PostMessage(handle, message, IntPtr.Zero, IntPtr.Zero);
+    }
+
     internal static IntPtr FindMainWindow(int processId)
     {
         IntPtr result = IntPtr.Zero;
@@ -266,5 +324,5 @@ internal static class RingInspectNative
         return image;
     }
 
-    internal static void HideWindow(IntPtr handle) => ShowWindow(handle, 0);
+    internal static void HideWindow(IntPtr handle) => ShowWindowAsync(handle, 0);
 }

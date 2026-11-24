@@ -39,6 +39,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
         _hostAvailable = hostAvailable;
     }
 
+    public event Action<bool>? DetectionResultReceived;
     public void StartConnection() => _connectionTask ??= Task.Run(ConnectionLoopAsync);
 
     public async Task StartAsync()
@@ -228,9 +229,11 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                     if (message == "end") Interlocked.Increment(ref _endReplies);
                     if (message == "skip" || message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal) || message.StartsWith("error ", StringComparison.Ordinal) || message.StartsWith("radius ", StringComparison.Ordinal))
                         Volatile.Read(ref _pendingResponse)?.TrySetResult(message);
+                    if (message == "skip" && _active) DetectionResultReceived?.Invoke(false);
                     if ((message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal)) && _active && Interlocked.Exchange(ref _crackTriggered, 1) == 0)
                     {
                         _active = false;
+                        DetectionResultReceived?.Invoke(true);
                         _ = Task.Run(() => HandleStopReplyAsync(message));
                     }
                 }

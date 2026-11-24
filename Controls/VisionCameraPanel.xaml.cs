@@ -121,6 +121,15 @@ public partial class VisionCameraPanel : System.Windows.Controls.UserControl
             Interlocked.Increment(ref _detectionImageGeneration);
         }
     }
+    public void ShowDetectionResult(bool isNg)
+    {
+        DetectionResultText.Text = isNg ? "NG" : "OK";
+        DetectionResultBubble.Background = isNg
+            ? new SolidColorBrush(Color.FromRgb(190, 38, 48))
+            : new SolidColorBrush(Color.FromRgb(22, 128, 60));
+        DetectionResultBubble.Visibility = Visibility.Visible;
+    }
+    public void ClearDetectionResult() => DetectionResultBubble.Visibility = Visibility.Collapsed;
     public Action? DetectionImagePublishing { get; set; }
     public Action? DetectionImageSaved { get; set; }
     public Action<Exception>? DetectionImageFailed { get; set; }
