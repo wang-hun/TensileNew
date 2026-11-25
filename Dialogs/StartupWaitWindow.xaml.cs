@@ -94,10 +94,15 @@ public sealed class BackgroundStartupWaitWindow : IDisposable
     {
         try
         {
-            StartupWaitWindow window = new(_waitText, _showHint);
+            StartupWaitWindow window = new(_waitText, _showHint)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Topmost = true
+            };
             _window = window;
             window.Closed += (_, _) => Dispatcher.CurrentDispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
             window.Show();
+            window.Activate();
             _shown.TrySetResult(true);
             Dispatcher.Run();
         }

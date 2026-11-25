@@ -9,7 +9,7 @@
 | 摄像头 | `CameraCaptureService.cs` / `CameraCaptureService` | 设备枚举、启动、帧回调、释放 | 异步释放；主窗口只订阅帧与错误并显示 |
 | 新视觉 / 二段速设备 | `NewVisionProcessingService.cs`、`VisionDeviceClient.cs`、`VisionDetectionController.cs` | 连接、检测、释放 | 与 PLC 采集分离；窗口负责提示和 UI 状态 |
 | 实时 / 回放数据 | `TrialDataStore.cs` / `TrialDataStore` | 入队、试验分组、回放、临时库清理 | `DataAqc.Enqueue()` 是实时持久化接入点；调试辅助不得另写数据库 |
-| 报告工作簿 | `TestReportService.cs`、`ReportTemplateDocument.cs` | `CreateWorkbook()`、`ReadTemplate()`、`SaveWorkbook()` | 模板复制至运行目录 `ReportTemplates/`；读取工作表、尺寸、单元格文本/格式、合并区和图片供预览；同一 `ExcelPackage` 由预览窗口接收并由保存端落盘。当前不写字段、不拼接数据 |
+| 报告 PDF 编辑会话 | `ReportEditorDocument.cs`、`ReportPreviewEditorWindow.xaml(.cs)`、现有 PdfiumViewer | PDF 页渲染、归一化页面坐标字段叠加、确认返回输入值 | PdfiumViewer 只负责 PDF 读取／渲染；WPF 页图与字段控件同属页面容器。模板 PDF 和位置映射由用户提供后核定；当前不新增 PDF 依赖，PDF 写出适配器尚未实现，不得宣称字段已导出。报告与数据表格按事务提交 |
 | 报告选项配置 | `ReportOptionStore.cs` | `Load()`、`Save()`、`Import()`、`Export()` | 首次生成程序目录中的 `ReportOptions.json`；导入校验完整字段和候选项，失败不覆盖当前文件；导出当前列表到指定路径；不得重置用户已清空的字段，也不改报告生成 |
 | 位移重采样 | `DisplacementResamplingService.cs` / `DisplacementResamplingService` | `SaveResampledDataToFile()` | 步长=速度/20，解析失败回退 0.05mm；覆盖外侧整间隔边界并线性外推；保存前快照，后台生成 |
 | 离线算法验证 | `DebugAlgorithmExcelService.cs` | 读取首表、复用重采样导出 | 仅 PIN 隐藏入口，不读写实时队列 |
@@ -21,7 +21,7 @@ UI 入口和重试实现在 `../MainWindow/MainWindow.Network.cs`：`RunNetworkP
 
 ## 实时保存与报告
 
-窗口入口见 `../MainWindow/AGENTS.md`。实时数据为空以 `DataAqc.loadModels` 判断，不以已排空 `_queue` 判断；保存前快照，后台生成算法整合文件；`BackgroundStartupWaitWindow` 使用独立 STA Dispatcher，不依赖 UI 同步等待。
+窗口入口见 `../MainWindow/AGENTS.md`，端到端目标、编辑器选择门槛、状态机和验收见根 `AGENTS.md`“报告 PDF 伪编辑与输出规划”。实时数据为空以 `DataAqc.loadModels` 判断，不以已排空 `_queue` 判断；PDF 预览确认前不显示保存等待窗，确认后先快照／准备，再以 `BackgroundStartupWaitWindow` 的独立 STA Dispatcher 显示等待并后台执行表格＋报告事务。计数及序列号只在整组必需输出成功提交后更新。
 
 ## 本地正弦曲线调试
 

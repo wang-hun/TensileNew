@@ -20,12 +20,19 @@ public sealed class ReportTemplateSheet
     public required IReadOnlyList<ReportTemplateImage> Images { get; init; }
 }
 
+public sealed class ReportTemplateBorder
+{
+    public required double Thickness { get; init; }
+    public required string? Color { get; init; }
+}
+
 public sealed class ReportTemplateCell
 {
     public required int Row { get; init; }
     public required int Column { get; init; }
     public required int RowSpan { get; init; }
     public required int ColumnSpan { get; init; }
+    public required bool IsMergedAnchor { get; init; }
     public required string Text { get; init; }
     public required string? BackgroundColor { get; init; }
     public required string? ForegroundColor { get; init; }
@@ -36,6 +43,10 @@ public sealed class ReportTemplateCell
     public required bool WrapText { get; init; }
     public required string HorizontalAlignment { get; init; }
     public required string VerticalAlignment { get; init; }
+    public required ReportTemplateBorder TopBorder { get; init; }
+    public required ReportTemplateBorder BottomBorder { get; init; }
+    public required ReportTemplateBorder LeftBorder { get; init; }
+    public required ReportTemplateBorder RightBorder { get; init; }
 }
 
 public sealed class ReportTemplateImage
@@ -69,21 +80,20 @@ public static class ReportTemplateDocumentReader
                     ExcelAddress? merged = mergedRanges.FirstOrDefault(range =>
                         row >= range.Start.Row && row <= range.End.Row &&
                         column >= range.Start.Column && column <= range.End.Column);
-                    if (merged is not null && (row != merged.Start.Row || column != merged.Start.Column))
-                    {
-                        continue;
-                    }
+                    bool isMergedAnchor = merged is not null && row == merged.Start.Row && column == merged.Start.Column;
 
                     var source = worksheet.Cells[row, column];
+
                     var style = source.Style;
                     cells.Add(new ReportTemplateCell
                     {
                         Row = row - 1,
                         Column = column - 1,
-                        RowSpan = merged is null ? 1 : merged.End.Row - merged.Start.Row + 1,
-                        ColumnSpan = merged is null ? 1 : merged.End.Column - merged.Start.Column + 1,
-                        Text = source.Text ?? string.Empty,
-                        BackgroundColor = GetColor(style.Fill.BackgroundColor.Rgb),
+                        RowSpan = isMergedAnchor ? merged!.End.Row - merged.Start.Row + 1 : 1,
+                        ColumnSpan = isMergedAnchor ? merged!.End.Column - merged.Start.Column + 1 : 1,
+                        IsMergedAnchor = isMergedAnchor,
+                        Text = merged is not null && !isMergedAnchor ? string.Empty : source.Text ?? string.Empty,
+                        BackgroundColor = GetFillColor(style.Fill.PatternType.ToString(), style.Fill.PatternColor.Rgb, style.Fill.BackgroundColor.Rgb),
                         ForegroundColor = GetColor(style.Font.Color.Rgb),
                         FontName = style.Font.Name,
                         FontSize = style.Font.Size,
@@ -91,7 +101,11 @@ public static class ReportTemplateDocumentReader
                         Italic = style.Font.Italic,
                         WrapText = style.WrapText,
                         HorizontalAlignment = style.HorizontalAlignment.ToString(),
-                        VerticalAlignment = style.VerticalAlignment.ToString()
+                        VerticalAlignment = style.VerticalAlignment.ToString(),
+                        TopBorder = CreateBorder(style.Border.Top.Style.ToString(), style.Border.Top.Color.Rgb),
+                        BottomBorder = CreateBorder(style.Border.Bottom.Style.ToString(), style.Border.Bottom.Color.Rgb),
+                        LeftBorder = CreateBorder(style.Border.Left.Style.ToString(), style.Border.Left.Color.Rgb),
+                        RightBorder = CreateBorder(style.Border.Right.Style.ToString(), style.Border.Right.Color.Rgb)
                     });
                 }
             }
@@ -114,10 +128,12 @@ public static class ReportTemplateDocumentReader
             {
                 Name = worksheet.Name,
                 ColumnWidths = Enumerable.Range(1, maxColumn)
-                    .Select(column => Math.Max(12, worksheet.Column(column).Width * 7.2))
+                    .Select(column => worksheet.Column(column).Hidden
+                        ? 0
+                        : Math.Truncate((256 * worksheet.Column(column).Width + Math.Truncate(128d / 7)) / 256 * 7))
                     .ToArray(),
                 RowHeights = Enumerable.Range(1, maxRow)
-                    .Select(row => Math.Max(12, worksheet.Row(row).Height * 96 / 72))
+                    .Select(row => worksheet.Row(row).Hidden ? 0 : worksheet.Row(row).Height * 4 / 3)
                     .ToArray(),
                 Cells = cells,
                 Images = images
@@ -129,6 +145,24 @@ public static class ReportTemplateDocumentReader
             Name = "杯凸测试报告模板 0 202060914.xlsx",
             Sheets = sheets
         };
+    }
+
+    private static string? GetFillColor(string patternType, string? patternColor, string? backgroundColor)
+    {
+        return GetColor(patternType == "Solid" ? patternColor : backgroundColor);
+    }
+
+    private static ReportTemplateBorder CreateBorder(string style, string? color)
+    {
+        double thickness = style switch
+        {
+            "Hair" => 0.5,
+            "Thin" or "Dotted" or "Dashed" or "DashDot" or "DashDotDot" or "SlantDashDot" => 0.75,
+            "Medium" or "Double" => 1.5,
+            "Thick" => 2,
+            _ => 0
+        };
+        return new ReportTemplateBorder { Thickness = thickness, Color = GetColor(color) };
     }
 
     private static string? GetColor(string? value)

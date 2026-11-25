@@ -30,14 +30,14 @@ public sealed class ReportOptionGroup
     {
         Key = definition.Key;
         Title = definition.Title;
-        TemplateCell = definition.TemplateCell;
+        FieldId = definition.Key;
         Description = definition.Description;
         Options = new ObservableCollection<ReportOptionItem>(options.Select(value => new ReportOptionItem(value)));
     }
 
     public string Key { get; }
     public string Title { get; }
-    public string TemplateCell { get; }
+    public string FieldId { get; }
     public string Description { get; }
     public ObservableCollection<ReportOptionItem> Options { get; }
 }

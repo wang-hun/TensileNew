@@ -10,7 +10,7 @@
     </Grid.RowDefinitions>
     <StackPanel>
       <TextBlock Text="报告编辑" FontSize="23" FontWeight="SemiBold" />
-      <TextBlock Text="管理报告模板中的备选项。列表顺序即后续的选择顺序，修改后请点击保存。"
+      <TextBlock Text="管理报告字段的下拉候选项。列表顺序即选择顺序，修改后请点击保存。"
                  FontSize="13" Margin="0,6,0,0" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
     </StackPanel>
     <Grid Grid.Row="1">
@@ -24,7 +24,7 @@
           <RowDefinition Height="52" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock Text="模板字段" Margin="18,0" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="报告字段" Margin="18,0" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
         <ListBox Grid.Row="1" ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
                  BorderThickness="0" Background="Transparent" Margin="8,0,8,8"
                  ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -57,7 +57,7 @@
         <StackPanel Margin="24,14,24,0">
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="{Binding SelectedGroup.Title}" FontSize="19" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding SelectedGroup.TemplateCell, StringFormat=模板位置：{0}}"
+            <TextBlock Text="{Binding SelectedGroup.FieldId, StringFormat=字段标识：{0}}"
                        Margin="14,5,0,0" FontSize="12" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
           </StackPanel>
           <TextBlock Text="{Binding SelectedGroup.Description}" FontSize="13" Margin="0,8,0,0"

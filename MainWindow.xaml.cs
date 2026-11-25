@@ -1678,7 +1678,6 @@ public partial class MainWindow : Window
         try
         {
             using var reportWorkbook = TestReportService.CreateWorkbook();
-            ShowReportPreviewEditor(reportWorkbook);
             string reportPath = Path.Combine(
                 Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
                 $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_试验报告.xlsx");
@@ -1689,7 +1688,7 @@ public partial class MainWindow : Window
             double displacementStep = DisplacementResamplingService.GetDisplacementStep(
                 data.Recipe?.Speed > 0 ? data.Recipe.Speed : DisplacementResamplingService.DefaultSpeed);
 
-            await Task.Run(() =>
+            if (!await PreviewAndSaveReportAsync(reportWorkbook, "正在保存回放数据表格和报告，请稍后。", () =>
             {
                 SavePlaybackDataToFile(dialog.FileName, data.Points);
                 TestReportService.SaveWorkbook(reportPath, reportWorkbook);
@@ -1697,7 +1696,10 @@ public partial class MainWindow : Window
                 {
                     DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
                 }
-            });
+            }))
+            {
+                return;
+            }
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
             ShowSuccess("回放数据表格和报告保存成功");
@@ -1731,24 +1733,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        var waitWindow = new StartupWaitWindow("正在保存回放试验报告，请稍后。");
         try
         {
-            IsEnabled = false;
-            waitWindow.Show();
-            await Task.Yield();
-
             string baseFileName = BuildPlaybackBaseFileName(data);
             string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
             using var reportWorkbook = TestReportService.CreateWorkbook();
-            ShowReportPreviewEditor(reportWorkbook);
-
-            await Task.Run(() =>
+            if (await PreviewAndSaveReportAsync(
+                reportWorkbook,
+                "正在保存回放试验报告，请稍后。",
+                () => TestReportService.SaveWorkbook(reportPath, reportWorkbook)))
             {
-                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
-            });
-
-            ShowSuccess("回放试验报告保存成功");
+                ShowSuccess("回放试验报告保存成功");
+            }
         }
         catch (Exception ex)
         {
@@ -1761,11 +1757,6 @@ public partial class MainWindow : Window
             {
                 ShowError("回放试验报告保存失败");
             }
-        }
-        finally
-        {
-            waitWindow.Close();
-            IsEnabled = true;
         }
     }
 
@@ -1793,10 +1784,89 @@ public partial class MainWindow : Window
         await SaveDataAndReportAsync(allowDatabaseFallback: false);
     }
 
-    private void ShowReportPreviewEditor(OfficeOpenXml.ExcelPackage workbook)
+    private enum ReportSaveWorkflowState
     {
-        var window = new ReportPreviewEditorWindow(workbook) { Owner = this };
-        window.ShowDialog();
+        Idle,
+        Previewing,
+        Saving,
+        Failed
+    }
+
+    private ReportSaveWorkflowState _reportSaveWorkflowState;
+
+    private bool ShowReportPreviewEditor(OfficeOpenXml.ExcelPackage workbook)
+    {
+        string pdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "试验报告模板.pdf");
+        if (!File.Exists(pdfPath))
+        {
+            ShowWarning("未找到报告 PDF 模板，请先将模板放入 ReportTemplates 文件夹。");
+            return false;
+        }
+
+        IReadOnlyList<ReportEditorField> fields = Array.Empty<ReportEditorField>();
+        if (fields.Count == 0)
+        {
+            ShowWarning("报告 PDF 的字段坐标和输出映射尚未配置，当前不能确认或导出报告。");
+            return false;
+        }
+
+        var document = new ReportEditorDocument
+        {
+            PdfPath = pdfPath,
+            Fields = fields
+        };
+        var window = new ReportPreviewEditorWindow(document) { Owner = this };
+        return window.ShowDialog() == true;
+    }
+
+    private async Task<bool> PreviewAndSaveReportAsync(
+        OfficeOpenXml.ExcelPackage workbook,
+        string waitText,
+        Action saveAction)
+    {
+        if (_reportSaveWorkflowState != ReportSaveWorkflowState.Idle)
+        {
+            return false;
+        }
+
+        try
+        {
+            _reportSaveWorkflowState = ReportSaveWorkflowState.Previewing;
+            if (!ShowReportPreviewEditor(workbook))
+            {
+                return false;
+            }
+
+            _reportSaveWorkflowState = ReportSaveWorkflowState.Saving;
+            await ExecuteReportSaveWithWaitAsync(waitText, saveAction);
+            return true;
+        }
+        catch
+        {
+            _reportSaveWorkflowState = ReportSaveWorkflowState.Failed;
+            throw;
+        }
+        finally
+        {
+            _reportSaveWorkflowState = ReportSaveWorkflowState.Idle;
+        }
+    }
+
+    private async Task ExecuteReportSaveWithWaitAsync(string waitText, Action saveAction)
+    {
+        bool previousEnabledState = IsEnabled;
+        var waitWindow = new BackgroundStartupWaitWindow(waitText);
+        try
+        {
+            IsEnabled = false;
+            await waitWindow.ShowAsync();
+            await Task.Run(saveAction);
+        }
+        finally
+        {
+            waitWindow.Dispose();
+            IsEnabled = previousEnabledState;
+        }
     }
 
     private async Task SaveDataAndReportAsync(bool allowDatabaseFallback, bool automatic = false)
@@ -1822,15 +1892,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
         bool saved = false;
 
         try
         {
-            IsEnabled = false;
-            await waitWindow.ShowAsync();
-
             string trialSerialNumber = SNModel.GetSn();
+
             DateTime generatedAt = DateTime.Now;
             RecipeModel? recipe = _viewModel.SelectedRecipe;
             bool saveAlgorithmIntegratedData = AlgorithmIntegratedDataCheckBox.IsChecked == true;
@@ -1865,11 +1932,10 @@ public partial class MainWindow : Window
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
             string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
             using var reportWorkbook = TestReportService.CreateWorkbook();
-            ShowReportPreviewEditor(reportWorkbook);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            await Task.Run(() =>
+            if (!await PreviewAndSaveReportAsync(reportWorkbook, "正在保存数据及试验报告，请稍后。", () =>
             {
                 _viewModel.SaveDataToFile(excelPath, dataSnapshot);
                 if (saveAlgorithmIntegratedData)
@@ -1881,7 +1947,10 @@ public partial class MainWindow : Window
                 }
 
                 TestReportService.SaveWorkbook(reportPath, reportWorkbook);
-            });
+            }))
+            {
+                return;
+            }
 
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
@@ -1901,12 +1970,8 @@ public partial class MainWindow : Window
                 ShowError("数据和试验报告保存失败");
             }
         }
-        finally
-        {
-            IsEnabled = true;
-        }
-
         if (saved)
+
         {
             ShowTrialDataSaveNotice(shouldShowTrialDataSaveNotice);
         }
@@ -2023,7 +2088,7 @@ public partial class MainWindow : Window
         return recipe?.Speed > 0 ? recipe.Speed : DisplacementResamplingService.DefaultSpeed;
     }
 
-    private void GenerateTestReport_Click(object sender, RoutedEventArgs e)
+    private async void GenerateTestReport_Click(object sender, RoutedEventArgs e)
     {
         if (!TryPrepareConfiguredExcelFolder(out string configuredFolderPath))
         {
@@ -2050,8 +2115,10 @@ public partial class MainWindow : Window
         try
         {
             using var reportWorkbook = TestReportService.CreateWorkbook();
-            SaveTestReportToFile(dialog.FileName, reportWorkbook);
-            ShowSuccess("试验报告保存成功");
+            if (await SaveTestReportToFileAsync(dialog.FileName, reportWorkbook))
+            {
+                ShowSuccess("试验报告保存成功");
+            }
         }
         catch (Exception ex)
         {
@@ -2060,10 +2127,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SaveTestReportToFile(string fileName, OfficeOpenXml.ExcelPackage workbook)
+    private Task<bool> SaveTestReportToFileAsync(string fileName, OfficeOpenXml.ExcelPackage workbook)
     {
-        ShowReportPreviewEditor(workbook);
-        TestReportService.SaveWorkbook(fileName, workbook);
+        return PreviewAndSaveReportAsync(
+            workbook,
+            "正在保存试验报告，请稍后。",
+            () => TestReportService.SaveWorkbook(fileName, workbook));
     }
 
     private IDisposable BeginCurrentTrialPlotScope()
