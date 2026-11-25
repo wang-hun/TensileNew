@@ -1662,6 +1662,8 @@ public partial class MainWindow : Window
             return;
         }
 
+
+
         var dialog = new SaveFileDialog
         {
             Filter = "Excel (*.xlsx)|*.xlsx",
@@ -1675,6 +1677,11 @@ public partial class MainWindow : Window
 
         try
         {
+            using var reportWorkbook = TestReportService.CreateWorkbook();
+            ShowReportPreviewEditor(reportWorkbook);
+            string reportPath = Path.Combine(
+                Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
+                $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_试验报告.xlsx");
             bool saveIntegratedData = PlaybackAlgorithmIntegratedDataCheckBox.IsChecked == true;
             string integratedPath = Path.Combine(
                 Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
@@ -1685,6 +1692,7 @@ public partial class MainWindow : Window
             await Task.Run(() =>
             {
                 SavePlaybackDataToFile(dialog.FileName, data.Points);
+                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
                 if (saveIntegratedData)
                 {
                     DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
@@ -1692,7 +1700,7 @@ public partial class MainWindow : Window
             });
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
-            ShowSuccess("回放数据表格保存成功");
+            ShowSuccess("回放数据表格和报告保存成功");
             saved = true;
         }
         catch (Exception ex)
@@ -1716,12 +1724,13 @@ public partial class MainWindow : Window
             return;
         }
 
+
+
         if (!TryPrepareConfiguredExcelFolder(out string folderPath))
         {
             return;
         }
 
-        string? tempImagePath = null;
         var waitWindow = new StartupWaitWindow("正在保存回放试验报告，请稍后。");
         try
         {
@@ -1730,24 +1739,13 @@ public partial class MainWindow : Window
             await Task.Yield();
 
             string baseFileName = BuildPlaybackBaseFileName(data);
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
-            tempImagePath = CapturePlaybackPlotImageToTempFile();
-            double maxForce = data.Points.Max(point => point.RealForce);
-            double maxDistance = data.Points.Max(point => point.RealDistance);
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
+            using var reportWorkbook = TestReportService.CreateWorkbook();
+            ShowReportPreviewEditor(reportWorkbook);
 
             await Task.Run(() =>
             {
-                SaveTestReportDocumentToFile(
-                    reportPath,
-                    tempImagePath,
-                    data.Recipe?.RecipeName ?? "NoRecipe",
-                    data.Summary.TrialSerialNumber,
-                    data.Summary.StartedAtUtc.ToLocalTime(),
-                    maxForce.ToString("F3", CultureInfo.InvariantCulture),
-                    maxDistance.ToString("F3", CultureInfo.InvariantCulture),
-                    data.Recipe,
-                    _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
-                    _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
+                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
             });
 
             ShowSuccess("回放试验报告保存成功");
@@ -1766,11 +1764,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
-            {
-                File.Delete(tempImagePath);
-            }
-
             waitWindow.Close();
             IsEnabled = true;
         }
@@ -1795,43 +1788,25 @@ public partial class MainWindow : Window
             .SaveToFile(fileName);
     }
 
-    private string CapturePlaybackPlotImageToTempFile()
-    {
-        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensilePlaybackReport_{Guid.NewGuid():N}.png");
-        PlaybackPlot.Plot.SavePng(tempImagePath, 1200, 700);
-        return tempImagePath;
-    }
-
-    private string CapturePlaybackPlotImageToTempFile(TrialDataStore.TrialPlaybackData data)
-    {
-        TrialDataStore.TrialPlaybackData? previousPlaybackData = _selectedPlaybackData;
-        try
-        {
-            RenderPlaybackPlot(data);
-            return CapturePlaybackPlotImageToTempFile();
-        }
-        finally
-        {
-            if (previousPlaybackData is null)
-            {
-                PlaybackPlot.Plot.Clear();
-                PlaybackPlot.Refresh();
-            }
-            else
-            {
-                RenderPlaybackPlot(previousPlaybackData);
-            }
-        }
-    }
-
     private async void SaveDataAndReport_Click(object sender, RoutedEventArgs e)
     {
         await SaveDataAndReportAsync(allowDatabaseFallback: false);
     }
 
+    private void ShowReportPreviewEditor(OfficeOpenXml.ExcelPackage workbook)
+    {
+        var window = new ReportPreviewEditorWindow(workbook) { Owner = this };
+        window.ShowDialog();
+    }
+
     private async Task SaveDataAndReportAsync(bool allowDatabaseFallback, bool automatic = false)
     {
         if (automatic && IsTwoStageTransitioning)
+        {
+            return;
+        }
+
+        if (!allowDatabaseFallback && DataAqc.loadModels.Count == 0)
         {
             return;
         }
@@ -1848,7 +1823,6 @@ public partial class MainWindow : Window
         }
 
         using var waitWindow = new BackgroundStartupWaitWindow("正在保存数据及试验报告，请稍后。");
-        string? tempImagePath = null;
         bool saved = false;
 
         try
@@ -1889,53 +1863,25 @@ public partial class MainWindow : Window
             string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}.docx");
-            string maxForce = GetMaxForceText(dataSnapshot);
-            string validDistance = GetMaxDistanceText(dataSnapshot);
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
+            using var reportWorkbook = TestReportService.CreateWorkbook();
+            ShowReportPreviewEditor(reportWorkbook);
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            IDisposable? currentPlotScope = null;
-            try
+            await Task.Run(() =>
             {
-                if (playbackFallbackData is null)
+                _viewModel.SaveDataToFile(excelPath, dataSnapshot);
+                if (saveAlgorithmIntegratedData)
                 {
-                    currentPlotScope = BeginCurrentTrialPlotScope();
-                    tempImagePath = CaptureReportImageToTempFile();
-                }
-                else
-                {
-                    tempImagePath = CapturePlaybackPlotImageToTempFile(playbackFallbackData);
+                    DisplacementResamplingService.SaveResampledDataToFile(
+                        algorithmIntegratedDataPath,
+                        dataSnapshot,
+                        algorithmDisplacementStep);
                 }
 
-                await Task.Run(() =>
-                {
-                    _viewModel.SaveDataToFile(excelPath, dataSnapshot);
-                    if (saveAlgorithmIntegratedData)
-                    {
-                        DisplacementResamplingService.SaveResampledDataToFile(
-                            algorithmIntegratedDataPath,
-                            dataSnapshot,
-                            algorithmDisplacementStep);
-                    }
-
-                    SaveTestReportDocumentToFile(
-                        reportPath,
-                        tempImagePath,
-                        recipeName,
-                        trialSerialNumber,
-                        generatedAt,
-                        maxForce,
-                        validDistance,
-                        recipe,
-                        annotationName,
-                        annotationContent);
-                });
-            }
-            finally
-            {
-                currentPlotScope?.Dispose();
-            }
+                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
+            });
 
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
@@ -1957,11 +1903,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
-            {
-                File.Delete(tempImagePath);
-            }
-
             IsEnabled = true;
         }
 
@@ -2014,15 +1955,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        string policy = _viewModel.Setting.AutoSavePolicy;
-        if (policy == SettingModel.AutoSaveAlwaysYes)
-        {
-            await SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
-        }
-        else if (policy == SettingModel.AutoSaveAskEveryTime)
-        {
-            await ShowAutomaticSavePromptAsync();
-        }
+        await ShowAutomaticSavePromptAsync();
     }
 
     private async Task ShowAutomaticSavePromptAsync()
@@ -2034,21 +1967,13 @@ public partial class MainWindow : Window
 
         _autoSavePromptOpen = true;
         var dialog = new RuntimeDataSavePromptWindow { Owner = this };
-        dialog.ConfigurePrompt("自动保存数据和报告", "试验已完成，是否自动保存当前数据和试验报告？");
+        dialog.ConfigurePrompt("保存数据和报告", "试验已完成，是否打开报告预览与编辑界面并保存数据和报告？", allowDontAskAgain: false);
         try
         {
             dialog.ShowDialog();
             if (!dialog.HasDecision)
             {
                 return;
-            }
-
-            if (dialog.DontAskAgain)
-            {
-                _viewModel.Setting.AutoSavePolicy = dialog.ShouldSave
-                    ? SettingModel.AutoSaveAlwaysYes
-                    : SettingModel.AutoSaveAlwaysNo;
-                _viewModel.SaveSettings();
             }
 
             if (dialog.ShouldSave)
@@ -2108,7 +2033,7 @@ public partial class MainWindow : Window
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
         {
-            Filter = "Word (*.docx)|*.docx",
+            Filter = "Excel (*.xlsx)|*.xlsx",
             InitialDirectory = configuredFolderPath,
             FileName = BuildBaseFileName(
                 SNModel.GetSn(),
@@ -2124,10 +2049,8 @@ public partial class MainWindow : Window
 
         try
         {
-            using (BeginCurrentTrialPlotScope())
-            {
-                SaveTestReportToFile(dialog.FileName, recipeName);
-            }
+            using var reportWorkbook = TestReportService.CreateWorkbook();
+            SaveTestReportToFile(dialog.FileName, reportWorkbook);
             ShowSuccess("试验报告保存成功");
         }
         catch (Exception ex)
@@ -2137,53 +2060,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SaveTestReportToFile(string fileName, string recipeName)
+    private void SaveTestReportToFile(string fileName, OfficeOpenXml.ExcelPackage workbook)
     {
-        string? tempImagePath = null;
-        try
-        {
-            var dataSnapshot = DataAqc.loadModels.ToList();
-            tempImagePath = CaptureReportImageToTempFile();
-            SaveTestReportDocumentToFile(
-                fileName,
-                tempImagePath,
-                recipeName,
-                SNModel.GetSn(),
-                DateTime.Now,
-                GetMaxForceText(dataSnapshot),
-                GetMaxDistanceText(dataSnapshot),
-                _viewModel.SelectedRecipe,
-                _viewModel.Setting.AnnotationName?.Trim() ?? string.Empty,
-                _viewModel.Setting.AnnotationContent?.Trim() ?? string.Empty);
-        }
-        finally
-        {
-            if (!string.IsNullOrEmpty(tempImagePath) && File.Exists(tempImagePath))
-            {
-                File.Delete(tempImagePath);
-            }
-        }
-    }
-
-    private static string GetMaxForceText(IReadOnlyList<Loadmodel> points)
-    {
-        return points.Count == 0
-            ? "0.000"
-            : points.Max(point => point.RealForce).ToString("F3", CultureInfo.InvariantCulture);
-    }
-
-    private static string GetMaxDistanceText(IReadOnlyList<Loadmodel> points)
-    {
-        return points.Count == 0
-            ? "0.000"
-            : points.Max(point => point.RealDistance).ToString("F3", CultureInfo.InvariantCulture);
-    }
-
-    private string CaptureReportImageToTempFile()
-    {
-        string tempImagePath = Path.Combine(Path.GetTempPath(), $"TensileReport_{Guid.NewGuid():N}.png");
-        LoadPlot.Plot.SavePng(tempImagePath, 1200, 700);
-        return tempImagePath;
+        ShowReportPreviewEditor(workbook);
+        TestReportService.SaveWorkbook(fileName, workbook);
     }
 
     private IDisposable BeginCurrentTrialPlotScope()
@@ -2201,31 +2081,6 @@ public partial class MainWindow : Window
         _plotWindow?.RestoreHiddenCurves();
         _loadPlotController.AutoScale();
         _plotWindow?.AutoScale();
-    }
-
-    private static void SaveTestReportDocumentToFile(
-        string fileName,
-        string imagePath,
-        string recipeName,
-        string trialSerialNumber,
-        DateTime generatedAt,
-        string maxForce,
-        string validDistance,
-        RecipeModel? recipe,
-        string annotationName,
-        string annotationContent)
-    {
-        TestReportService.Save(
-            fileName,
-            imagePath,
-            recipeName,
-            trialSerialNumber,
-            generatedAt,
-            maxForce,
-            validDistance,
-            recipe,
-            annotationName,
-            annotationContent);
     }
 
     private static string BuildBaseFileName(

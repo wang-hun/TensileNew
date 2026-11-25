@@ -14,10 +14,11 @@ public partial class RuntimeDataSavePromptWindow : Window
     public bool HasDecision { get; private set; }
     public bool DontAskAgain => DontAskAgainCheckBox.IsChecked == true;
 
-    public void ConfigurePrompt(string title, string question)
+    public void ConfigurePrompt(string title, string question, bool allowDontAskAgain = true)
     {
         Title = title;
         PromptTextBlock.Text = question;
+        DontAskAgainCheckBox.Visibility = allowDontAskAgain ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Yes_Click(object sender, RoutedEventArgs e)

@@ -11,5 +11,6 @@
 | 配方确认 / 命名 | `RecipeConfirmDialog.xaml.cs`、`RecipeNameDialog.xaml.cs` | 确认 / 命名结果事件 | MainWindow 交给 `MainViewModel` 执行写入 |
 | 相机选择 | `CameraSelectionWindow.xaml.cs` | 设备选择事件 | MainWindow 交给 `CameraCaptureService` |
 | 回放和数据 | `LoadDataWindow.xaml.cs`、`PlotWindow.xaml.cs`、`VariableWindow.xaml.cs` | 展示 / 用户交互 | 数据源分别由 TrialDataStore、LoadPlotController、DataAqc 提供 |
+| 报告预览编辑 | `ReportPreviewEditorWindow.xaml`、`.xaml.cs` | `ReportPreviewEditorWindow(ExcelPackage workbook)` | 窗口通过 `ReportTemplateDocumentReader` 读取模板单元格、合并区、格式和图片并预览；公开同一 `Workbook`，不复制、不组装、不落盘 |
 
 新增或修改弹窗时保留 HandyControl / WPF 方式，不添加装饰性主题边框；布局遵守根 `AGENTS.md` 尺寸核算规则。

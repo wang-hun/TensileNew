@@ -1059,7 +1059,7 @@
               <Button Grid.Column="2" Style="{StaticResource ActionButtonStyle}" FontSize="20" Click="SaveDataAndReport_Click">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                   <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="22" Height="22" Margin="0,0,5,0" />
-                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="22" Height="22" Margin="0,0,7,0" />
+                  <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="22" Height="22" Margin="0,0,7,0" />
                   <TextBlock Text="保存数据和报告" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
@@ -1072,24 +1072,10 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
-              <Grid Grid.Row="2" Grid.Column="2" VerticalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="112" />
-                  <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="试验完成自动保存" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
-                <ComboBox ItemsSource="{Binding AutoSavePolicyItems}"
-                          SelectedItem="{Binding Setting.AutoSavePolicy, Mode=TwoWay}"
-                          Grid.Column="1"
-                          FontSize="14"
-                          FontWeight="SemiBold"
-                          Width="104"
-                          Height="30"
-                          VerticalContentAlignment="Center"
-                          Background="{DynamicResource AppSurfaceBackgroundBrush}"
-                          BorderBrush="{DynamicResource AppLayoutBorderBrush}"
-                          BorderThickness="1" />
-              </Grid>
+              <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="试验完成保存" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
+                <TextBlock Text="每次询问" Margin="8,0,0,0" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AppSidebarLabelForegroundBrush}" />
+              </StackPanel>
             </Grid>
           </Grid>
           <Grid Grid.Row="1" Margin="5,0,5,5">
@@ -1247,7 +1233,7 @@
             </Grid>
             <Button Grid.Row="0" Grid.Column="2" Height="44" VerticalAlignment="Top" Style="{StaticResource ActionButtonStyle}" Click="SavePlaybackReport_Click">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <iconPacks:PackIconBootstrapIcons Kind="FiletypeDocx" Width="20" Height="20" Margin="0,0,7,0" />
+                <iconPacks:PackIconBootstrapIcons Kind="FiletypeXlsx" Width="20" Height="20" Margin="0,0,7,0" />
                 <TextBlock Text="保存试验报告" />
               </StackPanel>
             </Button>

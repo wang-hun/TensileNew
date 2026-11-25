@@ -105,6 +105,10 @@
     <Content Include="Assets\Seven Segment.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="doc\杯凸测试报告模板 0 202060914.xlsx">
+      <TargetPath>ReportTemplates\杯凸测试报告模板 0 202060914.xlsx</TargetPath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <Target Name="CopyPdfiumNativeToOutputDirectory" AfterTargets="Build">

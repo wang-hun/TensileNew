@@ -134,6 +134,8 @@ partial 仍共享 `MainWindow` 字段，不等于完成服务级解耦。后续�
 
 保存数据及报告时使用 `BackgroundStartupWaitWindow` 在独立 STA Dispatcher 上显示等待动画；保存流程不得通过等待主 UI Render 或同步延时来驱动该动画。无实时表格数据时，保存按钮直接返回；判断依据是 `DataAqc.loadModels` 是否为空，不得用已被消费者排空的 `_queue` 判断。
 
+`Mubea特供` 分支本版本的试验完成保存策略固定为每次询问，不受历史 `AutoSavePolicy` 设置影响；确认后打开 `ReportPreviewEditorWindow`。`TestReportService.CreateWorkbook()` 从运行目录 `ReportTemplates/杯凸测试报告模板 0 202060914.xlsx` 创建 `ExcelPackage`；预览读取工作表、单元格文本与格式、合并区域和图片形成模板数据结构，同时将同一个工作簿实例交给预览及保存端。模板源文件仍位于 `doc/` 并复制到运行目录独立文件夹。当前不写入报告字段、不插入表格/曲线、不做拼接组装；后续组装逻辑直接扩展传入的工作簿。
+
 需要在启动时增加前置检查时，优先挂在 `DataAqc.TryConnect()` 之前，避免阻塞 UI 线程。
 
 ## PLC 通信
