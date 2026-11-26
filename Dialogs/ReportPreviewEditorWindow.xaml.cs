@@ -21,6 +21,8 @@ public partial class ReportPreviewEditorWindow : Window
     private const double MinimumZoom = 0.25;
     private const double MaximumZoom = 4.0;
     private readonly ReportEditorDocument _document;
+    private readonly ReportEditorValueStore _valueStore = new();
+    private readonly Dictionary<string, string> _savedValues;
     private readonly Dictionary<string, FrameworkElement> _fieldControls = new(StringComparer.Ordinal);
     private readonly List<PreviewPage> _pages = [];
     private PdfDocument? _pdf;
@@ -30,6 +32,7 @@ public partial class ReportPreviewEditorWindow : Window
     public ReportPreviewEditorWindow(ReportEditorDocument document)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
+        _savedValues = _valueStore.Load();
         InitializeComponent();
         PageScrollViewer.SizeChanged += PageScrollViewer_SizeChanged;
         PageScrollViewer.PreviewMouseWheel += PageScrollViewer_PreviewMouseWheel;
@@ -79,7 +82,10 @@ public partial class ReportPreviewEditorWindow : Window
             var overlay = new Canvas { Width = pageWidth, Height = pageHeight, ClipToBounds = true };
             foreach (ReportEditorField field in _document.Fields.Where(field => field.PageIndex == pageIndex))
             {
-                FrameworkElement control = CreateFieldControl(field);
+                string? initialValue = field.Kind is ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime
+                    ? null
+                    : _savedValues.TryGetValue(field.Id, out string? savedValue) ? savedValue : field.InitialValue;
+                FrameworkElement control = CreateFieldControl(field, initialValue);
                 control.Width = field.Width * pageWidth;
                 control.Height = field.Height * pageHeight;
                 Canvas.SetLeft(control, field.Left * pageWidth);
@@ -268,14 +274,14 @@ public partial class ReportPreviewEditorWindow : Window
         }
     }
 
-    private FrameworkElement CreateFieldControl(ReportEditorField field)
+    private FrameworkElement CreateFieldControl(ReportEditorField field, string? initialValue)
     {
         FrameworkElement input = field.Kind switch
         {
-            ReportEditorFieldKind.Text => new TextBox { Text = field.InitialValue ?? string.Empty },
-            ReportEditorFieldKind.Date => CreateDateInput(field),
-            ReportEditorFieldKind.DateTime => CreateDateTimeInput(field),
-            ReportEditorFieldKind.Dropdown => CreateDropdownInput(field),
+            ReportEditorFieldKind.Text => new TextBox { Text = initialValue ?? string.Empty },
+            ReportEditorFieldKind.Date => CreateDateInput(),
+            ReportEditorFieldKind.DateTime => CreateDateTimeInput(),
+            ReportEditorFieldKind.Dropdown => CreateDropdownInput(field, initialValue),
             _ => throw new InvalidDataException($"不支持的报告输入类型：{field.Kind}")
         };
         input.ToolTip = field.Label;
@@ -285,18 +291,33 @@ public partial class ReportPreviewEditorWindow : Window
             control.Background = new SolidColorBrush(Color.FromArgb(242, 255, 255, 255));
         }
         _fieldControls.Add(field.Id, input);
+        if (field.Kind is not (ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime))
+        {
+            if (input is TextBox textBox)
+            {
+                textBox.TextChanged += (_, _) => PersistFieldValue(field.Id, textBox.Text);
+            }
+            else if (input is ComboBox comboBox)
+            {
+                comboBox.SelectionChanged += (_, _) => PersistFieldValue(field.Id,
+                    comboBox.IsEditable ? comboBox.Text : comboBox.SelectedItem?.ToString());
+                if (comboBox.IsEditable)
+                {
+                    comboBox.AddHandler(TextBox.TextChangedEvent,
+                        new TextChangedEventHandler((_, _) => PersistFieldValue(field.Id, comboBox.Text)));
+                }
+            }
+        }
         return input;
     }
 
-    private static DatePicker CreateDateInput(ReportEditorField field)
+    private static DatePicker CreateDateInput()
     {
-        DateTime? initial = DateTime.TryParseExact(field.InitialValue, "dd/MM/yyyy",
-            CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed) ? parsed : null;
         var datePicker = new DatePicker
         {
             Language = XmlLanguage.GetLanguage("en-GB"),
             SelectedDateFormat = DatePickerFormat.Short,
-            SelectedDate = initial,
+            SelectedDate = DateTime.Today,
             FontSize = 11,
             VerticalContentAlignment = VerticalAlignment.Center
         };
@@ -308,22 +329,24 @@ public partial class ReportPreviewEditorWindow : Window
             }
         };
         datePicker.DateValidationError += (_, args) => args.ThrowException = false;
-        if (initial.HasValue)
-        {
-            datePicker.Text = initial.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-        }
+        datePicker.Text = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         return datePicker;
     }
-    private static FrameworkElement CreateDateTimeInput(ReportEditorField field)
+    private static FrameworkElement CreateDateTimeInput()
     {
-        DateTime? initial = DateTime.TryParse(field.InitialValue, out DateTime parsed) ? parsed : null;
         var panel = new Grid();
         panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
-        var datePicker = new DatePicker { SelectedDate = initial?.Date, VerticalContentAlignment = VerticalAlignment.Center };
+        var datePicker = new DatePicker
+        {
+            Language = XmlLanguage.GetLanguage("en-GB"),
+            SelectedDateFormat = DatePickerFormat.Short,
+            SelectedDate = DateTime.Today,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
         var timeInput = new TextBox
         {
-            Text = initial?.ToString("HH:mm") ?? string.Empty,
+            Text = string.Empty,
             VerticalContentAlignment = VerticalAlignment.Center,
             ToolTip = "时间（时:分）"
         };
@@ -334,12 +357,12 @@ public partial class ReportPreviewEditorWindow : Window
         return panel;
     }
 
-    private static FrameworkElement CreateDropdownInput(ReportEditorField field)
+    private static FrameworkElement CreateDropdownInput(ReportEditorField field, string? initialValue)
     {
         var comboBox = new ComboBox
         {
             ItemsSource = field.Options,
-            SelectedItem = field.InitialValue,
+            SelectedItem = initialValue,
             IsEditable = field.Options.Count == 0,
             VerticalContentAlignment = VerticalAlignment.Center
         };
@@ -348,6 +371,23 @@ public partial class ReportPreviewEditorWindow : Window
             comboBox.SelectedIndex = 0;
         }
         return comboBox;
+    }
+
+    private void PersistFieldValue(string fieldId, string? value)
+    {
+        _savedValues[fieldId] = value ?? string.Empty;
+        try
+        {
+            _valueStore.Save(_savedValues);
+        }
+        catch (IOException)
+        {
+            ValidationText.Text = "无法保存填写记忆，请检查用户数据目录权限。";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            ValidationText.Text = "无法保存填写记忆，请检查用户数据目录权限。";
+        }
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -400,7 +440,7 @@ public partial class ReportPreviewEditorWindow : Window
             {
                 return string.Empty;
             }
-            return dateTimeInput.Item1.SelectedDate.Value.Date.Add(time).ToString("yyyy-MM-dd HH:mm");
+            return dateTimeInput.Item1.SelectedDate.Value.Date.Add(time).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
         }
         return null;
     }
