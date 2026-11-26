@@ -55,6 +55,10 @@ public partial class ReportPreviewEditorWindow : Window
         ValidateFieldDefinitions(pdf.PageCount);
         PageCountText.Text = $"共 {pdf.PageCount} 页";
 
+        BitmapSource? chartBitmap = _document.ChartImagePng is { Length: > 0 } chartBytes
+            ? DecodeBitmap(chartBytes)
+            : null;
+
         for (int pageIndex = 0; pageIndex < pdf.PageCount; pageIndex++)
         {
             var pageSize = pdf.PageSizes[pageIndex];
@@ -80,6 +84,20 @@ public partial class ReportPreviewEditorWindow : Window
             pageSurface.Children.Add(pageImage);
 
             var overlay = new Canvas { Width = pageWidth, Height = pageHeight, ClipToBounds = true };
+            if (pageIndex == 1 && chartBitmap is not null)
+            {
+                var chartImage = new Image
+                {
+                    Source = chartBitmap,
+                    Width = pageWidth * 898d / 1240d,
+                    Height = pageHeight * 413d / 1754d,
+                    Stretch = Stretch.Uniform,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(chartImage, pageWidth * 75d / 1240d);
+                Canvas.SetTop(chartImage, pageHeight * 725d / 1754d);
+                overlay.Children.Add(chartImage);
+            }
             foreach (ReportEditorField field in _document.Fields.Where(field => field.PageIndex == pageIndex))
             {
                 string? initialValue = field.Kind is ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime
@@ -249,6 +267,18 @@ public partial class ReportPreviewEditorWindow : Window
         }
     }
 
+    private static BitmapSource DecodeBitmap(byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
     private void DisposePdf()
     {
         _pdf?.Dispose();
@@ -279,6 +309,13 @@ public partial class ReportPreviewEditorWindow : Window
         FrameworkElement input = field.Kind switch
         {
             ReportEditorFieldKind.Text => new TextBox { Text = initialValue ?? string.Empty },
+            ReportEditorFieldKind.ReadOnly => new TextBlock
+            {
+                Text = initialValue ?? string.Empty,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap
+            },
             ReportEditorFieldKind.Date => CreateDateInput(),
             ReportEditorFieldKind.DateTime => CreateDateTimeInput(),
             ReportEditorFieldKind.Dropdown => CreateDropdownInput(field, initialValue),
@@ -289,9 +326,17 @@ public partial class ReportPreviewEditorWindow : Window
         if (input is Control control)
         {
             control.Background = new SolidColorBrush(Color.FromArgb(242, 255, 255, 255));
+            if (field.FontSize is double fontSize)
+            {
+                control.FontSize = fontSize;
+            }
+        }
+        else if (input is TextBlock textBlock && field.FontSize is double textFontSize)
+        {
+            textBlock.FontSize = textFontSize;
         }
         _fieldControls.Add(field.Id, input);
-        if (field.Kind is not (ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime))
+        if (field.Kind is not (ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime or ReportEditorFieldKind.ReadOnly))
         {
             if (input is TextBox textBox)
             {
@@ -366,9 +411,25 @@ public partial class ReportPreviewEditorWindow : Window
             IsEditable = field.Options.Count == 0,
             VerticalContentAlignment = VerticalAlignment.Center
         };
+        if (field.Id == "ActualResult")
+        {
+            var itemText = new FrameworkElementFactory(typeof(TextBlock));
+            itemText.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding());
+            itemText.SetBinding(TextBlock.ToolTipProperty, new System.Windows.Data.Binding());
+            itemText.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+            itemText.SetValue(TextBlock.TextWrappingProperty, TextWrapping.NoWrap);
+            itemText.SetValue(FrameworkElement.MaxWidthProperty, 150d);
+            comboBox.ItemTemplate = new DataTemplate { VisualTree = itemText };
+            comboBox.ToolTip = initialValue ?? field.Options.FirstOrDefault() ?? field.Label;
+        }
         if (comboBox.SelectedIndex < 0 && field.Options.Count > 0)
         {
             comboBox.SelectedIndex = 0;
+        }
+        if (field.Id == "ActualResult")
+        {
+            comboBox.SelectionChanged += (_, _) => comboBox.ToolTip = comboBox.SelectedItem?.ToString() ?? field.Label;
+            comboBox.ToolTip = comboBox.SelectedItem?.ToString() ?? field.Label;
         }
         return comboBox;
     }
@@ -395,6 +456,11 @@ public partial class ReportPreviewEditorWindow : Window
         var values = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (ReportEditorField field in _document.Fields)
         {
+            if (field.Kind == ReportEditorFieldKind.ReadOnly)
+            {
+                values[field.Id] = GetFieldValue(_fieldControls[field.Id]);
+                continue;
+            }
             if (_fieldControls[field.Id] is DatePicker datePicker &&
                 !string.IsNullOrWhiteSpace(datePicker.Text) &&
                 !DateTime.TryParseExact(datePicker.Text.Trim(), "dd/MM/yyyy",
@@ -418,6 +484,10 @@ public partial class ReportPreviewEditorWindow : Window
 
     private static string? GetFieldValue(FrameworkElement control)
     {
+        if (control is TextBlock textBlock)
+        {
+            return textBlock.Text.Trim();
+        }
         if (control is TextBox textBox)
         {
             return textBox.Text.Trim();

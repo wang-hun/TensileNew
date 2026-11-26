@@ -1687,6 +1687,10 @@ public partial class MainWindow : Window
                 $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_算法整合数据.xlsx");
             double displacementStep = DisplacementResamplingService.GetDisplacementStep(
                 data.Recipe?.Speed > 0 ? data.Recipe.Speed : DisplacementResamplingService.DefaultSpeed);
+            ReportPreviewValues previewValues = CreateReportPreviewValues(
+                PlaybackPlot,
+                $"{data.Points.Max(point => point.RealForce):F3} KN",
+                $"{data.Points.Max(point => point.RealDistance):F3} mm");
 
             if (!await PreviewAndSaveReportAsync("正在保存回放数据表格和报告，请稍后。", () =>
             {
@@ -1696,7 +1700,7 @@ public partial class MainWindow : Window
                 {
                     DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
                 }
-            }))
+            }, previewValues))
             {
                 return;
             }
@@ -1737,9 +1741,14 @@ public partial class MainWindow : Window
         {
             string baseFileName = BuildPlaybackBaseFileName(data);
             string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.pdf");
+            ReportPreviewValues previewValues = CreateReportPreviewValues(
+                PlaybackPlot,
+                $"{data.Points.Max(point => point.RealForce):F3} KN",
+                $"{data.Points.Max(point => point.RealDistance):F3} mm");
             if (await PreviewAndSaveReportAsync(
                 "正在保存回放试验报告，请稍后。",
-                () => _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath))))
+                () => _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath)),
+                previewValues))
             {
                 ShowSuccess("回放案例 PDF 测试输出保存成功");
             }
@@ -1782,6 +1791,8 @@ public partial class MainWindow : Window
         await SaveDataAndReportAsync(allowDatabaseFallback: false);
     }
 
+    private sealed record ReportPreviewValues(byte[] ChartImagePng, string MaximumForce, string EffectiveDisplacement);
+
     private enum ReportSaveWorkflowState
     {
         Idle,
@@ -1792,7 +1803,7 @@ public partial class MainWindow : Window
 
     private ReportSaveWorkflowState _reportSaveWorkflowState;
 
-    private bool ShowReportPreviewEditor()
+    private bool ShowReportPreviewEditor(ReportPreviewValues previewValues)
     {
         string pdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "杯凸测试报告模板 空白.pdf");
         if (!File.Exists(pdfPath))
@@ -1801,12 +1812,19 @@ public partial class MainWindow : Window
             return false;
         }
 
-        IReadOnlyList<ReportEditorField> fields = ReportTemplateFieldCatalog.CreateBlankReportFields(new ReportOptionStore().Load());
+        IReadOnlyList<ReportEditorField> fields = ReportTemplateFieldCatalog.CreateBlankReportFields(new ReportOptionStore().Load())
+            .Select(field => field.Id switch
+            {
+                "MaximumForce" => field with { InitialValue = previewValues.MaximumForce },
+                "EffectiveDisplacement" => field with { InitialValue = previewValues.EffectiveDisplacement },
+                _ => field
+            }).ToList();
 
         var document = new ReportEditorDocument
         {
             PdfPath = pdfPath,
-            Fields = fields
+            Fields = fields,
+            ChartImagePng = previewValues.ChartImagePng
         };
         var window = new ReportPreviewEditorWindow(document) { Owner = this };
         return window.ShowDialog() == true;
@@ -1823,7 +1841,8 @@ public partial class MainWindow : Window
 
     private async Task<bool> PreviewAndSaveReportAsync(
         string waitText,
-        Action saveAction)
+        Action saveAction,
+        ReportPreviewValues previewValues)
     {
         if (_reportSaveWorkflowState != ReportSaveWorkflowState.Idle)
         {
@@ -1833,7 +1852,7 @@ public partial class MainWindow : Window
         try
         {
             _reportSaveWorkflowState = ReportSaveWorkflowState.Previewing;
-            if (!ShowReportPreviewEditor())
+            if (!ShowReportPreviewEditor(previewValues))
             {
                 return false;
             }
@@ -1935,6 +1954,11 @@ public partial class MainWindow : Window
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
+            ReportPreviewValues previewValues = CreateReportPreviewValues(
+                LoadPlot,
+                FormatReportPreviewValue(MaxForceVariable.CurrentValue, "KN"),
+                FormatReportPreviewValue(ValidDistanceVariable.CurrentValue, "mm"));
+
             if (!await PreviewAndSaveReportAsync("正在保存数据及试验报告，请稍后。", () =>
             {
                 _viewModel.SaveDataToFile(excelPath, dataSnapshot);
@@ -1947,7 +1971,7 @@ public partial class MainWindow : Window
                 }
 
                 _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath));
-            }))
+            }, previewValues))
             {
                 return;
             }
@@ -2130,9 +2154,46 @@ public partial class MainWindow : Window
 
     private Task<bool> SaveTestReportToFileAsync(string fileName)
     {
+        ReportPreviewValues previewValues = CreateReportPreviewValues(
+            LoadPlot,
+            FormatReportPreviewValue(MaxForceVariable.CurrentValue, "KN"),
+            FormatReportPreviewValue(ValidDistanceVariable.CurrentValue, "mm"));
         return PreviewAndSaveReportAsync(
             "正在保存试验报告，请稍后。",
-            () => _reportPdfExporter.Export(CreateCaseReportExportRequest(fileName)));
+            () => _reportPdfExporter.Export(CreateCaseReportExportRequest(fileName)),
+            previewValues);
+    }
+
+    private static ReportPreviewValues CreateReportPreviewValues(
+        ScottPlot.WPF.WpfPlot plotHost,
+        string maximumForce,
+        string effectiveDisplacement)
+    {
+        InvokePlotMenuItem(plotHost, "自动缩放", "Autoscale");
+
+        string temporaryImagePath = Path.Combine(
+            Path.GetTempPath(),
+            $"ECS_ReportPreview_{Guid.NewGuid():N}.png");
+        byte[] chartImagePng;
+        try
+        {
+            plotHost.Plot.SavePng(temporaryImagePath, 1796, 826);
+            chartImagePng = File.ReadAllBytes(temporaryImagePath);
+        }
+        finally
+        {
+            if (File.Exists(temporaryImagePath))
+            {
+                File.Delete(temporaryImagePath);
+            }
+        }
+
+        return new ReportPreviewValues(chartImagePng, maximumForce, effectiveDisplacement);
+    }
+
+    private static string FormatReportPreviewValue(string value, string unit)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : $"{value.Trim()} {unit}";
     }
 
     private IDisposable BeginCurrentTrialPlotScope()
@@ -2195,9 +2256,9 @@ public partial class MainWindow : Window
         Dialog.Show(dialog);
     }
 
-    private void InvokePlotMenuItem(params string[] labels)
+    private static void InvokePlotMenuItem(ScottPlot.WPF.WpfPlot plotHost, params string[] labels)
     {
-        var menu = LoadPlot.Menu;
+        var menu = plotHost.Menu;
         if (menu == null)
         {
             throw new InvalidOperationException("曲线图菜单不可用");
@@ -2209,7 +2270,7 @@ public partial class MainWindow : Window
             throw new InvalidOperationException($"曲线图菜单项不可用：{string.Join("/", labels)}");
         }
 
-        item.OnInvoke.Invoke(LoadPlot.Plot);
+        item.OnInvoke.Invoke(plotHost.Plot);
     }
 
     private void OpenLoadDataWindow_Click(object sender, RoutedEventArgs e)
