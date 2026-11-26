@@ -18,7 +18,7 @@
 | 二段速 | `../MainWindow.xaml.cs` | `TwoStageSpeed_Click()`、`SwitchToSecondStageAsync()`、`SwitchToFirstStageAsync()`、`ShowTwoStagePrompt()`、`RestoreTwoStageAutoResetSetting()` | 检查自动复位、序列号和采集结束自动保存交互 |
 | 配方与设置 | `../MainWindow.xaml.cs` | `WriteRecipe_Click()`、`AddRecipe_Click()`、`DeleteRecipe_Click()`、`SaveSettings_Click()` | 写入和持久化归 `MainViewModel` / `RAM` |
 | 报告备选项编辑 | `../MainWindow.xaml`、`MainWindow.Network.cs`、`ReportOptionEditorViewModel.cs` | `ReportOptions_Click()`、列表编辑命令 | UI 编辑候选及顺序，并从 `Controls/ReportOptionsEditor` 打开配置目录、导入／导出 JSON；导入只更新列表，保存才更新程序配置；报告编辑页使用自适应列表宽高、溢出滚动和操作按钮换行，保留“新增选项”等完整标签；持久化归 `ReportOptionStore`，不生成报告 |
-| 实时数据保存和报告 | `../MainWindow.xaml.cs`；独立保存协调模块如有需要则另行规划 | `SaveDataAndReportAsync()`、`OnDataCollectionEnded()` 及已核实的实际入口 | 状态机与双页 PDF 伪编辑规划见根 `AGENTS.md`；手动／自动入口共用状态协调；用户 PDF → WPF 页内叠加字段 → 收集值 → PDF 与数据表格成组提交；未提供 PDF 和坐标前不得伪造布局或宣称导出已完成 |
+| 实时数据保存和报告 | `../MainWindow.xaml.cs`；独立保存协调模块如有需要则另行规划 | `SaveDataAndReportAsync()`、`OnDataCollectionEnded()` 及已核实的实际入口 | 状态机与 PDF 伪编辑规划见根 `AGENTS.md`；预览显示空白 PDF，页面按目标像素渲染并在实际放大倍率不足时重新栅格化；确认后将案例 PDF 原样复制为 `.pdf` 测试输出；数据表格和算法整合数据保持原有 XLSX 路径。字段值尚未写入 PDF，不能称最终报告导出 |
 | 回放 | `../MainWindow.xaml.cs` | `RefreshPlaybackTrialsAsync()`、`RenderPlayback()`、`SavePlaybackData_Click()`、`SavePlaybackReport_Click()` | 读取 `TrialDataStore`；回放与实时采集不得混用状态 |
 | 隐藏入口 / 调试导入 | `../MainWindow.xaml.cs` | `LogoImage_MouseLeftButtonDown()`、`RunDebugAlgorithmDataImportAsync()` | PIN 事件边界见 `../Dialogs/AGENTS.md`；算法规则见根索引 |
 

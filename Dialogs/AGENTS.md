@@ -11,6 +11,6 @@
 | 配方确认 / 命名 | `RecipeConfirmDialog.xaml.cs`、`RecipeNameDialog.xaml.cs` | 确认 / 命名结果事件 | MainWindow 交给 `MainViewModel` 执行写入 |
 | 相机选择 | `CameraSelectionWindow.xaml.cs` | 设备选择事件 | MainWindow 交给 `CameraCaptureService` |
 | 回放和数据 | `LoadDataWindow.xaml.cs`、`PlotWindow.xaml.cs`、`VariableWindow.xaml.cs` | 展示 / 用户交互 | 数据源分别由 TrialDataStore、LoadPlotController、DataAqc 提供 |
-| 报告 PDF 预览与伪编辑 | `ReportPreviewEditorWindow.xaml(.cs)`、`ReportEditorDocument` | PDF 多页滚动预览；页内文本、日期时间及下拉框叠加；确认返回字段值，取消丢弃 | 使用现有 PdfiumViewer 渲染页面，并将页图与 WPF 控件放在同一页面容器中；位置采用归一化页面坐标。等待用户提供 PDF 后再定义字段映射；本阶段不生成最终 PDF，也不新增 PDF 依赖 |
+| 报告 PDF 预览与伪编辑 | `ReportPreviewEditorWindow.xaml(.cs)`、`ReportEditorDocument`、`IReportPdfExporter` | PDF 页面按物理尺寸计算逻辑大小，至少以 300 DPI 栅格化；适配或放大时按实际显示倍率和设备缩放比例提高目标像素并重新渲染，避免低分辨率位图被 `Viewbox` 拉伸；多页滚动预览默认适配可视宽度，窗口变化时重新适配；缩放按钮和 Ctrl+滚轮统一缩放整页及字段叠层；确认返回字段值，取消丢弃 | “案例”和“空白”PDF 从 `doc/` 复制到运行目录 `ReportTemplates/`，预览显示空白 PDF；确认后将案例 PDF 原样复制到目标 PDF 作为测试输出。导出接口不接收字段值，字段按案例和空白 PDF 对照映射到页面，日期以 dd/MM/yyyy 输入和回收；PDF 组装未实现。使用现有 PdfiumViewer 渲染页面；本阶段不新增 PDF 依赖 |
 
 新增或修改弹窗时保留 HandyControl / WPF 方式，不添加装饰性主题边框；布局遵守根 `AGENTS.md` 尺寸核算规则。

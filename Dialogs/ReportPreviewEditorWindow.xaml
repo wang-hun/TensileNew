@@ -15,16 +15,45 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <DockPanel Margin="0,0,0,12">
+        <DockPanel Margin="0,0,0,12" LastChildFill="False">
             <TextBlock Text="报告预览与填写"
+                       DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
                        FontSize="20"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
-            <TextBlock x:Name="PageCountText"
-                       DockPanel.Dock="Right"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource AppMetricNameForegroundBrush}"
-                       Margin="16,0,0,0" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock x:Name="PageCountText"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AppMetricNameForegroundBrush}"
+                           Margin="0,0,12,0" />
+                <Button Content="−"
+                        Width="34"
+                        Height="32"
+                        Margin="0,0,4,0"
+                        Style="{StaticResource ButtonPrimary}"
+                        ToolTip="缩小"
+                        Click="ZoomOut_Click" />
+                <TextBlock x:Name="ZoomLevelText"
+                           Width="52"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           Foreground="{DynamicResource AppMetricNameForegroundBrush}" />
+                <Button Content="+"
+                        Width="34"
+                        Height="32"
+                        Margin="4,0,8,0"
+                        Style="{StaticResource ButtonPrimary}"
+                        ToolTip="放大"
+                        Click="ZoomIn_Click" />
+                <Button Content="适合宽度"
+                        MinWidth="88"
+                        Height="32"
+                        Padding="8,0"
+                        Style="{StaticResource ButtonPrimary}"
+                        ToolTip="自动适配预览区域宽度"
+                        Click="FitWidth_Click" />
+            </StackPanel>
         </DockPanel>
         <ScrollViewer x:Name="PageScrollViewer"
                       Grid.Row="1"

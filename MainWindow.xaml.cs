@@ -115,6 +115,7 @@ public partial class MainWindow : Window
     private bool _lastPlcConnected;
     private readonly LoadPlotController _loadPlotController;
     private readonly NewVisionProcessingService _newVisionProcessingService;
+    private readonly IReportPdfExporter _reportPdfExporter = new TestReportService();
     private readonly SemaphoreSlim _twoStageTransitionLock = new(1, 1);
     private TwoStageTrialState _twoStageState;
     private bool? _twoStagePreviousAutoReset;
@@ -1677,10 +1678,9 @@ public partial class MainWindow : Window
 
         try
         {
-            using var reportWorkbook = TestReportService.CreateWorkbook();
             string reportPath = Path.Combine(
                 Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
-                $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_试验报告.xlsx");
+                $"{Path.GetFileNameWithoutExtension(dialog.FileName)}_试验报告.pdf");
             bool saveIntegratedData = PlaybackAlgorithmIntegratedDataCheckBox.IsChecked == true;
             string integratedPath = Path.Combine(
                 Path.GetDirectoryName(dialog.FileName) ?? RAM.SettingModel.ExcelFolderPath,
@@ -1688,10 +1688,10 @@ public partial class MainWindow : Window
             double displacementStep = DisplacementResamplingService.GetDisplacementStep(
                 data.Recipe?.Speed > 0 ? data.Recipe.Speed : DisplacementResamplingService.DefaultSpeed);
 
-            if (!await PreviewAndSaveReportAsync(reportWorkbook, "正在保存回放数据表格和报告，请稍后。", () =>
+            if (!await PreviewAndSaveReportAsync("正在保存回放数据表格和报告，请稍后。", () =>
             {
                 SavePlaybackDataToFile(dialog.FileName, data.Points);
-                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
+                _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath));
                 if (saveIntegratedData)
                 {
                     DisplacementResamplingService.SaveResampledDataToFile(integratedPath, data.Points, displacementStep);
@@ -1702,7 +1702,7 @@ public partial class MainWindow : Window
             }
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
-            ShowSuccess("回放数据表格和报告保存成功");
+            ShowSuccess("回放数据表格与案例 PDF 测试输出保存成功");
             saved = true;
         }
         catch (Exception ex)
@@ -1736,14 +1736,12 @@ public partial class MainWindow : Window
         try
         {
             string baseFileName = BuildPlaybackBaseFileName(data);
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
-            using var reportWorkbook = TestReportService.CreateWorkbook();
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.pdf");
             if (await PreviewAndSaveReportAsync(
-                reportWorkbook,
                 "正在保存回放试验报告，请稍后。",
-                () => TestReportService.SaveWorkbook(reportPath, reportWorkbook)))
+                () => _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath))))
             {
-                ShowSuccess("回放试验报告保存成功");
+                ShowSuccess("回放案例 PDF 测试输出保存成功");
             }
         }
         catch (Exception ex)
@@ -1794,21 +1792,16 @@ public partial class MainWindow : Window
 
     private ReportSaveWorkflowState _reportSaveWorkflowState;
 
-    private bool ShowReportPreviewEditor(OfficeOpenXml.ExcelPackage workbook)
+    private bool ShowReportPreviewEditor()
     {
-        string pdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "试验报告模板.pdf");
+        string pdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "杯凸测试报告模板 空白.pdf");
         if (!File.Exists(pdfPath))
         {
-            ShowWarning("未找到报告 PDF 模板，请先将模板放入 ReportTemplates 文件夹。");
+            ShowWarning("未找到空白报告 PDF 模板，请检查程序目录中的 ReportTemplates 文件夹。");
             return false;
         }
 
-        IReadOnlyList<ReportEditorField> fields = Array.Empty<ReportEditorField>();
-        if (fields.Count == 0)
-        {
-            ShowWarning("报告 PDF 的字段坐标和输出映射尚未配置，当前不能确认或导出报告。");
-            return false;
-        }
+        IReadOnlyList<ReportEditorField> fields = ReportTemplateFieldCatalog.CreateBlankReportFields(new ReportOptionStore().Load());
 
         var document = new ReportEditorDocument
         {
@@ -1819,8 +1812,16 @@ public partial class MainWindow : Window
         return window.ShowDialog() == true;
     }
 
+    private static ReportPdfExportRequest CreateCaseReportExportRequest(string outputPdfPath)
+    {
+        return new ReportPdfExportRequest
+        {
+            SourcePdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "杯凸测试报告模板 案例.pdf"),
+            OutputPdfPath = outputPdfPath
+        };
+    }
+
     private async Task<bool> PreviewAndSaveReportAsync(
-        OfficeOpenXml.ExcelPackage workbook,
         string waitText,
         Action saveAction)
     {
@@ -1832,7 +1833,7 @@ public partial class MainWindow : Window
         try
         {
             _reportSaveWorkflowState = ReportSaveWorkflowState.Previewing;
-            if (!ShowReportPreviewEditor(workbook))
+            if (!ShowReportPreviewEditor())
             {
                 return false;
             }
@@ -1930,12 +1931,11 @@ public partial class MainWindow : Window
             string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.xlsx");
-            using var reportWorkbook = TestReportService.CreateWorkbook();
+            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.pdf");
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            if (!await PreviewAndSaveReportAsync(reportWorkbook, "正在保存数据及试验报告，请稍后。", () =>
+            if (!await PreviewAndSaveReportAsync("正在保存数据及试验报告，请稍后。", () =>
             {
                 _viewModel.SaveDataToFile(excelPath, dataSnapshot);
                 if (saveAlgorithmIntegratedData)
@@ -1946,7 +1946,7 @@ public partial class MainWindow : Window
                         algorithmDisplacementStep);
                 }
 
-                TestReportService.SaveWorkbook(reportPath, reportWorkbook);
+                _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath));
             }))
             {
                 return;
@@ -1954,7 +1954,7 @@ public partial class MainWindow : Window
 
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
-            ShowSuccess("数据和试验报告保存成功");
+            ShowSuccess("数据表格与案例 PDF 测试输出保存成功");
             saved = true;
             _viewModel.AdvanceTrialSerialNumber();
         }
@@ -2098,7 +2098,9 @@ public partial class MainWindow : Window
         string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
         {
-            Filter = "Excel (*.xlsx)|*.xlsx",
+            Filter = "PDF (*.pdf)|*.pdf",
+            DefaultExt = ".pdf",
+            AddExtension = true,
             InitialDirectory = configuredFolderPath,
             FileName = BuildBaseFileName(
                 SNModel.GetSn(),
@@ -2114,10 +2116,9 @@ public partial class MainWindow : Window
 
         try
         {
-            using var reportWorkbook = TestReportService.CreateWorkbook();
-            if (await SaveTestReportToFileAsync(dialog.FileName, reportWorkbook))
+            if (await SaveTestReportToFileAsync(dialog.FileName))
             {
-                ShowSuccess("试验报告保存成功");
+                ShowSuccess("案例 PDF 测试输出保存成功");
             }
         }
         catch (Exception ex)
@@ -2127,12 +2128,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private Task<bool> SaveTestReportToFileAsync(string fileName, OfficeOpenXml.ExcelPackage workbook)
+    private Task<bool> SaveTestReportToFileAsync(string fileName)
     {
         return PreviewAndSaveReportAsync(
-            workbook,
             "正在保存试验报告，请稍后。",
-            () => TestReportService.SaveWorkbook(fileName, workbook));
+            () => _reportPdfExporter.Export(CreateCaseReportExportRequest(fileName)));
     }
 
     private IDisposable BeginCurrentTrialPlotScope()

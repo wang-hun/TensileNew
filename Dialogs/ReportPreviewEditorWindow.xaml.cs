@@ -1,7 +1,9 @@
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using PdfiumViewer;
@@ -11,14 +13,28 @@ namespace TensileNeW;
 
 public partial class ReportPreviewEditorWindow : Window
 {
-    private const float RenderDpi = 144f;
+    private sealed record PreviewPage(Grid Host, Viewbox Scaler, Image Image, int PageIndex, double Width, double Height);
+
+    private const double LogicalDpi = 96d;
+    private const double PdfPointsPerInch = 72d;
+    private const float MinimumRenderDpi = 300f;
+    private const double MinimumZoom = 0.25;
+    private const double MaximumZoom = 4.0;
     private readonly ReportEditorDocument _document;
     private readonly Dictionary<string, FrameworkElement> _fieldControls = new(StringComparer.Ordinal);
+    private readonly List<PreviewPage> _pages = [];
+    private PdfDocument? _pdf;
+    private bool _fitToWidth = true;
+    private double _manualZoom = 1.0;
 
     public ReportPreviewEditorWindow(ReportEditorDocument document)
     {
         _document = document ?? throw new ArgumentNullException(nameof(document));
         InitializeComponent();
+        PageScrollViewer.SizeChanged += PageScrollViewer_SizeChanged;
+        PageScrollViewer.PreviewMouseWheel += PageScrollViewer_PreviewMouseWheel;
+        Loaded += (_, _) => ApplyZoom();
+        Closed += (_, _) => DisposePdf();
         RenderDocument();
     }
 
@@ -31,26 +47,17 @@ public partial class ReportPreviewEditorWindow : Window
             throw new FileNotFoundException("找不到报告 PDF 模板。", _document.PdfPath);
         }
 
-        using var pdf = PdfDocument.Load(_document.PdfPath);
+        _pdf = PdfDocument.Load(_document.PdfPath);
+        PdfDocument pdf = _pdf;
         ValidateFieldDefinitions(pdf.PageCount);
         PageCountText.Text = $"共 {pdf.PageCount} 页";
 
         for (int pageIndex = 0; pageIndex < pdf.PageCount; pageIndex++)
         {
-            using var renderedPage = pdf.Render(pageIndex, RenderDpi, RenderDpi, PdfRenderFlags.Annotations);
-            using var stream = new MemoryStream();
-            renderedPage.Save(stream, ImageFormat.Png);
-            stream.Position = 0;
-
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = stream;
-            bitmap.EndInit();
-            bitmap.Freeze();
-
-            double pageWidth = bitmap.PixelWidth * 96d / RenderDpi;
-            double pageHeight = bitmap.PixelHeight * 96d / RenderDpi;
+            var pageSize = pdf.PageSizes[pageIndex];
+            double pageWidth = pageSize.Width * LogicalDpi / PdfPointsPerInch;
+            double pageHeight = pageSize.Height * LogicalDpi / PdfPointsPerInch;
+            BitmapSource bitmap = RenderPage(pageIndex, MinimumRenderDpi);
             var pageSurface = new Grid
             {
                 Width = pageWidth,
@@ -58,14 +65,16 @@ public partial class ReportPreviewEditorWindow : Window
                 Background = Brushes.White,
                 SnapsToDevicePixels = true
             };
-            pageSurface.Children.Add(new Image
+            var pageImage = new Image
             {
                 Source = bitmap,
                 Width = pageWidth,
                 Height = pageHeight,
                 Stretch = Stretch.Fill,
                 IsHitTestVisible = false
-            });
+            };
+            RenderOptions.SetBitmapScalingMode(pageImage, BitmapScalingMode.HighQuality);
+            pageSurface.Children.Add(pageImage);
 
             var overlay = new Canvas { Width = pageWidth, Height = pageHeight, ClipToBounds = true };
             foreach (ReportEditorField field in _document.Fields.Where(field => field.PageIndex == pageIndex))
@@ -78,15 +87,166 @@ public partial class ReportPreviewEditorWindow : Window
                 overlay.Children.Add(control);
             }
             pageSurface.Children.Add(overlay);
-            PageStackPanel.Children.Add(new Border
+            var pageBorder = new Border
             {
+                Width = pageWidth + 2,
+                Height = pageHeight + 2,
                 Background = Brushes.White,
                 BorderBrush = new SolidColorBrush(Color.FromRgb(190, 195, 200)),
                 BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 0, 0, 16),
                 Child = pageSurface
-            });
+            };
+            var pageScaler = new Viewbox
+            {
+                Width = pageWidth + 2,
+                Height = pageHeight + 2,
+                Stretch = Stretch.Fill,
+                Child = pageBorder
+            };
+            var pageHost = new Grid
+            {
+                Width = pageWidth + 2,
+                Height = pageHeight + 2,
+                Margin = new Thickness(0, 0, 0, 16),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            pageHost.Children.Add(pageScaler);
+            _pages.Add(new PreviewPage(pageHost, pageScaler, pageImage, pageIndex, pageWidth + 2, pageHeight + 2));
+            PageStackPanel.Children.Add(pageHost);
         }
+        ApplyZoom();
+    }
+
+    private void PageScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_fitToWidth)
+        {
+            ApplyZoom();
+        }
+    }
+
+    private void PageScrollViewer_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if ((System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == 0)
+        {
+            return;
+        }
+
+        AdjustZoom(e.Delta > 0 ? 1.2 : 1 / 1.2);
+        e.Handled = true;
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        AdjustZoom(1.2);
+    }
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        AdjustZoom(1 / 1.2);
+    }
+
+    private void FitWidth_Click(object sender, RoutedEventArgs e)
+    {
+        _fitToWidth = true;
+        ApplyZoom();
+    }
+
+    private void AdjustZoom(double factor)
+    {
+        if (_fitToWidth)
+        {
+            _manualZoom = CalculateFitWidthZoom();
+            _fitToWidth = false;
+        }
+
+        _manualZoom = Math.Clamp(_manualZoom * factor, MinimumZoom, MaximumZoom);
+        ApplyZoom();
+    }
+
+    private double CalculateFitWidthZoom()
+    {
+        if (_pages.Count == 0 || PageScrollViewer.ViewportWidth <= 0)
+        {
+            return 1.0;
+        }
+
+        double widestPage = _pages.Max(page => page.Width);
+        double availableWidth = Math.Max(1, PageScrollViewer.ViewportWidth - 24);
+        return Math.Clamp(availableWidth / widestPage, MinimumZoom, MaximumZoom);
+    }
+
+    private void ApplyZoom()
+    {
+        if (_pages.Count == 0)
+        {
+            return;
+        }
+
+        double zoom = _fitToWidth ? CalculateFitWidthZoom() : _manualZoom;
+        EnsureRenderQuality(zoom);
+        foreach (PreviewPage page in _pages)
+        {
+            page.Host.Width = page.Width * zoom;
+            page.Host.Height = page.Height * zoom;
+            page.Scaler.Width = page.Width * zoom;
+            page.Scaler.Height = page.Height * zoom;
+        }
+
+        ZoomLevelText.Text = $"{zoom:P0}";
+    }
+
+    private BitmapSource RenderPage(int pageIndex, float renderDpi)
+    {
+        if (_pdf is null)
+        {
+            throw new InvalidOperationException(nameof(_pdf));
+        }
+
+        var pageSize = _pdf.PageSizes[pageIndex];
+        int renderWidth = Math.Max(1, (int)Math.Ceiling(pageSize.Width * renderDpi / PdfPointsPerInch));
+        int renderHeight = Math.Max(1, (int)Math.Ceiling(pageSize.Height * renderDpi / PdfPointsPerInch));
+        using var renderedPage = _pdf.Render(
+            pageIndex,
+            renderWidth,
+            renderHeight,
+            renderDpi,
+            renderDpi,
+            PdfRenderFlags.Annotations | PdfRenderFlags.LcdText | PdfRenderFlags.ForPrinting);
+        using var stream = new MemoryStream();
+        renderedPage.Save(stream, ImageFormat.Png);
+        stream.Position = 0;
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
+    }
+
+    private void EnsureRenderQuality(double zoom)
+    {
+        double deviceScale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M11 ?? 1d;
+        float requiredDpi = (float)Math.Max(MinimumRenderDpi, LogicalDpi * zoom * deviceScale);
+
+        foreach (PreviewPage page in _pages)
+        {
+            if (page.Image.Source is BitmapSource bitmap &&
+                bitmap.PixelWidth >= Math.Ceiling((page.Width - 2) * zoom * deviceScale))
+            {
+                continue;
+            }
+
+            page.Image.Source = RenderPage(page.PageIndex, requiredDpi);
+        }
+    }
+
+    private void DisposePdf()
+    {
+        _pdf?.Dispose();
+        _pdf = null;
     }
 
     private void ValidateFieldDefinitions(int pageCount)
@@ -104,10 +264,7 @@ public partial class ReportPreviewEditorWindow : Window
             {
                 throw new InvalidDataException($"报告输入项「{field.Id}」的页面位置无效。");
             }
-            if (field.Kind == ReportEditorFieldKind.Dropdown && field.Options.Count == 0)
-            {
-                throw new InvalidDataException($"下拉项「{field.Label}」没有候选值。");
-            }
+
         }
     }
 
@@ -116,6 +273,7 @@ public partial class ReportPreviewEditorWindow : Window
         FrameworkElement input = field.Kind switch
         {
             ReportEditorFieldKind.Text => new TextBox { Text = field.InitialValue ?? string.Empty },
+            ReportEditorFieldKind.Date => CreateDateInput(field),
             ReportEditorFieldKind.DateTime => CreateDateTimeInput(field),
             ReportEditorFieldKind.Dropdown => CreateDropdownInput(field),
             _ => throw new InvalidDataException($"不支持的报告输入类型：{field.Kind}")
@@ -130,6 +288,32 @@ public partial class ReportPreviewEditorWindow : Window
         return input;
     }
 
+    private static DatePicker CreateDateInput(ReportEditorField field)
+    {
+        DateTime? initial = DateTime.TryParseExact(field.InitialValue, "dd/MM/yyyy",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed) ? parsed : null;
+        var datePicker = new DatePicker
+        {
+            Language = XmlLanguage.GetLanguage("en-GB"),
+            SelectedDateFormat = DatePickerFormat.Short,
+            SelectedDate = initial,
+            FontSize = 11,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        datePicker.SelectedDateChanged += (_, _) =>
+        {
+            if (datePicker.SelectedDate is DateTime selected)
+            {
+                datePicker.Text = selected.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            }
+        };
+        datePicker.DateValidationError += (_, args) => args.ThrowException = false;
+        if (initial.HasValue)
+        {
+            datePicker.Text = initial.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+        return datePicker;
+    }
     private static FrameworkElement CreateDateTimeInput(ReportEditorField field)
     {
         DateTime? initial = DateTime.TryParse(field.InitialValue, out DateTime parsed) ? parsed : null;
@@ -156,7 +340,7 @@ public partial class ReportPreviewEditorWindow : Window
         {
             ItemsSource = field.Options,
             SelectedItem = field.InitialValue,
-            IsEditable = false,
+            IsEditable = field.Options.Count == 0,
             VerticalContentAlignment = VerticalAlignment.Center
         };
         if (comboBox.SelectedIndex < 0 && field.Options.Count > 0)
@@ -171,6 +355,15 @@ public partial class ReportPreviewEditorWindow : Window
         var values = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (ReportEditorField field in _document.Fields)
         {
+            if (_fieldControls[field.Id] is DatePicker datePicker &&
+                !string.IsNullOrWhiteSpace(datePicker.Text) &&
+                !DateTime.TryParseExact(datePicker.Text.Trim(), "dd/MM/yyyy",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            {
+                ValidationText.Text = $"「{field.Label}」请按日/月/年填写日期（dd/MM/yyyy）。";
+                datePicker.Focus();
+                return;
+            }
             string? value = GetFieldValue(_fieldControls[field.Id]);
             if (field.IsRequired && string.IsNullOrWhiteSpace(value))
             {
@@ -189,9 +382,15 @@ public partial class ReportPreviewEditorWindow : Window
         {
             return textBox.Text.Trim();
         }
+        if (control is DatePicker datePicker)
+        {
+            return DateTime.TryParseExact(datePicker.Text.Trim(), "dd/MM/yyyy",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date)
+                ? date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) : string.Empty;
+        }
         if (control is ComboBox comboBox)
         {
-            return comboBox.SelectedItem?.ToString();
+            return comboBox.IsEditable ? comboBox.Text.Trim() : comboBox.SelectedItem?.ToString();
         }
         if (control is Grid { Tag: ValueTuple<DatePicker, TextBox> dateTimeInput })
         {
