@@ -103,6 +103,7 @@ public partial class MainWindow : Window
     private CameraPreviewWindow? _cameraPreviewWindow;
     private CameraCaptureService? _cameraCaptureService;
     private BitmapSource? _currentCameraBitmap;
+    private ReportPreviewValues? _completedTrialReportPreviewValues;
     private bool _isClosing;
     private bool _shutdownCleanupStarted;
     private bool _runtimeDataSavePromptHandled;
@@ -186,6 +187,7 @@ public partial class MainWindow : Window
         _lastPlcConnected = string.Equals(DataAqc.plc.ConnectState, "true", StringComparison.OrdinalIgnoreCase);
         DataAqc.plc.PropertyChanged += Plc_PropertyChanged;
         DataAqc.DataCollectionEnded += OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted += OnDataCollectionStarted;
         DataAqc.ChartCleared += OnTrialDataCleared;
         DataAqc.UiBatchApplied += OnUiBatchApplied;
         Title = GetWindowTitle();
@@ -465,6 +467,7 @@ public partial class MainWindow : Window
         DataAqc.UiBatchApplied -= OnUiBatchApplied;
         DataAqc.plc.PropertyChanged -= Plc_PropertyChanged;
         DataAqc.DataCollectionEnded -= OnDataCollectionEnded;
+        DataAqc.DataCollectionStarted -= OnDataCollectionStarted;
         DataAqc.ChartCleared -= OnTrialDataCleared;
         _viewModel.SaveSettings();
         MainViewModel.StopConsumers();
@@ -1215,6 +1218,7 @@ public partial class MainWindow : Window
 
     private async void OnTrialDataCleared()
     {
+        _completedTrialReportPreviewValues = null;
         _dataResetGeneration++;
         _twoStageConfirmationWindow?.Close();
         TrialDataStore.CancelCaptureContinuation();
@@ -1460,6 +1464,7 @@ public partial class MainWindow : Window
 
         _twoStageState = TwoStageTrialState.None;
         RestoreTwoStageAutoResetSetting();
+        CaptureCompletedTrialReportSnapshot();
         await RunAutomaticSaveAsync();
     }
 
@@ -1690,7 +1695,8 @@ public partial class MainWindow : Window
             ReportPreviewValues previewValues = CreateReportPreviewValues(
                 PlaybackPlot,
                 $"{data.Points.Max(point => point.RealForce):F3} KN",
-                $"{data.Points.Max(point => point.RealDistance):F3} mm");
+                $"{data.Points.Max(point => point.RealDistance):F3} mm",
+                CaptureCameraFramePng());
 
             if (!await PreviewAndSaveReportAsync("正在保存回放数据表格和报告，请稍后。", () =>
             {
@@ -1744,7 +1750,8 @@ public partial class MainWindow : Window
             ReportPreviewValues previewValues = CreateReportPreviewValues(
                 PlaybackPlot,
                 $"{data.Points.Max(point => point.RealForce):F3} KN",
-                $"{data.Points.Max(point => point.RealDistance):F3} mm");
+                $"{data.Points.Max(point => point.RealDistance):F3} mm",
+                CaptureCameraFramePng());
             if (await PreviewAndSaveReportAsync(
                 "正在保存回放试验报告，请稍后。",
                 () => _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath)),
@@ -1791,7 +1798,11 @@ public partial class MainWindow : Window
         await SaveDataAndReportAsync(allowDatabaseFallback: false);
     }
 
-    private sealed record ReportPreviewValues(byte[] ChartImagePng, string MaximumForce, string EffectiveDisplacement);
+    private sealed record ReportPreviewValues(
+        byte[] ChartImagePng,
+        string MaximumForce,
+        string EffectiveDisplacement,
+        byte[]? CameraImagePng);
 
     private enum ReportSaveWorkflowState
     {
@@ -1824,7 +1835,8 @@ public partial class MainWindow : Window
         {
             PdfPath = pdfPath,
             Fields = fields,
-            ChartImagePng = previewValues.ChartImagePng
+            ChartImagePng = previewValues.ChartImagePng,
+            CameraImagePng = previewValues.CameraImagePng
         };
         var window = new ReportPreviewEditorWindow(document) { Owner = this };
         return window.ShowDialog() == true;
@@ -1889,10 +1901,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback, bool automatic = false)
+    private async Task SaveDataAndReportAsync(bool allowDatabaseFallback)
     {
-        if (automatic && IsTwoStageTransitioning)
+        if (_reportSaveWorkflowState != ReportSaveWorkflowState.Idle)
         {
+            return;
+        }
+
+        ReportPreviewValues? completedTrialPreviewValues = _completedTrialReportPreviewValues;
+        if (completedTrialPreviewValues is null)
+        {
+            ShowWarning("没有已完成试验的报告快照，请在试验结束后保存报告。");
             return;
         }
 
@@ -1954,10 +1973,7 @@ public partial class MainWindow : Window
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
-            ReportPreviewValues previewValues = CreateReportPreviewValues(
-                LoadPlot,
-                FormatReportPreviewValue(MaxForceVariable.CurrentValue, "KN"),
-                FormatReportPreviewValue(ValidDistanceVariable.CurrentValue, "mm"));
+            ReportPreviewValues previewValues = completedTrialPreviewValues;
 
             if (!await PreviewAndSaveReportAsync("正在保存数据及试验报告，请稍后。", () =>
             {
@@ -2021,6 +2037,7 @@ public partial class MainWindow : Window
         {
             _twoStageState = TwoStageTrialState.WaitingForSecondStageConfirmation;
             await DelayOneSecondWithHighResolutionTimerAsync();
+            await Dispatcher.InvokeAsync(CaptureCompletedTrialReportSnapshot, System.Windows.Threading.DispatcherPriority.Send);
             if (_twoStageState == TwoStageTrialState.WaitingForSecondStageConfirmation)
             {
                 ShowTwoStagePrompt();
@@ -2028,8 +2045,28 @@ public partial class MainWindow : Window
             return;
         }
 
+        await Dispatcher.InvokeAsync(CaptureCompletedTrialReportSnapshot, System.Windows.Threading.DispatcherPriority.Send);
         await DelayOneSecondWithHighResolutionTimerAsync();
         await RunAutomaticSaveAsync();
+    }
+
+    private void OnDataCollectionStarted()
+    {
+        _completedTrialReportPreviewValues = null;
+    }
+
+    private void CaptureCompletedTrialReportSnapshot()
+    {
+        if (_completedTrialReportPreviewValues is not null)
+        {
+            return;
+        }
+
+        _completedTrialReportPreviewValues = CreateReportPreviewValues(
+            LoadPlot,
+            FormatReportPreviewValue(MaxForceVariable.CurrentValue, "KN"),
+            FormatReportPreviewValue(ValidDistanceVariable.CurrentValue, "mm"),
+            CaptureCameraFramePng());
     }
 
     private bool IsTwoStageTransitioning =>
@@ -2067,7 +2104,7 @@ public partial class MainWindow : Window
 
             if (dialog.ShouldSave)
             {
-                await SaveDataAndReportAsync(allowDatabaseFallback: true, automatic: true);
+                await SaveDataAndReportAsync(allowDatabaseFallback: true);
             }
         }
         finally
@@ -2154,10 +2191,12 @@ public partial class MainWindow : Window
 
     private Task<bool> SaveTestReportToFileAsync(string fileName)
     {
-        ReportPreviewValues previewValues = CreateReportPreviewValues(
-            LoadPlot,
-            FormatReportPreviewValue(MaxForceVariable.CurrentValue, "KN"),
-            FormatReportPreviewValue(ValidDistanceVariable.CurrentValue, "mm"));
+        ReportPreviewValues? previewValues = _completedTrialReportPreviewValues;
+        if (previewValues is null)
+        {
+            ShowWarning("没有已完成试验的报告快照，请在试验结束后保存报告。");
+            return Task.FromResult(false);
+        }
         return PreviewAndSaveReportAsync(
             "正在保存试验报告，请稍后。",
             () => _reportPdfExporter.Export(CreateCaseReportExportRequest(fileName)),
@@ -2167,7 +2206,8 @@ public partial class MainWindow : Window
     private static ReportPreviewValues CreateReportPreviewValues(
         ScottPlot.WPF.WpfPlot plotHost,
         string maximumForce,
-        string effectiveDisplacement)
+        string effectiveDisplacement,
+        byte[]? cameraImagePng)
     {
         InvokePlotMenuItem(plotHost, "自动缩放", "Autoscale");
 
@@ -2188,7 +2228,28 @@ public partial class MainWindow : Window
             }
         }
 
-        return new ReportPreviewValues(chartImagePng, maximumForce, effectiveDisplacement);
+        return new ReportPreviewValues(chartImagePng, maximumForce, effectiveDisplacement, cameraImagePng);
+    }
+
+    private byte[]? CaptureCameraFramePng()
+    {
+        if (_cameraCaptureService is not { IsRunning: true, CurrentDeviceId: not null } ||
+            _currentCameraBitmap is not BitmapSource currentBitmap)
+        {
+            return null;
+        }
+
+        BitmapSource snapshot = currentBitmap.CloneCurrentValue();
+        if (snapshot.CanFreeze)
+        {
+            snapshot.Freeze();
+        }
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(snapshot));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
     }
 
     private static string FormatReportPreviewValue(string value, string unit)

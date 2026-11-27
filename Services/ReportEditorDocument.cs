@@ -32,6 +32,7 @@ public sealed class ReportEditorDocument
     public required string PdfPath { get; init; }
     public required IReadOnlyList<ReportEditorField> Fields { get; init; }
     public byte[]? ChartImagePng { get; init; }
+    public byte[]? CameraImagePng { get; init; }
 }
 
 public sealed class ReportEditorResult

@@ -58,6 +58,9 @@ public partial class ReportPreviewEditorWindow : Window
         BitmapSource? chartBitmap = _document.ChartImagePng is { Length: > 0 } chartBytes
             ? DecodeBitmap(chartBytes)
             : null;
+        BitmapSource? cameraBitmap = _document.CameraImagePng is { Length: > 0 } cameraBytes
+            ? DecodeBitmap(cameraBytes)
+            : null;
 
         for (int pageIndex = 0; pageIndex < pdf.PageCount; pageIndex++)
         {
@@ -97,6 +100,20 @@ public partial class ReportPreviewEditorWindow : Window
                 Canvas.SetLeft(chartImage, pageWidth * 75d / 1240d);
                 Canvas.SetTop(chartImage, pageHeight * 725d / 1754d);
                 overlay.Children.Add(chartImage);
+            }
+            if (pageIndex == 1 && cameraBitmap is not null)
+            {
+                var cameraImage = new Image
+                {
+                    Source = cameraBitmap,
+                    Width = pageWidth * 628d / 1240d,
+                    Height = pageHeight * 310d / 1754d,
+                    Stretch = Stretch.Uniform,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(cameraImage, pageWidth * 85d / 1240d);
+                Canvas.SetTop(cameraImage, pageHeight * 1175d / 1754d);
+                overlay.Children.Add(cameraImage);
             }
             foreach (ReportEditorField field in _document.Fields.Where(field => field.PageIndex == pageIndex))
             {
