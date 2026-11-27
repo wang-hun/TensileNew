@@ -5,10 +5,7 @@ namespace TensileNeW.Services;
 
 public sealed class ReportEditorValueStore
 {
-    private readonly string _filePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ECS",
-        "ReportEditorValues.json");
+    private readonly string _filePath = ReportRuntimePaths.EditorValuesFilePath;
 
     public Dictionary<string, string> Load()
     {

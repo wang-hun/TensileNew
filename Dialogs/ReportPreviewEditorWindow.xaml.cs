@@ -345,6 +345,7 @@ public partial class ReportPreviewEditorWindow : Window
         if (input is Control control)
         {
             control.Background = new SolidColorBrush(Color.FromArgb(242, 255, 255, 255));
+            control.HorizontalContentAlignment = field.IsLeftAligned ? HorizontalAlignment.Left : HorizontalAlignment.Center;
             if (field.FontSize is double fontSize)
             {
                 control.FontSize = fontSize;
@@ -353,12 +354,14 @@ public partial class ReportPreviewEditorWindow : Window
         else if (input is TextBlock textBlock && field.FontSize is double textFontSize)
         {
             textBlock.FontSize = textFontSize;
+            textBlock.TextAlignment = TextAlignment.Center;
         }
         _fieldControls.Add(field.Id, input);
         if (field.Kind is not (ReportEditorFieldKind.Date or ReportEditorFieldKind.DateTime or ReportEditorFieldKind.ReadOnly))
         {
             if (input is TextBox textBox)
             {
+                textBox.TextAlignment = field.IsLeftAligned ? TextAlignment.Left : TextAlignment.Center;
                 textBox.TextChanged += (_, _) => PersistFieldValue(field.Id, textBox.Text);
             }
             else if (input is ComboBox comboBox)

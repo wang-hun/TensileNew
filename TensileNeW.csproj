@@ -89,6 +89,7 @@
     <PackageReference Include="PdfiumViewer" Version="2.13.0" />
     <PackageReference Include="PdfiumViewer.Native.x86.v8-xfa" Version="2018.4.8.256" GeneratePathProperty="true" />
     <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" GeneratePathProperty="true" />
+    <PackageReference Include="PDFsharp-WPF" Version="6.2.4" />
     <PackageReference Include="ScottPlot.WPF" Version="5.1.58" />
   </ItemGroup>
 

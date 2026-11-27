@@ -2213,8 +2213,10 @@ public partial class MainWindow : Window
     {
         InvokePlotMenuItem(plotHost, "自动缩放", "Autoscale");
 
+        string temporaryDirectory = ReportRuntimePaths.TemporaryDirectoryPath;
+        Directory.CreateDirectory(temporaryDirectory);
         string temporaryImagePath = Path.Combine(
-            Path.GetTempPath(),
+            temporaryDirectory,
             $"ECS_ReportPreview_{Guid.NewGuid():N}.png");
         byte[] chartImagePng;
         try

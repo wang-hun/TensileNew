@@ -1,17 +1,20 @@
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Globalization;
 using System.IO;
-using System.Text;
-using PdfiumViewer;
+using PdfSharp.Drawing;
+using PdfSharp.Fonts;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 
 namespace TensileNeW.Services;
 
 public static class ReportPdfAssembler
 {
-    private const float RenderDpi = 300f;
     private const double ReferenceWidth = 1240d;
     private const double ReferenceHeight = 1754d;
+
+    static ReportPdfAssembler()
+    {
+        GlobalFontSettings.FallbackFontResolver = new ReportCjkFontResolver();
+    }
 
     public static void Export(ReportPdfExportRequest request)
     {
@@ -21,145 +24,129 @@ public static class ReportPdfAssembler
             throw new FileNotFoundException("找不到报告空白模板。", request.SourcePdfPath);
         }
 
-        using PdfDocument source = PdfDocument.Load(request.SourcePdfPath);
-        var pageImages = new List<(byte[] Jpeg, double Width, double Height)>();
-        for (int pageIndex = 0; pageIndex < source.PageCount; pageIndex++)
+        string? outputDirectory = Path.GetDirectoryName(request.OutputPdfPath);
+        if (!string.IsNullOrEmpty(outputDirectory))
         {
-            SizeF pageSize = source.PageSizes[pageIndex];
-            int width = Math.Max(1, (int)Math.Ceiling(pageSize.Width * RenderDpi / 72d));
-            int height = Math.Max(1, (int)Math.Ceiling(pageSize.Height * RenderDpi / 72d));
-            using Image renderedPage = source.Render(pageIndex, width, height, RenderDpi, RenderDpi,
-                PdfRenderFlags.Annotations | PdfRenderFlags.LcdText | PdfRenderFlags.ForPrinting);
-            using Bitmap bitmap = new(renderedPage);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-            DrawImages(graphics, bitmap.Size, pageIndex, request);
-            foreach (ReportEditorField field in request.Fields.Where(field => field.PageIndex == pageIndex))
-            {
-                if (!request.Values.TryGetValue(field.Id, out string? value) || string.IsNullOrWhiteSpace(value))
-                {
-                    continue;
-                }
-
-                float x = (float)(field.Left * bitmap.Width);
-                float y = (float)(field.Top * bitmap.Height);
-                float fieldWidth = (float)(field.Width * bitmap.Width);
-                float fieldHeight = (float)(field.Height * bitmap.Height);
-                float fontSize = (float)((field.FontSize ?? 11d) * RenderDpi / 96d);
-                using var font = new Font("Microsoft YaHei", Math.Max(8f, fontSize), FontStyle.Regular, GraphicsUnit.Pixel);
-                using var brush = new SolidBrush(Color.Black);
-                var bounds = new RectangleF(x + 2, y + 1, Math.Max(1, fieldWidth - 4), Math.Max(1, fieldHeight - 2));
-                using var format = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-                graphics.DrawString(value, font, brush, bounds, format);
-            }
-
-            using var stream = new MemoryStream();
-            SaveJpeg(bitmap, stream);
-            pageImages.Add((stream.ToArray(), pageSize.Width, pageSize.Height));
+            Directory.CreateDirectory(outputDirectory);
         }
 
-        WritePdf(request.OutputPdfPath, pageImages);
+        string temporaryPath = request.OutputPdfPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (PdfDocument document = PdfReader.Open(request.SourcePdfPath, PdfDocumentOpenMode.Modify))
+            {
+                for (int pageIndex = 0; pageIndex < document.Pages.Count; pageIndex++)
+                {
+                    PdfPage page = document.Pages[pageIndex];
+                    using XGraphics graphics = XGraphics.FromPdfPage(
+                        page, XGraphicsPdfPageOptions.Append, XGraphicsUnit.Point, XPageDirection.Downwards);
+                    DrawImages(graphics, page, pageIndex, request);
+                    DrawFields(graphics, page, pageIndex, request);
+                }
+
+                document.Save(temporaryPath);
+            }
+
+            File.Move(temporaryPath, request.OutputPdfPath, true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 
-    private static void DrawImages(Graphics graphics, Size bitmapSize, int pageIndex, ReportPdfExportRequest request)
+    private static void DrawFields(XGraphics graphics, PdfPage page, int pageIndex, ReportPdfExportRequest request)
     {
-        DrawImage(request.ChartImagePng, pageIndex == 1, graphics,
-            new RectangleF(bitmapSize.Width * 75f / (float)ReferenceWidth,
-                bitmapSize.Height * 725f / (float)ReferenceHeight,
-                bitmapSize.Width * 898f / (float)ReferenceWidth,
-                bitmapSize.Height * 413f / (float)ReferenceHeight));
-        DrawImage(request.CameraImagePng, pageIndex == 1, graphics,
-            new RectangleF(bitmapSize.Width * 85f / (float)ReferenceWidth,
-                bitmapSize.Height * 1175f / (float)ReferenceHeight,
-                bitmapSize.Width * 628f / (float)ReferenceWidth,
-                bitmapSize.Height * 310f / (float)ReferenceHeight));
+        foreach (ReportEditorField field in request.Fields.Where(field => field.PageIndex == pageIndex))
+        {
+            if (!request.Values.TryGetValue(field.Id, out string? value) || string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var bounds = new XRect(
+                field.Left * page.Width.Point + 2,
+                field.Top * page.Height.Point + 1,
+                Math.Max(1, field.Width * page.Width.Point - 4),
+                Math.Max(1, field.Height * page.Height.Point - 2));
+            var font = new XFont("Microsoft YaHei UI", Math.Max(6, (field.FontSize ?? 11d) * 72d / 96d));
+            graphics.DrawString(value, font, XBrushes.Black, bounds,
+                field.IsLeftAligned ? XStringFormats.CenterLeft : XStringFormats.Center);
+        }
     }
 
-    private static void DrawImage(byte[]? bytes, bool pageMatches, Graphics graphics, RectangleF bounds)
+    private static void DrawImages(XGraphics graphics, PdfPage page, int pageIndex, ReportPdfExportRequest request)
     {
-        if (!pageMatches || bytes is not { Length: > 0 })
+        if (pageIndex != 1)
         {
             return;
         }
 
-        using var stream = new MemoryStream(bytes);
-        using Image image = Image.FromStream(stream);
-        float scale = Math.Min(bounds.Width / image.Width, bounds.Height / image.Height);
-        float width = image.Width * scale;
-        float height = image.Height * scale;
-        graphics.DrawImage(image, bounds.X + (bounds.Width - width) / 2,
-            bounds.Y + (bounds.Height - height) / 2, width, height);
+        DrawImage(request.ChartImagePng, graphics,
+            new XRect(page.Width.Point * 75d / ReferenceWidth,
+                page.Height.Point * 725d / ReferenceHeight,
+                page.Width.Point * 898d / ReferenceWidth,
+                page.Height.Point * 413d / ReferenceHeight));
+        DrawImage(request.CameraImagePng, graphics,
+            new XRect(page.Width.Point * 85d / ReferenceWidth,
+                page.Height.Point * 1175d / ReferenceHeight,
+                page.Width.Point * 628d / ReferenceWidth,
+                page.Height.Point * 310d / ReferenceHeight));
     }
 
-    private static void WritePdf(string outputPath, IReadOnlyList<(byte[] Jpeg, double Width, double Height)> pages)
+    private static void DrawImage(byte[]? bytes, XGraphics graphics, XRect bounds)
     {
-        int objectCount = 2 + pages.Count * 3;
-        var objects = new byte[objectCount + 1][];
-        objects[1] = Encoding.ASCII.GetBytes("<< /Type /Catalog /Pages 2 0 R >>");
-        var kids = string.Join(" ", Enumerable.Range(0, pages.Count).Select(index => $"{3 + index * 3} 0 R"));
-        objects[2] = Encoding.ASCII.GetBytes($"<< /Type /Pages /Kids [{kids}] /Count {pages.Count} >>");
-        for (int index = 0; index < pages.Count; index++)
+        if (bytes is not { Length: > 0 })
         {
-            int pageObject = 3 + index * 3;
-            int imageObject = pageObject + 1;
-            int contentObject = pageObject + 2;
-            (byte[] jpeg, double width, double height) = pages[index];
-            string content = FormattableString.Invariant($"q {width:0.###} 0 0 {height:0.###} 0 0 cm /Im{index} Do Q");
-            byte[] contentBytes = Encoding.ASCII.GetBytes(content);
-            objects[pageObject] = Encoding.ASCII.GetBytes(
-                $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width.ToString("0.###", CultureInfo.InvariantCulture)} {height.ToString("0.###", CultureInfo.InvariantCulture)}] /Resources << /XObject << /Im{index} {imageObject} 0 R >> >> /Contents {contentObject} 0 R >>");
-            objects[imageObject] = BuildStreamObject(
-                $"<< /Type /XObject /Subtype /Image /Width {(int)Math.Ceiling(width * RenderDpi / 72d)} /Height {(int)Math.Ceiling(height * RenderDpi / 72d)} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {jpeg.Length} >>", jpeg);
-            objects[contentObject] = BuildStreamObject($"<< /Length {contentBytes.Length} >>", contentBytes);
+            return;
         }
 
-        string? directory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        string temporaryPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
+        using var stream = new MemoryStream(bytes, writable: false);
+        using XImage image = XImage.FromStream(stream);
+        double scale = Math.Min(bounds.Width / image.PixelWidth, bounds.Height / image.PixelHeight);
+        double width = image.PixelWidth * scale;
+        double height = image.PixelHeight * scale;
+        graphics.DrawImage(image,
+            bounds.X + (bounds.Width - width) / 2,
+            bounds.Y + (bounds.Height - height) / 2,
+            width,
+            height);
+    }
+
+    private sealed class ReportCjkFontResolver : IFontResolver
+    {
+        private const string FaceName = "ECSReportCjk";
+        private readonly string? _fontPath = FindFontPath();
+
+        public FontResolverInfo? ResolveTypeface(string familyName, bool isBold, bool isItalic)
         {
-            using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            if (_fontPath is null || !familyName.Equals("Microsoft YaHei UI", StringComparison.OrdinalIgnoreCase))
             {
-                WriteAscii(output, "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
-                var offsets = new long[objectCount + 1];
-                for (int objectNumber = 1; objectNumber <= objectCount; objectNumber++)
-                {
-                    offsets[objectNumber] = output.Position;
-                    WriteAscii(output, $"{objectNumber} 0 obj\n");
-                    output.Write(objects[objectNumber]);
-                    WriteAscii(output, "\nendobj\n");
-                }
-                long xrefOffset = output.Position;
-                WriteAscii(output, $"xref\n0 {objectCount + 1}\n0000000000 65535 f \n");
-                for (int objectNumber = 1; objectNumber <= objectCount; objectNumber++)
-                    WriteAscii(output, $"{offsets[objectNumber]:D10} 00000 n \n");
-                WriteAscii(output, $"trailer\n<< /Size {objectCount + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
+                return null;
             }
-            File.Move(temporaryPath, outputPath, true);
+
+            return new FontResolverInfo(FaceName, false, false);
         }
-        finally
+
+        public byte[]? GetFont(string faceName) =>
+            faceName == FaceName && _fontPath is not null ? File.ReadAllBytes(_fontPath) : null;
+
+        private static string? FindFontPath()
         {
-            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            string fontsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts");
+            foreach (string fontName in new[] { "simhei.ttf", "deng.ttf", "simkai.ttf", "simfang.ttf" })
+            {
+                string path = Path.Combine(fontsDirectory, fontName);
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+
+            return null;
         }
     }
-
-    private static void SaveJpeg(Bitmap bitmap, Stream output)
-    {
-        ImageCodecInfo encoder = ImageCodecInfo.GetImageEncoders().First(item => item.FormatID == ImageFormat.Jpeg.Guid);
-        using var parameters = new EncoderParameters(1);
-        parameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 95L);
-        bitmap.Save(output, encoder, parameters);
-    }
-    private static byte[] BuildStreamObject(string dictionary, byte[] data)
-    {
-        using var stream = new MemoryStream();
-        WriteAscii(stream, dictionary + "\nstream\n");
-        stream.Write(data);
-        WriteAscii(stream, "\nendstream");
-        return stream.ToArray();
-    }
-
-    private static void WriteAscii(Stream stream, string text) =>
-        stream.Write(Encoding.ASCII.GetBytes(text));
 }
