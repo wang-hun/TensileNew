@@ -2653,6 +2653,7 @@ public partial class MainWindow : Window
         VisionDefectWindow window = _visionDefectWindow ??= new() { Owner = this };
         int resultGeneration = ++_visionDefectResultGeneration;
         window.ShowResult(imagePath, annotations, physicalDimensionsError: "正在查询圆环内外像素半径...");
+        window.SetReference2Diameters(null, "正在查询圆台顶面中心孔像素半径...");
         ShowVisionDefectWindow(window);
         UpdateVisionDefectReviewButton();
         _ = UpdateVisionPhysicalDimensionsAsync(window, stopDisplacement, resultGeneration);
@@ -2697,34 +2698,73 @@ public partial class MainWindow : Window
         RingPhysicalCalibration? calibration = RingPhysicalCalibration.Current;
         if (calibration is null)
         {
-            window.SetPhysicalDimensions(null, RingPhysicalCalibration.LoadError ?? "未加载标定文件。");
+            string error = RingPhysicalCalibration.LoadError ?? "未加载标定文件。";
+            window.SetPhysicalDimensions(null, error);
+            window.SetReference2Diameters(null, error);
+            return;
+        }
+
+        RingPixelRadii? radii;
+        try
+        {
+            radii = await _visionSoftware.GetRadiiAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.Warn(exception, "视觉停机圆环像素半径查询失败。");
+            if (!window.Dispatcher.HasShutdownStarted && resultGeneration == _visionDefectResultGeneration)
+            {
+                window.SetPhysicalDimensions(null, $"圆环半径查询失败：{exception.Message}");
+                window.SetReference2Diameters(null, $"圆环半径查询失败：{exception.Message}");
+            }
+            return;
+        }
+
+        if (window.Dispatcher.HasShutdownStarted || resultGeneration != _visionDefectResultGeneration) return;
+        if (radii is null)
+        {
+            window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环内外像素半径。");
+            window.SetReference2Diameters(null, "识别程序未返回有效的圆环内外像素半径。");
             return;
         }
 
         if (stopDisplacement is null || !double.IsFinite(stopDisplacement.Value))
-        {
             window.SetPhysicalDimensions(null, "停机时的 ECS 位移值无效。");
+        else
+        {
+            try
+            {
+                window.SetPhysicalDimensions(calibration.Calculate(stopDisplacement.Value, radii.InnerRadius, radii.OuterRadius));
+            }
+            catch (Exception exception)
+            {
+                Logger.Warn(exception, "视觉停机物理尺寸计算失败。");
+                window.SetPhysicalDimensions(null, $"物理尺寸计算失败：{exception.Message}");
+            }
+        }
+
+        if (calibration.Dt is null || calibration.FocalLengthMillimeters is null || calibration.PixelSizeMicrometers is null)
+        {
+            window.SetReference2Diameters(null, "参考值2需要标定文件提供 Dt（mm）、F（mm）和 s（μm）。");
             return;
         }
 
         try
         {
-            RingPixelRadii? radii = await _visionSoftware.GetRadiiAsync();
+            double? holeRadius = await _visionSoftware.GetHoleRadiusAsync();
             if (window.Dispatcher.HasShutdownStarted || resultGeneration != _visionDefectResultGeneration) return;
-            if (radii is null)
+            if (holeRadius is null)
             {
-                window.SetPhysicalDimensions(null, "识别程序未返回有效的圆环内外像素半径。");
+                window.SetReference2Diameters(null, "识别程序未返回有效的圆台顶面中心孔像素半径。");
                 return;
             }
-
-            RingPhysicalDimensions dimensions = calibration.Calculate(stopDisplacement.Value, radii.InnerRadius, radii.OuterRadius);
-            window.SetPhysicalDimensions(dimensions);
+            window.SetReference2Diameters(calibration.CalculateReference2(holeRadius.Value, radii.InnerRadius, radii.OuterRadius));
         }
         catch (Exception exception)
         {
-            Logger.Warn(exception, "视觉停机物理尺寸计算失败。");
+            Logger.Warn(exception, "视觉停机参考值2计算失败。");
             if (!window.Dispatcher.HasShutdownStarted && resultGeneration == _visionDefectResultGeneration)
-                window.SetPhysicalDimensions(null, $"物理尺寸计算失败：{exception.Message}");
+                window.SetReference2Diameters(null, $"参考值2计算失败：{exception.Message}");
         }
     }
 

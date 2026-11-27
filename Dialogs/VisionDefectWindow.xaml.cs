@@ -90,6 +90,7 @@ public partial class VisionDefectWindow : Window
         {
             PhysicalOuterDiameterTextBlock.Text = "物理外直径：-- mm";
             PhysicalInnerDiameterTextBlock.Text = "物理内直径：-- mm";
+            PhysicalHeightTextBlock.Text = "物理高度：-- mm";
             PhysicalDimensionStatusTextBlock.Text = string.IsNullOrWhiteSpace(error) ? "物理尺寸不可用" : error;
             return;
         }
@@ -98,6 +99,14 @@ public partial class VisionDefectWindow : Window
         PhysicalInnerDiameterTextBlock.Text = $"物理内直径：{dimensions.InnerDiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
         PhysicalHeightTextBlock.Text = $"物理高度：{dimensions.HeightMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
         PhysicalDimensionStatusTextBlock.Text = string.Empty;
+    }
+
+    public void SetReference2Diameters(RingReference2Diameters? diameters, string? error = null)
+    {
+        Reference2DimensionsTextBlock.Text = diameters is null
+            ? "参考值2：外径 -- mm　内径 -- mm"
+            : $"参考值2：外径 {diameters.OuterDiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm　内径 {diameters.InnerDiameterMillimeters.ToString("F2", CultureInfo.InvariantCulture)} mm";
+        Reference2StatusTextBlock.Text = diameters is null ? error ?? "参考值2不可用" : string.Empty;
     }
 
     private void DrawDefect(VisionDefectAnnotation defect)

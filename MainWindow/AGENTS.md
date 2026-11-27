@@ -16,7 +16,7 @@
 | 曲线和表格 | `../MainWindow.xaml.cs` | `InitializePlot()`、`ResetPlot()`、`RefreshPlot()`、`OpenPlotWindow()`、`LoadItems_ListChanged()`、`ScrollMainLoadDataToLatest()` | `LoadPlotController` 是绘图状态所有者；禁止主窗体绕过控制器管理曲线系列 |
 | 现有摄像头预览 | `../MainWindow.xaml.cs` | `InitializeCameraPreview()`、`InitializeCameraAfterMainWindowShownAsync()`、`ApplySelectedCameraAsync()`、`ReleaseCameraInBackground()` | 独立于视觉处理 SDK 相机；生命周期由 `CameraCaptureService` 管理 |
 | 视觉处理相机视图 | `../MainWindow.xaml`、`../Controls/VisionCameraPanel.xaml` | `ChartMode_Click()`、`CameraMode_Click()`、`VisionCameraPanel` | 同区域切换曲线/SDK相机；按钮显示与二段速一致，受 `NewVisionProcessingService.IsEnabled` 控制；面板中文显示并持久化上次设备，模块启用时自动枚举并重连；PLC 重连仍为独立顶栏操作 |
-| 视觉缺陷结果 | `../Dialogs/VisionDefectWindow.xaml`、`VisionDefectWindow.ShowResult()` | `VisionDefectAnnotation` | 窗口只展示传入图片及原图像素坐标框，不执行检测或 PLC 操作；主窗口解析 TCP stop 坐标，并在 PLC 停止命令确认成功后传入缺陷框并显示窗口 |
+| 视觉缺陷结果 | `../Dialogs/VisionDefectWindow.xaml`、`VisionDefectWindow.ShowResult()`、`UpdateVisionPhysicalDimensionsAsync()` | `VisionDefectAnnotation` | 缺陷窗只展示传入图片、原图像素坐标框及主窗提供的物理尺寸，不执行检测或 PLC 操作；主窗解析 TCP stop 坐标，在 PLC 停止确认后展示窗体，再串行查询 `radius` 与 `hole`；旧值和仅含内外径的参考值2分别显示，查询/计算失败不影响停机或已有结果 |
 | 试验控制 / 复位 | `../MainWindow.xaml.cs` | `StartTensile_Click()`、`Stop_Click()`、`Reset_Click()`、`PerformDataResetAsync()`、`OnTrialDataCleared()` | PLC 命令交给 `MainViewModel`；二段速状态转换保持在窗口协调层 |
 | 二段速 | `../MainWindow.xaml.cs` | `TwoStageSpeed_Click()`、`SwitchToSecondStageAsync()`、`SwitchToFirstStageAsync()`、`ShowTwoStagePrompt()`、`RestoreTwoStageAutoResetSetting()` | 检查自动复位、序列号和采集结束自动保存交互 |
 | 配方与设置 | `../MainWindow.xaml.cs` | `WriteRecipe_Click()`、`AddRecipe_Click()`、`DeleteRecipe_Click()`、`SaveSettings_Click()` | 写入和持久化归 `MainViewModel` / `RAM` |

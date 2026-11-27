@@ -144,6 +144,17 @@ public sealed class VisionSoftwareService : IAsyncDisposable
             : null;
     }
 
+    public async Task<double?> GetHoleRadiusAsync()
+    {
+        string imagePath = GetConfiguredImagePath();
+        string? response = await SendRequestAsync($"hole \"{imagePath}\"", replyTimeout: TimeSpan.FromSeconds(2));
+        if (response is null) return null;
+        string[] fields = response.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return fields.Length >= 2 && fields[0] == "hole" &&
+            double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double holeRadius) &&
+            double.IsFinite(holeRadius) && holeRadius > 0d ? holeRadius : null;
+    }
+
     private async Task CheckImageAsync()
     {
         if (!_active) return;
@@ -230,7 +241,7 @@ public sealed class VisionSoftwareService : IAsyncDisposable
                     Logger.Info("视觉软件收到：{0}", message);
                     if (message == "start") Interlocked.Increment(ref _startReplies);
                     if (message == "end") Interlocked.Increment(ref _endReplies);
-                    if (message == "skip" || message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal) || message.StartsWith("error ", StringComparison.Ordinal) || message.StartsWith("radius ", StringComparison.Ordinal))
+                    if (message == "skip" || message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal) || message.StartsWith("error ", StringComparison.Ordinal) || message.StartsWith("radius ", StringComparison.Ordinal) || message.StartsWith("hole ", StringComparison.Ordinal))
                         Volatile.Read(ref _pendingResponse)?.TrySetResult(message);
                     if (message == "skip" && _active) DetectionResultReceived?.Invoke(false);
                     if ((message == "stop" || message.StartsWith("stop ", StringComparison.Ordinal)) && _active && Interlocked.Exchange(ref _crackTriggered, 1) == 0)

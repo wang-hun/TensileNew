@@ -27,12 +27,14 @@
         <Button Grid.Column="2" Width="32" Height="32" Padding="0" Background="Transparent" BorderBrush="Transparent" Click="Close_Click" ToolTip="关闭" shell:WindowChrome.IsHitTestVisibleInChrome="True"><iconPacks:PackIconMaterial Kind="Close" Width="15" Height="15" Foreground="{DynamicResource AppNavForegroundBrush}" /></Button>
       </Grid>
       <Grid Grid.Row="1" MinHeight="42" Background="{DynamicResource AppHeaderBackgroundBrush}" Margin="0,0,0,1">
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-        <TextBlock x:Name="PhysicalOuterDiameterTextBlock" Grid.Column="0" Text="物理外直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,4" FontSize="13" FontWeight="SemiBold" />
-        <TextBlock x:Name="PhysicalInnerDiameterTextBlock" Grid.Column="1" Text="物理内直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
-        <TextBlock x:Name="PhysicalHeightTextBlock" Grid.Column="2" Text="物理高度：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" />
+        <TextBlock x:Name="PhysicalOuterDiameterTextBlock" Grid.Column="0" Text="物理外直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="12,4" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="PhysicalInnerDiameterTextBlock" Grid.Column="1" Text="物理内直径：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="PhysicalHeightTextBlock" Grid.Column="2" Text="物理高度：-- mm" Foreground="{DynamicResource AppNavForegroundBrush}" VerticalAlignment="Center" Margin="8,4" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
         <TextBlock x:Name="PhysicalDimensionStatusTextBlock" Grid.Row="1" Grid.ColumnSpan="3" Text="" Foreground="#FFFFC107" Margin="12,0,12,4" FontSize="12" TextWrapping="Wrap" />
+        <TextBlock x:Name="Reference2DimensionsTextBlock" Grid.Row="2" Grid.ColumnSpan="3" Text="参考值2：外径 -- mm　内径 -- mm" Foreground="{DynamicResource AppNavForegroundBrush}" Margin="12,4" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="Reference2StatusTextBlock" Grid.Row="3" Grid.ColumnSpan="3" Text="" Foreground="#FFFFC107" Margin="12,0,12,4" FontSize="12" TextWrapping="Wrap" />
       </Grid>
       <Grid x:Name="ImageViewport" Grid.Row="2" Background="Black" ClipToBounds="True">
         <Canvas x:Name="ImageCanvas" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0" />

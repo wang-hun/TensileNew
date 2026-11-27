@@ -10,6 +10,7 @@ namespace TensileNeW.Services;
 public sealed record RingPixelRadii(double InnerRadius, double OuterRadius);
 
 public sealed record RingPhysicalDimensions(double OuterDiameterMillimeters, double InnerDiameterMillimeters, double HeightMillimeters);
+public sealed record RingReference2Diameters(double OuterDiameterMillimeters, double InnerDiameterMillimeters);
 
 public sealed class RingPhysicalCalibration
 {
@@ -20,11 +21,14 @@ public sealed class RingPhysicalCalibration
     private const double MinimumNumeratorRatio = 1e-12;
     private const int MaximumCalibrationFileBytes = 1024 * 1024;
 
-    private RingPhysicalCalibration(double m, double d10, double alphaDegrees, double h)
+    private RingPhysicalCalibration(double m, double d10, double alphaDegrees, double h, double? dt, double? focalLengthMillimeters, double? pixelSizeMicrometers)
     {
         M = m;
         D10 = d10;
         H = h;
+        Dt = dt;
+        FocalLengthMillimeters = focalLengthMillimeters;
+        PixelSizeMicrometers = pixelSizeMicrometers;
         CotAlpha = 1d / Math.Tan(alphaDegrees * Math.PI / 180d);
         if (!double.IsFinite(CotAlpha) || CotAlpha <= 0d)
             throw new InvalidDataException("alpha 无法计算有效的 cot 值。");
@@ -33,6 +37,9 @@ public sealed class RingPhysicalCalibration
     public double M { get; }
     public double D10 { get; }
     public double H { get; }
+    public double? Dt { get; }
+    public double? FocalLengthMillimeters { get; }
+    public double? PixelSizeMicrometers { get; }
     public double CotAlpha { get; }
     public static RingPhysicalCalibration? Current { get; private set; }
     public static string? LoadError { get; private set; }
@@ -81,12 +88,15 @@ public sealed class RingPhysicalCalibration
         double d10 = ReadPositiveNumber(root, "M10");
         double alpha = ReadPositiveNumber(root, "alpha");
         double h = ReadPositiveNumber(root, "H");
+        double? dt = ReadOptionalPositiveNumber(root, "Dt");
+        double? focalLengthMillimeters = ReadOptionalPositiveNumber(root, "F");
+        double? pixelSizeMicrometers = ReadOptionalPositiveNumber(root, "s");
         ValidateUnit(root, "mUnit", "pixel/mm");
         ValidateUnit(root, "M10Unit", "mm");
         ValidateUnit(root, "alphaUnit", "deg");
         ValidateUnit(root, "HUnit", "mm");
         if (alpha >= 90d) throw new InvalidDataException("alpha 必须大于 0 且小于 90 度。");
-        return new RingPhysicalCalibration(m, d10, alpha, h);
+        return new RingPhysicalCalibration(m, d10, alpha, h, dt, focalLengthMillimeters, pixelSizeMicrometers);
     }
 
     public RingPhysicalDimensions Calculate(double z10, double pixelInnerRadius, double pixelOuterRadius)
@@ -103,6 +113,43 @@ public sealed class RingPhysicalCalibration
         if (!double.IsFinite(height))
             throw new InvalidDataException("计算得到的物理尺寸无效，请检查停机位移、像素半径及标定参数。");
         return new RingPhysicalDimensions(outerDiameter, innerDiameter, height);
+    }
+
+    public RingReference2Diameters CalculateReference2(double pixelHoleRadius, double pixelInnerRadius, double pixelOuterRadius)
+    {
+        if (Dt is null || FocalLengthMillimeters is null || PixelSizeMicrometers is null)
+            throw new InvalidDataException("参考值2需要标定文件提供 Dt（mm）、F（mm）和 s（μm）。");
+        if (!double.IsFinite(pixelHoleRadius) || pixelHoleRadius <= 0d)
+            throw new ArgumentOutOfRangeException(nameof(pixelHoleRadius), "圆台顶面中心孔像素半径必须是正的有限数值。");
+
+        double pixelFocalLength = FocalLengthMillimeters.Value * 1000d / PixelSizeMicrometers.Value;
+        double topPixelsPerMillimeter = pixelHoleRadius * 2d / Dt.Value;
+        if (!double.IsFinite(pixelFocalLength) || !double.IsFinite(topPixelsPerMillimeter) || topPixelsPerMillimeter <= 0d)
+            throw new InvalidDataException("参考值2的像素焦距或圆台顶面像素比例无效。");
+
+        double topCorrection = 2d * CotAlpha * pixelFocalLength / topPixelsPerMillimeter;
+        double pixelCorrection = 2d * CotAlpha * pixelFocalLength;
+        double diameterFactor = Dt.Value - topCorrection;
+        double outerDiameter = CalculateReference2Diameter(pixelOuterRadius * 2d, pixelCorrection, diameterFactor, Dt.Value, topCorrection);
+        double innerDiameter = CalculateReference2Diameter(pixelInnerRadius * 2d, pixelCorrection, diameterFactor, Dt.Value, topCorrection);
+        return new RingReference2Diameters(outerDiameter, innerDiameter);
+    }
+
+    private static double CalculateReference2Diameter(double pixelDiameter, double pixelCorrection, double diameterFactor, double dt, double topCorrection)
+    {
+        if (!double.IsFinite(pixelDiameter) || pixelDiameter <= 0d)
+            throw new InvalidDataException("参考值2的像素直径必须是正的有限数值。");
+
+        double denominator = pixelDiameter - pixelCorrection;
+        double denominatorScale = Math.Max(Math.Abs(pixelDiameter), Math.Abs(pixelCorrection));
+        double factorScale = Math.Max(Math.Abs(dt), Math.Abs(topCorrection));
+        double diameter = pixelDiameter * diameterFactor / denominator;
+        if (!double.IsFinite(diameterFactor) || !double.IsFinite(denominator) ||
+            Math.Abs(diameterFactor) <= factorScale * MinimumNumeratorRatio ||
+            Math.Abs(denominator) <= denominatorScale * MinimumDenominatorRatio ||
+            !double.IsFinite(diameter) || diameter <= 0d)
+            throw new InvalidDataException("参考值2直径公式的参数抵消、分母接近零或结果无效。");
+        return diameter;
     }
 
     private double CalculateDiameter(double z10, double pixelDiameter)
@@ -182,6 +229,9 @@ public sealed class RingPhysicalCalibration
             throw new InvalidDataException($"{propertyName} 必须是正的有限数值。");
         return number;
     }
+
+    private static double? ReadOptionalPositiveNumber(JsonElement root, string propertyName) =>
+        root.TryGetProperty(propertyName, out _) ? ReadPositiveNumber(root, propertyName) : null;
 
     private static void ValidateUnit(JsonElement root, string propertyName, string expectedValue)
     {

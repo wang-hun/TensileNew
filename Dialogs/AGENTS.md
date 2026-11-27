@@ -10,7 +10,7 @@
 | 曲线设置 / 清理 | `ChartSettingsWindow.xaml.cs`、`CurveFilterWindow.xaml.cs`、`ClearPlotConfirmDialog.xaml.cs` | 设置值、用户确认 | 窗口传入对应 `LoadPlotController`，遵循 `../Services/AGENTS.md` |
 | 配方确认 / 命名 | `RecipeConfirmDialog.xaml.cs`、`RecipeNameDialog.xaml.cs` | 确认 / 命名结果事件 | MainWindow 交给 `MainViewModel` 执行写入 |
 | 相机选择 | `CameraSelectionWindow.xaml.cs` | 设备选择事件 | MainWindow 交给 `CameraCaptureService` |
-| 视觉缺陷结果 | `VisionDefectWindow.xaml`、`VisionDefectWindow.xaml.cs` | `ShowResult(imagePath, annotations)`、`VisionDefectAnnotation` | 显示指定 BMP 并叠加原图像素坐标框；滚轮缩放、拖动和平移由 `ZoomableImageViewport` 处理；窗口不调用检测 API 或 PLC，当前 TCP stop 消息不能提供标注框 |
+| 视觉缺陷结果 | `VisionDefectWindow.xaml`、`VisionDefectWindow.xaml.cs` | `ShowResult(imagePath, annotations)`、`SetPhysicalDimensions()`、`SetReference2Diameters()` | 显示指定 BMP 并叠加原图像素坐标框；旧物理尺寸显示外径、内径、高度，参考值2仅显示外径、内径且单独报告错误；滚轮缩放、拖动和平移由 `ZoomableImageViewport` 处理；窗口不调用检测 API 或 PLC，当前 TCP stop 消息不能提供标注框 |
 | 回放和数据 | `LoadDataWindow.xaml.cs`、`PlotWindow.xaml.cs`、`VariableWindow.xaml.cs` | 展示 / 用户交互 | 数据源分别由 TrialDataStore、LoadPlotController、DataAqc 提供 |
 | 视觉设置 | `VisionDebugSettingsWindow.cs`、`VariableWindow.xaml.cs` | 主变量页/独立变量窗口打开设置弹窗 | 弹窗收集配置；主窗口负责持久化和识别软件重连 |
 
