@@ -7,6 +7,8 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using PdfiumViewer;
+
+using HandyControl.Data;
 using TensileNeW.Services;
 
 namespace TensileNeW;
@@ -471,34 +473,72 @@ public partial class ReportPreviewEditorWindow : Window
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         var values = new Dictionary<string, string?>(StringComparer.Ordinal);
+        FrameworkElement? firstInvalid = null;
+        string? firstError = null;
         foreach (ReportEditorField field in _document.Fields)
         {
-            if (field.Kind == ReportEditorFieldKind.ReadOnly)
-            {
-                values[field.Id] = GetFieldValue(_fieldControls[field.Id]);
-                continue;
-            }
-            if (_fieldControls[field.Id] is DatePicker datePicker &&
+            FrameworkElement input = _fieldControls[field.Id];
+            SetInvalid(input, false);
+            if (input is DatePicker datePicker &&
                 !string.IsNullOrWhiteSpace(datePicker.Text) &&
                 !DateTime.TryParseExact(datePicker.Text.Trim(), "dd/MM/yyyy",
                     CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
             {
-                ValidationText.Text = $"「{field.Label}」请按日/月/年填写日期（dd/MM/yyyy）。";
-                datePicker.Focus();
-                return;
+                firstInvalid ??= input;
+                firstError ??= $"「{field.Label}」请按日/月/年填写日期（dd/MM/yyyy）。";
+                SetInvalid(input, true);
+                continue;
             }
-            string? value = GetFieldValue(_fieldControls[field.Id]);
+
+            string? value = GetFieldValue(input);
             if (field.IsRequired && string.IsNullOrWhiteSpace(value))
             {
-                ValidationText.Text = $"请填写「{field.Label}」。";
-                return;
+                firstInvalid ??= input;
+                firstError ??= $"请填写「{field.Label}」。";
+                SetInvalid(input, true);
             }
             values[field.Id] = value;
         }
-        Result = new ReportEditorResult { Values = values };
+
+        if (firstInvalid is not null)
+        {
+            ValidationText.Text = firstError;
+            HandyControl.Controls.Growl.Warning(new GrowlInfo
+            {
+                Message = firstError,
+                Token = "ReportPreviewGrowl",
+                WaitTime = 4,
+                ShowDateTime = false,
+                IsCustom = true
+            });
+            firstInvalid.BringIntoView();
+            firstInvalid.Focus();
+            return;
+        }
+
+        ValidationText.Text = string.Empty;
+        Result = new ReportEditorResult { Document = _document, Values = values };
         DialogResult = true;
     }
 
+    private static void SetInvalid(FrameworkElement input, bool invalid)
+    {
+        if (input is Grid { Tag: ValueTuple<DatePicker, TextBox> dateTimeInput })
+        {
+            SetInvalid(dateTimeInput.Item1, invalid);
+            SetInvalid(dateTimeInput.Item2, invalid);
+        }
+        else if (input is Control control)
+        {
+            control.ClearValue(Control.BorderBrushProperty);
+            control.ClearValue(Control.BorderThicknessProperty);
+            if (invalid)
+            {
+                control.BorderBrush = Brushes.Red;
+                control.BorderThickness = new Thickness(2);
+            }
+        }
+    }
     private static string? GetFieldValue(FrameworkElement control)
     {
         if (control is TextBlock textBlock)

@@ -1712,7 +1712,7 @@ public partial class MainWindow : Window
             }
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
-            ShowSuccess("回放数据表格与案例 PDF 测试输出保存成功");
+            ShowSuccess("回放数据表格与 Mubea 杯凸测试报告保存成功");
             saved = true;
         }
         catch (Exception ex)
@@ -1745,8 +1745,7 @@ public partial class MainWindow : Window
 
         try
         {
-            string baseFileName = BuildPlaybackBaseFileName(data);
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.pdf");
+            string reportPath = Path.Combine(folderPath, $"Mubea杯凸测试报告-{DateTime.Now:yyyyMMddHHmmss}.pdf");
             ReportPreviewValues previewValues = CreateReportPreviewValues(
                 PlaybackPlot,
                 $"{data.Points.Max(point => point.RealForce):F3} KN",
@@ -1757,7 +1756,7 @@ public partial class MainWindow : Window
                 () => _reportPdfExporter.Export(CreateCaseReportExportRequest(reportPath)),
                 previewValues))
             {
-                ShowSuccess("回放案例 PDF 测试输出保存成功");
+                ShowSuccess("回放 Mubea 杯凸测试报告保存成功");
             }
         }
         catch (Exception ex)
@@ -1813,6 +1812,7 @@ public partial class MainWindow : Window
     }
 
     private ReportSaveWorkflowState _reportSaveWorkflowState;
+    private ReportEditorResult? _currentReportEditorResult;
 
     private bool ShowReportPreviewEditor(ReportPreviewValues previewValues)
     {
@@ -1839,15 +1839,22 @@ public partial class MainWindow : Window
             CameraImagePng = previewValues.CameraImagePng
         };
         var window = new ReportPreviewEditorWindow(document) { Owner = this };
-        return window.ShowDialog() == true;
+        bool confirmed = window.ShowDialog() == true;
+        _currentReportEditorResult = confirmed ? window.Result : null;
+        return confirmed;
     }
 
-    private static ReportPdfExportRequest CreateCaseReportExportRequest(string outputPdfPath)
+    private ReportPdfExportRequest CreateCaseReportExportRequest(string outputPdfPath)
     {
+        ReportEditorResult result = _currentReportEditorResult ?? throw new InvalidOperationException("报告预览尚未确认。");
         return new ReportPdfExportRequest
         {
-            SourcePdfPath = Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "杯凸测试报告模板 案例.pdf"),
-            OutputPdfPath = outputPdfPath
+            SourcePdfPath = result.Document.PdfPath,
+            OutputPdfPath = outputPdfPath,
+            Fields = result.Document.Fields,
+            Values = result.Values,
+            ChartImagePng = result.Document.ChartImagePng,
+            CameraImagePng = result.Document.CameraImagePng
         };
     }
 
@@ -1969,7 +1976,7 @@ public partial class MainWindow : Window
             string baseFileName = BuildBaseFileName(trialSerialNumber, recipeName, timestamp, annotationName);
             string excelPath = Path.Combine(folderPath, $"{baseFileName}.xlsx");
             string algorithmIntegratedDataPath = Path.Combine(folderPath, $"{baseFileName}_算法整合数据.xlsx");
-            string reportPath = Path.Combine(folderPath, $"{baseFileName}_试验报告.pdf");
+            string reportPath = Path.Combine(folderPath, $"Mubea杯凸测试报告-{DateTime.Now:yyyyMMddHHmmss}.pdf");
             double algorithmDisplacementStep = DisplacementResamplingService.GetDisplacementStep(
                 ResolveAlgorithmSpeed(recipe));
 
@@ -1994,7 +2001,7 @@ public partial class MainWindow : Window
 
             RAM.RecordTrialDataAndReportSaved();
             _viewModel.RefreshTrialPackageInfo();
-            ShowSuccess("数据表格与案例 PDF 测试输出保存成功");
+            ShowSuccess("数据表格与 Mubea 杯凸测试报告保存成功");
             saved = true;
             _viewModel.AdvanceTrialSerialNumber();
         }
@@ -2156,18 +2163,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        string recipeName = _viewModel.SelectedRecipe?.RecipeName ?? "NoRecipe";
         var dialog = new SaveFileDialog
         {
             Filter = "PDF (*.pdf)|*.pdf",
             DefaultExt = ".pdf",
             AddExtension = true,
             InitialDirectory = configuredFolderPath,
-            FileName = BuildBaseFileName(
-                SNModel.GetSn(),
-                recipeName,
-                DateTime.Now.ToString("yyyyMMddHHmmss"),
-                _viewModel.Setting.AnnotationName)
+            FileName = $"Mubea杯凸测试报告-{DateTime.Now:yyyyMMddHHmmss}"
         };
 
         if (dialog.ShowDialog() != true)
@@ -2179,7 +2181,7 @@ public partial class MainWindow : Window
         {
             if (await SaveTestReportToFileAsync(dialog.FileName))
             {
-                ShowSuccess("案例 PDF 测试输出保存成功");
+                ShowSuccess("Mubea 杯凸测试报告保存成功");
             }
         }
         catch (Exception ex)

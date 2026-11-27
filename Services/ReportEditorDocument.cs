@@ -37,6 +37,7 @@ public sealed class ReportEditorDocument
 
 public sealed class ReportEditorResult
 {
+    public required ReportEditorDocument Document { get; init; }
     public required IReadOnlyDictionary<string, string?> Values { get; init; }
 }
 
@@ -44,6 +45,10 @@ public sealed class ReportPdfExportRequest
 {
     public required string SourcePdfPath { get; init; }
     public required string OutputPdfPath { get; init; }
+    public required IReadOnlyList<ReportEditorField> Fields { get; init; }
+    public required IReadOnlyDictionary<string, string?> Values { get; init; }
+    public byte[]? ChartImagePng { get; init; }
+    public byte[]? CameraImagePng { get; init; }
 }
 
 public static class ReportTemplateFieldCatalog
